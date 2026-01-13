@@ -25,7 +25,7 @@ interface HomepageV1Props {
  * 
  * L'interface doit pouvoir exister imprimée.
  */
-export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onEnterCarnet, onEnterHunter, onEnterCollection }: HomepageV1Props) {
+export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onEnterCarnet, onEnterHunter, onEnterCollection, onEnterSeuil }: HomepageV1Props) {
   return (
     <div 
       className="min-h-screen relative flex items-center justify-center"

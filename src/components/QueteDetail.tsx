@@ -257,12 +257,30 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
     );
   }
 
+  // Helper to sanitize text for PDF (jsPDF built-in fonts don't support special chars)
+  const sanitizeForPDF = (text: string): string => {
+    return text
+      .replace(/≈/g, '~')
+      .replace(/–/g, '-')
+      .replace(/—/g, '-')
+      .replace(/'/g, "'")
+      .replace(/'/g, "'")
+      .replace(/"/g, '"')
+      .replace(/"/g, '"')
+      .replace(/…/g, '...')
+      .replace(/œ/g, 'oe')
+      .replace(/Œ/g, 'OE')
+      .replace(/«/g, '"')
+      .replace(/»/g, '"')
+      .replace(/·/g, '-');
+  };
+
   const downloadPDF = async () => {
     setIsGeneratingPDF(true);
-    
+
     // Petit délai pour montrer le feedback
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
     const doc = new jsPDF({
       unit: 'mm',
       format: 'a4'
@@ -286,27 +304,27 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
     doc.setFont('times', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(26, 26, 26);
-    const titleLines = doc.splitTextToSize(quete.title, contentWidth);
+    const titleLines = doc.splitTextToSize(sanitizeForPDF(quete.title), contentWidth);
     titleLines.forEach((line: string) => {
       doc.text(line, pageWidth / 2, y, { align: 'center' });
       y += 12;
     });
-    
+
     y += 8;
-    
+
     // Registre (small caps simulé)
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(0, 61, 44);
-    doc.text(quete.registre.toUpperCase(), pageWidth / 2, y, { align: 'center' });
-    
+    doc.text(sanitizeForPDF(quete.registre.toUpperCase()), pageWidth / 2, y, { align: 'center' });
+
     y += 15;
-    
+
     // Durée
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(163, 135, 103);
-    doc.text(`Durée : ${quete.duree}`, pageWidth / 2, y, { align: 'center' });
+    doc.text(sanitizeForPDF(`Duree : ${quete.duree}`), pageWidth / 2, y, { align: 'center' });
     
     // Ligne de séparation
     y += 20;
@@ -320,9 +338,9 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
     doc.setFont('times', 'normal');
     doc.setFontSize(11);
     doc.setTextColor(26, 26, 26);
-    
+
     quete.texte.forEach(paragraphe => {
-      const lines = doc.splitTextToSize(paragraphe, contentWidth);
+      const lines = doc.splitTextToSize(sanitizeForPDF(paragraphe), contentWidth);
       
       // Vérifier si on a besoin d'une nouvelle page
       if (y + (lines.length * 6) > pageHeight - margin) {
@@ -377,16 +395,16 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
       doc.setFont('times', 'bold');
       doc.setFontSize(12);
       doc.setTextColor(26, 26, 26);
-      const nameLines = doc.splitTextToSize(stop.name, contentWidth - 10);
+      const nameLines = doc.splitTextToSize(sanitizeForPDF(stop.name), contentWidth - 10);
       doc.text(nameLines, margin + 8, y);
-      
+
       y += nameLines.length * 6 + 4;
-      
+
       // Geste (italique)
       doc.setFont('times', 'italic');
       doc.setFontSize(10);
       doc.setTextColor(26, 26, 26);
-      const gesteLines = doc.splitTextToSize(stop.geste, contentWidth - 10);
+      const gesteLines = doc.splitTextToSize(sanitizeForPDF(stop.geste), contentWidth - 10);
       doc.text(gesteLines, margin + 8, y);
       
       y += gesteLines.length * 5 + 10;

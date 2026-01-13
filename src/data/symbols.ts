@@ -112,14 +112,24 @@ export const SYMBOLS: Symbol[] = [
     type: 'sculpture'
   },
 
-  // 7e - Tour Eiffel, Invalides
+  // 6e - Saint-Germain (continued)
   {
-    id: 'sym-7-01',
+    id: 'sym-6-02',
     name: 'Le Méridien de Paris',
     hint: 'Une ligne invisible traverse la ville du nord au sud. Cherche les médaillons au sol.',
     location: 'Rue de Rennes / Boulevard Saint-Germain',
-    arrondissement: 7,
+    arrondissement: 6,
     type: 'inscription'
+  },
+
+  // 7e - Tour Eiffel, Invalides
+  {
+    id: 'sym-7-01',
+    name: 'Le Dôme Doré',
+    hint: 'Un empereur dort sous l\'or. Le soleil s\'y reflète depuis des siècles.',
+    location: 'Les Invalides',
+    arrondissement: 7,
+    type: 'architecture'
   },
 
   // 8e - Champs-Élysées

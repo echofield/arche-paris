@@ -2,7 +2,62 @@ import { useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { SYMBOLS, getSymbolsByArrondissement, type Symbol } from '../data/symbols';
+import { GAME_CARDS, type GameCard } from '../data/game-cards';
 import { getCollectionStats, collectSymbol, isSymbolCollected } from '../utils/collection-service';
+
+// Get matching game card for a symbol (by location/name matching)
+function getMatchingGameCard(symbol: Symbol): GameCard | undefined {
+  const symbolNameLower = symbol.name.toLowerCase();
+  const symbolLocationLower = symbol.location.toLowerCase();
+
+  // Direct ID mappings for known matches
+  const directMatches: Record<string, string> = {
+    'sym-4-01': 'point-zero',        // Le Point Zéro
+    'sym-14-01': 'catacombes',       // Les Catacombes Supérieures
+    'sym-5-02': 'thermes-cluny',     // Les Thermes Oubliés
+    'sym-8-01': 'obelisque',         // L'Obélisque Silencieux
+    'sym-5-01': 'rue-saint-jacques', // La Colonne Vertébrale (Rue Saint-Jacques)
+    'sym-9-01': 'opera-garnier',     // Les Abeilles de l'Empereur
+    'sym-19-01': 'buttes-chaumont',  // Le Temple de la Sibylle
+    'sym-15-01': 'statue-liberte',   // La Statue de la Liberté
+    'sym-2-01': 'passage-panoramas', // La Galerie des Reflets
+    'sym-6-01': 'dragon-rennes',     // Le Dragon de la Cour
+    'sym-16-01': 'fontaine-varsovie',// Les Fontaines Jumelles (Trocadéro)
+    'sym-6-02': 'medaillons-arago',  // Le Méridien de Paris
+    'sym-18-03': 'passage-sorciere', // Le Rocher de la Sorcière
+    'sym-3-01': '51-archives',       // L'Enseigne du Temps (Rue des Archives)
+    'sym-1-02': 'conciergerie',      // Le Mascaron rieur (close to Conciergerie area)
+  };
+
+  // Check direct mapping first
+  if (directMatches[symbol.id]) {
+    return GAME_CARDS.find(card => card.id === directMatches[symbol.id]);
+  }
+
+  // Fallback to fuzzy matching
+  return GAME_CARDS.find(card => {
+    const cardNameLower = card.name.toLowerCase();
+    const cardLocationLower = card.location.toLowerCase();
+
+    return cardNameLower.includes(symbolNameLower) ||
+           symbolNameLower.includes(cardNameLower) ||
+           cardLocationLower.includes(symbolLocationLower) ||
+           symbolLocationLower.includes(cardLocationLower) ||
+           // Keyword matches
+           (symbolNameLower.includes('point zéro') && cardNameLower.includes('point zéro')) ||
+           (symbolNameLower.includes('catacombes') && cardNameLower.includes('catacombes')) ||
+           (symbolNameLower.includes('thermes') && cardNameLower.includes('thermes')) ||
+           (symbolNameLower.includes('dragon') && cardNameLower.includes('dragon')) ||
+           (symbolNameLower.includes('méridien') && cardNameLower.includes('arago')) ||
+           (symbolNameLower.includes('obélisque') && cardNameLower.includes('obélisque')) ||
+           (symbolNameLower.includes('statue') && symbolNameLower.includes('liberté') && cardNameLower.includes('statue')) ||
+           (symbolNameLower.includes('sibylle') && cardNameLower.includes('buttes')) ||
+           (symbolNameLower.includes('sorcière') && cardNameLower.includes('sorcière')) ||
+           (symbolNameLower.includes('reflets') && cardNameLower.includes('panoramas')) ||
+           (symbolLocationLower.includes('opéra') && cardNameLower.includes('opéra')) ||
+           (symbolLocationLower.includes('trocadéro') && cardLocationLower.includes('trocadéro'));
+  });
+}
 
 interface CollectionMapProps {
   onBack: () => void;
@@ -382,14 +437,16 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
               </p>
 
               {/* Symbol List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {symbols.map(symbol => {
                   const collected = isSymbolCollected(symbol.id);
+                  const gameCard = getMatchingGameCard(symbol);
+
                   return (
                     <div
                       key={symbol.id}
                       style={{
-                        padding: '16px',
+                        padding: '12px',
                         background: collected ? 'rgba(0, 61, 44, 0.05)' : 'transparent',
                         border: `1px solid ${collected ? 'rgba(0, 61, 44, 0.2)' : 'rgba(0, 61, 44, 0.1)'}`,
                         cursor: 'pointer',
@@ -398,47 +455,95 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                       onClick={() => setShowSymbolDetail(symbol)}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span
-                          style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            background: collected ? '#003D2C' : 'transparent',
-                            border: '2px solid #003D2C',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#FAF8F2',
-                            fontSize: '12px'
-                          }}
-                        >
-                          {collected ? '◆' : ''}
-                        </span>
-                        <div style={{ flex: 1 }}>
+                        {/* Thumbnail */}
+                        {gameCard ? (
+                          <div
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                              background: '#1A1A1A',
+                              border: collected ? '2px solid #003D2C' : '2px solid rgba(0, 61, 44, 0.2)'
+                            }}
+                          >
+                            <img
+                              src={gameCard.image}
+                              alt={gameCard.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                filter: collected ? 'none' : 'grayscale(100%) brightness(0.4)'
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <span
+                            style={{
+                              width: '48px',
+                              height: '48px',
+                              borderRadius: '4px',
+                              background: collected ? '#003D2C' : 'transparent',
+                              border: '2px solid #003D2C',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#FAF8F2',
+                              fontSize: '16px',
+                              flexShrink: 0
+                            }}
+                          >
+                            {collected ? '◆' : '?'}
+                          </span>
+                        )}
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <h3
                             style={{
                               fontFamily: 'var(--font-serif)',
-                              fontSize: '16px',
+                              fontSize: '15px',
                               fontWeight: '600',
                               color: '#1A1A1A',
-                              marginBottom: '4px'
+                              marginBottom: '4px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
                             }}
                           >
-                            {symbol.name}
+                            {gameCard?.name || symbol.name}
                           </h3>
                           <p
                             style={{
                               fontFamily: 'var(--font-sans)',
-                              fontSize: '11px',
+                              fontSize: '10px',
                               color: '#003D2C',
                               opacity: 0.5,
                               textTransform: 'uppercase',
                               letterSpacing: '0.08em'
                             }}
                           >
-                            {symbol.type} · {symbol.location}
+                            {gameCard?.location || symbol.location}
                           </p>
                         </div>
+
+                        {/* Weight dots */}
+                        {gameCard && (
+                          <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                            {Array.from({ length: gameCard.weight }).map((_, i) => (
+                              <span
+                                key={i}
+                                style={{
+                                  width: '5px',
+                                  height: '5px',
+                                  borderRadius: '50%',
+                                  background: collected ? '#003D2C' : 'rgba(0, 61, 44, 0.3)'
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -449,140 +554,307 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
         </div>
 
         {/* Symbol Detail Modal */}
-        {showSymbolDetail && (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-              padding: '24px'
-            }}
-            onClick={() => setShowSymbolDetail(null)}
-          >
+        {showSymbolDetail && (() => {
+          const gameCard = getMatchingGameCard(showSymbolDetail);
+          const collected = isSymbolCollected(showSymbolDetail.id);
+
+          return (
             <div
               style={{
-                background: '#FAF8F2',
-                maxWidth: '500px',
-                width: '100%',
-                padding: '32px',
-                border: '1px solid rgba(0, 61, 44, 0.2)'
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0, 0, 0, 0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '24px'
               }}
-              onClick={e => e.stopPropagation()}
+              onClick={() => setShowSymbolDetail(null)}
             >
-              <h2
+              <div
                 style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '28px',
-                  fontWeight: '600',
-                  color: '#1A1A1A',
-                  marginBottom: '8px'
+                  background: '#FAF8F2',
+                  maxWidth: '480px',
+                  width: '100%',
+                  border: '1px solid rgba(0, 61, 44, 0.2)',
+                  maxHeight: '90vh',
+                  overflowY: 'auto'
                 }}
+                onClick={e => e.stopPropagation()}
               >
-                {showSymbolDetail.name}
-              </h2>
-              <p
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '11px',
-                  color: '#003D2C',
-                  opacity: 0.6,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  marginBottom: '24px'
-                }}
-              >
-                {showSymbolDetail.type} · {showSymbolDetail.arrondissement}e arr.
-              </p>
-
-              <p
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '18px',
-                  fontStyle: 'italic',
-                  color: '#1A1A1A',
-                  lineHeight: '1.6',
-                  marginBottom: '24px',
-                  padding: '16px',
-                  background: 'rgba(0, 61, 44, 0.03)',
-                  borderLeft: '3px solid rgba(0, 61, 44, 0.2)'
-                }}
-              >
-                "{showSymbolDetail.hint}"
-              </p>
-
-              {showSymbolDetail.agent && (
-                <p
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '12px',
-                    color: '#003D2C',
-                    marginBottom: '24px'
-                  }}
-                >
-                  Gardien: <strong>{showSymbolDetail.agent}</strong>
-                </p>
-              )}
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {!isSymbolCollected(showSymbolDetail.id) ? (
-                  <button
-                    onClick={() => handleCollect(showSymbolDetail.id)}
-                    style={{
-                      flex: 1,
-                      background: '#003D2C',
-                      color: '#FAF8F2',
-                      border: 'none',
-                      padding: '14px 24px',
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: '12px',
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Je l'ai trouvé
-                  </button>
-                ) : (
+                {/* Card Image */}
+                {gameCard && (
                   <div
                     style={{
-                      flex: 1,
-                      background: 'rgba(0, 61, 44, 0.1)',
-                      color: '#003D2C',
-                      padding: '14px 24px',
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: '12px',
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      textAlign: 'center'
+                      width: '100%',
+                      aspectRatio: '4 / 3',
+                      background: '#1A1A1A',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}
                   >
-                    ◆ Dans ta collection
+                    <img
+                      src={gameCard.image}
+                      alt={gameCard.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        filter: collected ? 'none' : 'grayscale(80%) brightness(0.6)'
+                      }}
+                    />
+                    {!collected && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'rgba(0, 0, 0, 0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-serif)',
+                            fontSize: '14px',
+                            color: 'rgba(255,255,255,0.7)',
+                            fontStyle: 'italic'
+                          }}
+                        >
+                          À découvrir sur place
+                        </span>
+                      </div>
+                    )}
+                    {/* Weight badge */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        padding: '6px 10px',
+                        display: 'flex',
+                        gap: '4px'
+                      }}
+                    >
+                      {Array.from({ length: gameCard.weight }).map((_, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: '#C4A35A'
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
-                <button
-                  onClick={() => setShowSymbolDetail(null)}
-                  style={{
-                    background: 'transparent',
-                    color: '#1A1A1A',
-                    border: '1px solid rgba(0, 61, 44, 0.2)',
-                    padding: '14px 24px',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '12px',
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Fermer
-                </button>
+
+                {/* Content */}
+                <div style={{ padding: '24px' }}>
+                  <h2
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '28px',
+                      fontWeight: '600',
+                      color: '#1A1A1A',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    {gameCard?.name || showSymbolDetail.name}
+                  </h2>
+
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: '11px',
+                      color: '#003D2C',
+                      opacity: 0.6,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                      marginBottom: '16px'
+                    }}
+                  >
+                    {gameCard?.location || showSymbolDetail.location} · {showSymbolDetail.arrondissement}e arr.
+                  </p>
+
+                  {/* Reveal text - shown only when collected */}
+                  {collected && gameCard && (
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-serif)',
+                        fontSize: '16px',
+                        fontStyle: 'italic',
+                        color: '#1A1A1A',
+                        lineHeight: '1.7',
+                        marginBottom: '20px',
+                        padding: '16px',
+                        background: 'rgba(0, 61, 44, 0.04)',
+                        borderLeft: '3px solid #003D2C'
+                      }}
+                    >
+                      {gameCard.reveal}
+                    </p>
+                  )}
+
+                  {/* Hint - shown when not collected */}
+                  {!collected && (
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-serif)',
+                        fontSize: '15px',
+                        fontStyle: 'italic',
+                        color: '#1A1A1A',
+                        opacity: 0.7,
+                        lineHeight: '1.6',
+                        marginBottom: '20px',
+                        padding: '16px',
+                        background: 'rgba(0, 61, 44, 0.03)',
+                        borderLeft: '3px solid rgba(0, 61, 44, 0.2)'
+                      }}
+                    >
+                      "{showSymbolDetail.hint}"
+                    </p>
+                  )}
+
+                  {/* GPS Coordinates - shown when collected */}
+                  {collected && gameCard && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '20px',
+                        padding: '12px',
+                        background: 'rgba(0, 61, 44, 0.03)',
+                        border: '1px dashed rgba(0, 61, 44, 0.2)'
+                      }}
+                    >
+                      <span style={{ fontSize: '16px' }}>📍</span>
+                      <div>
+                        <p
+                          style={{
+                            fontFamily: 'var(--font-sans)',
+                            fontSize: '10px',
+                            color: '#003D2C',
+                            opacity: 0.6,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            marginBottom: '4px'
+                          }}
+                        >
+                          Coordonnées GPS
+                        </p>
+                        <p
+                          style={{
+                            fontFamily: 'var(--font-mono, monospace)',
+                            fontSize: '12px',
+                            color: '#1A1A1A'
+                          }}
+                        >
+                          {gameCard.gps.lat.toFixed(6)}, {gameCard.gps.lng.toFixed(6)}
+                        </p>
+                      </div>
+                      <a
+                        href={`https://www.google.com/maps?q=${gameCard.gps.lat},${gameCard.gps.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          marginLeft: 'auto',
+                          fontFamily: 'var(--font-sans)',
+                          fontSize: '10px',
+                          color: '#003D2C',
+                          textDecoration: 'none',
+                          padding: '6px 10px',
+                          border: '1px solid rgba(0, 61, 44, 0.3)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        Voir carte
+                      </a>
+                    </div>
+                  )}
+
+                  {showSymbolDetail.agent && (
+                    <p
+                      style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '12px',
+                        color: '#003D2C',
+                        marginBottom: '20px'
+                      }}
+                    >
+                      Gardien: <strong>{showSymbolDetail.agent}</strong>
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    {!collected ? (
+                      <button
+                        onClick={() => handleCollect(showSymbolDetail.id)}
+                        style={{
+                          flex: 1,
+                          background: '#003D2C',
+                          color: '#FAF8F2',
+                          border: 'none',
+                          padding: '14px 24px',
+                          fontFamily: 'var(--font-sans)',
+                          fontSize: '12px',
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Je l'ai trouvé
+                      </button>
+                    ) : (
+                      <div
+                        style={{
+                          flex: 1,
+                          background: 'rgba(0, 61, 44, 0.1)',
+                          color: '#003D2C',
+                          padding: '14px 24px',
+                          fontFamily: 'var(--font-sans)',
+                          fontSize: '12px',
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                          textAlign: 'center'
+                        }}
+                      >
+                        ◆ Dans ta collection
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setShowSymbolDetail(null)}
+                      style={{
+                        background: 'transparent',
+                        color: '#1A1A1A',
+                        border: '1px solid rgba(0, 61, 44, 0.2)',
+                        padding: '14px 24px',
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '12px',
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Footer */}
         <footer

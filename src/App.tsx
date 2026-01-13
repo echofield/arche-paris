@@ -7,10 +7,11 @@ import { HistoireArchives } from './components/HistoireArchives';
 import { CarnetParisien } from './components/CarnetParisien';
 import { CollectionMap } from './components/CollectionMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
+import { CultureQuiz } from './components/CultureQuiz';
 import { CardEntry } from './components/CardEntry';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection' | 'seuil';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -85,6 +86,8 @@ export default function App() {
       } else if (hash === 'carnet') {
         setCurrentScreen('carnet');
       } else if (hash === 'collection') {
+        setCurrentScreen('collection');
+      } else if (hash === 'seuil') {
         setCurrentScreen('collection');
       } else if (hash === 'quetes') {
         setCurrentScreen('quetes');
