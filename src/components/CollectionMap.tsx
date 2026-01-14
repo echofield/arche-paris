@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { SYMBOLS, getSymbolsByArrondissement, type Symbol } from '../data/symbols';
 import { GAME_CARDS, type GameCard } from '../data/game-cards';
 import { getCollectionStats, collectSymbol, isSymbolCollected } from '../utils/collection-service';
+import { useTranslation } from '../utils/i18n';
 
 // Get matching game card for a symbol (by location/name matching)
 function getMatchingGameCard(symbol: Symbol): GameCard | undefined {
@@ -65,33 +66,35 @@ interface CollectionMapProps {
 
 // Role evolution based on collection progress
 interface WalkerRole {
+  id: string;
   name: string;
   title: string;
   threshold: number;
 }
 
-const WALKER_ROLES: WalkerRole[] = [
-  { name: 'Voyageur', title: 'Tu commences ton parcours', threshold: 0 },
-  { name: 'Guide', title: 'Tu connais quelques secrets', threshold: 6 },
-  { name: 'Héros', title: 'Collectionneur aguerri', threshold: 16 },
-  { name: 'Gardien', title: 'Protecteur de la mémoire', threshold: 26 }
+// Role thresholds (non-translatable)
+const ROLE_THRESHOLDS: { id: string; threshold: number }[] = [
+  { id: 'traveler', threshold: 0 },
+  { id: 'guide', threshold: 6 },
+  { id: 'hero', threshold: 16 },
+  { id: 'guardian', threshold: 26 }
 ];
 
-function getWalkerRole(collected: number): WalkerRole {
-  for (let i = WALKER_ROLES.length - 1; i >= 0; i--) {
-    if (collected >= WALKER_ROLES[i].threshold) {
-      return WALKER_ROLES[i];
+function getWalkerRole(collected: number, roles: WalkerRole[]): WalkerRole {
+  for (let i = roles.length - 1; i >= 0; i--) {
+    if (collected >= roles[i].threshold) {
+      return roles[i];
     }
   }
-  return WALKER_ROLES[0];
+  return roles[0];
 }
 
-function getNextRole(collected: number): { role: WalkerRole; remaining: number } | null {
-  const currentIndex = WALKER_ROLES.findIndex((r, i) =>
-    collected >= r.threshold && (i === WALKER_ROLES.length - 1 || collected < WALKER_ROLES[i + 1].threshold)
+function getNextRole(collected: number, roles: WalkerRole[]): { role: WalkerRole; remaining: number } | null {
+  const currentIndex = roles.findIndex((r, i) =>
+    collected >= r.threshold && (i === roles.length - 1 || collected < roles[i + 1].threshold)
   );
-  if (currentIndex < WALKER_ROLES.length - 1) {
-    const next = WALKER_ROLES[currentIndex + 1];
+  if (currentIndex < roles.length - 1) {
+    const next = roles[currentIndex + 1];
     return { role: next, remaining: next.threshold - collected };
   }
   return null;
@@ -142,9 +145,20 @@ const ARRONDISSEMENT_PATHS: { arr: number; path: string; labelX: number; labelY:
 ];
 
 export function CollectionMap({ onBack }: CollectionMapProps) {
+  const { t } = useTranslation();
   const [selectedArr, setSelectedArr] = useState<number | null>(null);
   const [stats, setStats] = useState(getCollectionStats(SYMBOLS));
   const [showSymbolDetail, setShowSymbolDetail] = useState<Symbol | null>(null);
+
+  // Build roles with translations
+  const walkerRoles = useMemo((): WalkerRole[] => {
+    return ROLE_THRESHOLDS.map(r => ({
+      id: r.id,
+      name: t(`map.roles.${r.id}.name`),
+      title: t(`map.roles.${r.id}.title`),
+      threshold: r.threshold
+    }));
+  }, [t]);
 
   // Refresh stats when collecting
   const refreshStats = () => {
@@ -158,8 +172,8 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
   };
 
   const symbols = selectedArr ? getSymbolsByArrondissement(selectedArr) : [];
-  const currentRole = getWalkerRole(stats.collected);
-  const nextRole = getNextRole(stats.collected);
+  const currentRole = getWalkerRole(stats.collected, walkerRoles);
+  const nextRole = getNextRole(stats.collected, walkerRoles);
 
   return (
     <div
@@ -204,7 +218,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                 marginBottom: '4px'
               }}
             >
-              Ton rang
+              {t('map.stats.yourRank')}
             </p>
             <p
               style={{
@@ -228,7 +242,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
               letterSpacing: '-0.02em'
             }}
           >
-            Ma Carte de Paris
+            {t('map.title')}
           </h1>
           <p
             style={{
@@ -240,7 +254,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
               marginBottom: '8px'
             }}
           >
-            {stats.collected} / {stats.total} symboles collectés
+            {stats.collected} / {stats.total} {t('map.stats.collected')}
           </p>
           {nextRole && (
             <p
@@ -251,7 +265,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                 opacity: 0.5
               }}
             >
-              {nextRole.remaining} symbole{nextRole.remaining > 1 ? 's' : ''} avant de devenir <strong>{nextRole.role.name}</strong>
+              {t('map.stats.nextRole', { role: nextRole.role.name, count: nextRole.remaining })}
             </p>
           )}
         </header>
@@ -373,7 +387,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                     border: '1px solid rgba(0, 61, 44, 0.3)'
                   }}
                 />
-                À découvrir
+                {t('map.legend.toDiscover')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span
@@ -385,7 +399,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                     border: '1px solid rgba(0, 61, 44, 0.3)'
                   }}
                 />
-                En cours
+                {t('map.legend.inProgress')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span
@@ -397,7 +411,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                     border: '1px solid rgba(0, 61, 44, 0.3)'
                   }}
                 />
-                Complété
+                {t('map.legend.completed')}
               </span>
             </div>
           </div>
@@ -433,7 +447,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                   letterSpacing: '0.05em'
                 }}
               >
-                {stats.byArrondissement[selectedArr].collected} / {stats.byArrondissement[selectedArr].total} symboles
+                {stats.byArrondissement[selectedArr].collected} / {stats.byArrondissement[selectedArr].total} {t('map.stats.symbols')}
               </p>
 
               {/* Symbol List */}
@@ -626,7 +640,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                             fontStyle: 'italic'
                           }}
                         >
-                          À découvrir sur place
+                          {t('map.detail.discoverOnSite')}
                         </span>
                       </div>
                     )}
@@ -750,7 +764,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                             marginBottom: '4px'
                           }}
                         >
-                          Coordonnées GPS
+                          {t('map.detail.gpsCoords')}
                         </p>
                         <p
                           style={{
@@ -779,7 +793,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                         }}
                         onClick={e => e.stopPropagation()}
                       >
-                        Voir carte
+                        {t('map.detail.viewMap')}
                       </a>
                     </div>
                   )}
@@ -793,7 +807,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                         marginBottom: '20px'
                       }}
                     >
-                      Gardien: <strong>{showSymbolDetail.agent}</strong>
+                      {t('map.detail.guardian')} <strong>{showSymbolDetail.agent}</strong>
                     </p>
                   )}
 
@@ -814,7 +828,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                           cursor: 'pointer'
                         }}
                       >
-                        Je l'ai trouvé
+                        {t('map.detail.iFoundIt')}
                       </button>
                     ) : (
                       <div
@@ -830,7 +844,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                           textAlign: 'center'
                         }}
                       >
-                        ◆ Dans ta collection
+                        ◆ {t('map.detail.inCollection')}
                       </div>
                     )}
                     <button
@@ -847,7 +861,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                         cursor: 'pointer'
                       }}
                     >
-                      Fermer
+                      {t('map.detail.close')}
                     </button>
                   </div>
                 </div>
@@ -874,7 +888,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
               opacity: 0.5
             }}
           >
-            Chaque symbole trouvé allume un neurone dans le cerveau de Paris.
+            {t('map.footer')}
           </p>
         </footer>
       </div>

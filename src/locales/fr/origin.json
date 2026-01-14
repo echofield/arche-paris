@@ -8,31 +8,37 @@
 
   "origin.points": [
     {
+      "id": "p01",
       "numeral": "I",
       "name": "L'EAU EN VERRE",
       "phrase": "J'ai porté l'eau, puis je suis devenu transparent."
     },
     {
+      "id": "p02",
       "numeral": "II",
       "name": "LE LATIN AU SEUIL",
       "phrase": "La loi commence ici avant la langue."
     },
     {
+      "id": "p03",
       "numeral": "III",
       "name": "LE PASSAGE COMMERCIAL",
       "phrase": "Je n'étais pas une rue, mais j'avais un flux."
     },
     {
+      "id": "p04",
       "numeral": "IV",
       "name": "L'ALPHABET DE PIERRE",
       "phrase": "Je parle sans voix. Je marque sans écrire."
     },
     {
+      "id": "p05",
       "numeral": "V",
       "name": "LE SEUIL INVISIBLE",
       "phrase": "On entre sans le savoir. On sort sans le voir."
     },
     {
+      "id": "p06",
       "numeral": "VI",
       "name": "LE CERCLE CIVIQUE",
       "phrase": "Je rassemble sans centre."

@@ -8,31 +8,37 @@
 
   "origin.points": [
     {
+      "id": "p01",
       "numeral": "I",
       "name": "WATER IN GLASS",
       "phrase": "I carried water, then I became transparent."
     },
     {
+      "id": "p02",
       "numeral": "II",
       "name": "LATIN AT THE THRESHOLD",
       "phrase": "The law begins here, before language."
     },
     {
+      "id": "p03",
       "numeral": "III",
       "name": "THE COMMERCIAL PASSAGE",
       "phrase": "I was not a street, but I had a flow."
     },
     {
+      "id": "p04",
       "numeral": "IV",
       "name": "THE STONE ALPHABET",
       "phrase": "I speak without a voice. I mark without writing."
     },
     {
+      "id": "p05",
       "numeral": "V",
       "name": "THE INVISIBLE THRESHOLD",
       "phrase": "You enter without knowing it. You leave without seeing it."
     },
     {
+      "id": "p06",
       "numeral": "VI",
       "name": "THE CIVIC CIRCLE",
       "phrase": "I gather without a center."

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BackButton } from './BackButton';
+import { useTranslation } from '../utils/i18n';
 
 interface OrigineMapProps {
   onBack: () => void;
@@ -14,80 +15,28 @@ type PoiData = {
   name: string;
   phrase: string;
   validationType: 'photo' | 'text';
-  x: number; // Position sur la carte (% du viewBox)
+  x: number;
   y: number;
-  weight: 'normal' | 'ancient' | 'light' | 'heavy' | 'mute' | 'central'; // Poids visuel
-  revealRadius: number; // Rayon de révélation
+  weight: 'normal' | 'ancient' | 'light' | 'heavy' | 'mute' | 'central';
+  revealRadius: number;
 };
 
-const QUETE_POINTS: PoiData[] = [
-  { 
-    id: 'poi_01', 
-    numeral: 'I',
-    name: "L'EAU EN VERRE",
-    phrase: "J'ai porté l'eau, puis je suis devenu transparent.",
-    validationType: 'photo',
-    x: 52,
-    y: 48,
-    weight: 'normal', // Poids visuel
-    revealRadius: 18 // Rayon de révélation
-  },
-  { 
-    id: 'poi_02', 
-    numeral: 'II',
-    name: "LE LATIN AU SEUIL",
-    phrase: "La loi commence ici avant la langue.",
-    validationType: 'photo',
-    x: 38,
-    y: 52,
-    weight: 'ancient', // Plus discret, plus ancien
-    revealRadius: 22 // Révèle plus large
-  },
-  { 
-    id: 'poi_03', 
-    numeral: 'III',
-    name: "LE PASSAGE COMMERCIAL",
-    phrase: "Je n'étais pas une rue, mais j'avais un flux.",
-    validationType: 'photo',
-    x: 58,
-    y: 44,
-    weight: 'light', // Presque invisible
-    revealRadius: 12 // Révèle peu (danger : peut être trop tôt)
-  },
-  { 
-    id: 'poi_04', 
-    numeral: 'IV',
-    name: "L'ALPHABET DE PIERRE",
-    phrase: "Je parle sans voix. Je marque sans écrire.",
-    validationType: 'photo',
-    x: 48,
-    y: 62,
-    weight: 'heavy', // Plus marqué, proche du Cardo
-    revealRadius: 20
-  },
-  { 
-    id: 'poi_05', 
-    numeral: 'V',
-    name: "LE SEUIL INVISIBLE",
-    phrase: "On entre sans le savoir. On sort sans le voir.",
-    validationType: 'text',
-    x: 42,
-    y: 38,
-    weight: 'mute', // Le plus discret de tous
-    revealRadius: 15
-  },
-  { 
-    id: 'poi_06', 
-    numeral: 'VI',
-    name: "LE CERCLE CIVIQUE",
-    phrase: "Je rassemble sans centre.",
-    validationType: 'photo',
-    x: 48,
-    y: 50,
-    weight: 'central', // Sur l'Île, point de convergence
-    revealRadius: 25 // Révèle beaucoup
-  }
-];
+// Technical data (non-translatable) - keyed by translation ID
+const POI_TECHNICAL: Record<string, {
+  poiId: string;
+  validationType: 'photo' | 'text';
+  x: number;
+  y: number;
+  weight: 'normal' | 'ancient' | 'light' | 'heavy' | 'mute' | 'central';
+  revealRadius: number;
+}> = {
+  'p01': { poiId: 'poi_01', validationType: 'photo', x: 52, y: 48, weight: 'normal', revealRadius: 18 },
+  'p02': { poiId: 'poi_02', validationType: 'photo', x: 38, y: 52, weight: 'ancient', revealRadius: 22 },
+  'p03': { poiId: 'poi_03', validationType: 'photo', x: 58, y: 44, weight: 'light', revealRadius: 12 },
+  'p04': { poiId: 'poi_04', validationType: 'photo', x: 48, y: 62, weight: 'heavy', revealRadius: 20 },
+  'p05': { poiId: 'poi_05', validationType: 'text', x: 42, y: 38, weight: 'mute', revealRadius: 15 },
+  'p06': { poiId: 'poi_06', validationType: 'photo', x: 48, y: 50, weight: 'central', revealRadius: 25 }
+};
 
 // --- TYPES GRAPHIQUES ---
 
@@ -121,6 +70,27 @@ const distance = (p1: Point, p2: Point) =>
  * Système de révélation progressive par validation de points de quête.
  */
 export function OrigineMap({ onBack }: OrigineMapProps) {
+  const { t, tArray } = useTranslation();
+
+  // Merge translations with technical data
+  const QUETE_POINTS = useMemo((): PoiData[] => {
+    const points = tArray('origin.points') as { id: string; numeral: string; name: string; phrase: string }[];
+    return points.map(p => {
+      const tech = POI_TECHNICAL[p.id];
+      return {
+        id: tech?.poiId || p.id,
+        numeral: p.numeral,
+        name: p.name,
+        phrase: p.phrase,
+        validationType: tech?.validationType || 'photo',
+        x: tech?.x || 50,
+        y: tech?.y || 50,
+        weight: tech?.weight || 'normal',
+        revealRadius: tech?.revealRadius || 18
+      };
+    });
+  }, [tArray]);
+
   // --- ÉTAT ---
   const [nodes, setNodes] = useState<Point[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -351,7 +321,7 @@ export function OrigineMap({ onBack }: OrigineMapProps) {
           zIndex: 100
         }}
       >
-        Origine
+        {t('origin.title')}
       </div>
 
       {/* CARTE CENTRALE */}
@@ -610,7 +580,7 @@ export function OrigineMap({ onBack }: OrigineMapProps) {
             borderBottom: '0.5px solid rgba(107, 100, 85, 0.1)'
           }}
         >
-          Protocole de Marche
+          {t('origin.protocol')}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vw, 14px)' }}>
@@ -795,7 +765,7 @@ export function OrigineMap({ onBack }: OrigineMapProps) {
                         textTransform: 'uppercase'
                       }}
                     >
-                      Déposer la preuve
+                      {t('origin.modal.submit')}
                     </span>
                   )}
                 </div>
@@ -804,7 +774,7 @@ export function OrigineMap({ onBack }: OrigineMapProps) {
                   type="text"
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
-                  placeholder="Décrire le seuil..."
+                  placeholder={t('origin.modal.describe')}
                   style={{
                     width: '100%',
                     border: 'none',
@@ -843,7 +813,7 @@ export function OrigineMap({ onBack }: OrigineMapProps) {
                   opacity: (currentPoiData.validationType === 'photo' ? uploadedFile : textInput.trim()) ? 1 : 0.3
                 }}
               >
-                Sceller l'étape
+                {t('origin.modal.seal')}
               </button>
             </div>
           </motion.div>

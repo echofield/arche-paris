@@ -5,66 +5,79 @@
 
   "history.moments": [
     {
+      "id": "m01",
       "date": "52 BC",
       "word": "CROSSING",
       "sentence": "A ford becomes a center. Movement comes before capital."
     },
     {
+      "id": "m02",
       "date": "508",
       "word": "DESIGNATION",
       "sentence": "Power chooses a place. Paris becomes a name, not yet a form."
     },
     {
+      "id": "m03",
       "date": "987",
       "word": "ANCHORING",
       "sentence": "Royalty settles in. The temporary begins to last."
     },
     {
+      "id": "m04",
       "date": "1163",
       "word": "ASCENT",
       "sentence": "Notre-Dame begins. The city looks upward."
     },
     {
+      "id": "m05",
       "date": "1200",
       "word": "ENCLOSURE",
       "sentence": "Philippe Auguste closes Paris. To protect is already to exist."
     },
     {
+      "id": "m06",
       "date": "1305",
       "word": "INSTITUTION",
       "sentence": "The papacy arrives in Paris. The spiritual turns political."
     },
     {
+      "id": "m07",
       "date": "1572",
       "word": "RUPTURE",
       "sentence": "The city turns against itself. Faith fractures space."
     },
     {
+      "id": "m08",
       "date": "1648",
       "word": "OVERFLOW",
       "sentence": "The street speaks. Power learns to listen to the crowd."
     },
     {
+      "id": "m09",
       "date": "1789",
       "word": "PASSAGE",
       "sentence": "A piece of furniture becomes a tribune. The private becomes public."
     },
     {
+      "id": "m10",
       "date": "1853",
       "word": "CUTTING THROUGH",
       "sentence": "Haussmann slices. Circulation replaces entanglement."
     },
     {
+      "id": "m11",
       "date": "1871",
       "word": "UPRISING",
       "sentence": "The city governs itself. Too early, too strong."
     },
     {
+      "id": "m12",
       "date": "1968",
       "word": "SATURATION",
       "sentence": "Speech spills everywhere. Nothing contains meaning anymore."
     },
     {
+      "id": "m13",
       "date": "Today",
       "word": "SUSPENSION",
       "sentence": "The city hesitates. It awaits a new gesture."

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { collectSymbol, isSymbolCollected } from '../utils/collection-service';
+import { useTranslation } from '../utils/i18n';
 
 interface HunterMontmartreProps {
   onBack: () => void;
@@ -14,58 +15,38 @@ interface HunterSymbol {
   riddleAnswer: string;
   hint: string;
   proofQuestion: string;
-  proofAnswers: string[]; // Multiple accepted answers
+  proofAnswers: string[];
   location: string;
   coordinates: { lat: number; lng: number };
 }
 
-// Les 4 symboles de Montmartre dans l'ordre de la chasse
-const MONTMARTRE_HUNT: HunterSymbol[] = [
-  {
-    id: 'sym-18-01',
-    name: 'Le Passe-Muraille',
-    riddle: 'Je traverse les murs mais je suis figé pour l\'éternité. Marcel m\'a créé, Marais m\'a sculpté. Qui suis-je?',
+// Technical data (non-translatable) - keyed by symbol ID
+const SYMBOL_TECHNICAL: Record<string, {
+  riddleAnswer: string;
+  proofAnswers: string[];
+  coordinates: { lat: number; lng: number };
+}> = {
+  'sym-18-01': {
     riddleAnswer: 'passe-muraille',
-    hint: 'Place Marcel Aymé, au bout de la rue Norvins. Un homme émerge du mur, coincé entre deux mondes.',
-    proofQuestion: 'De quelle main le Passe-Muraille sort-il du mur? (gauche/droite)',
     proofAnswers: ['droite', 'droit', 'right'],
-    location: 'Place Marcel Aymé',
     coordinates: { lat: 48.8867, lng: 2.3372 }
   },
-  {
-    id: 'sym-18-02',
-    name: 'Le Cadran du Coq',
-    riddle: 'QUAND SONNERA JE CHANTERAY — mais une lettre s\'est rebellée, elle regarde dans l\'autre sens.',
+  'sym-18-02': {
     riddleAnswer: 'cadran',
-    hint: 'Rue de l\'Abreuvoir, sur une façade discrète. Un cadran solaire où le N refuse de suivre les autres.',
-    proofQuestion: 'Quelle lettre est inversée sur le cadran? (une seule lettre)',
     proofAnswers: ['n', 'N'],
-    location: 'Rue de l\'Abreuvoir',
     coordinates: { lat: 48.8875, lng: 2.3389 }
   },
-  {
-    id: 'sym-18-03',
-    name: 'Le Rocher de la Sorcière',
-    riddle: 'Dans un jardin interdit aux passants, une pierre brute refuse d\'être polie par la civilisation.',
+  'sym-18-03': {
     riddleAnswer: 'rocher',
-    hint: 'Avenue Junot, derrière une grille. Le jardin sauvage de Montmartre cache une roche ancienne.',
-    proofQuestion: 'Quelle est la couleur dominante de la grille qui protège le jardin? (un mot)',
     proofAnswers: ['vert', 'verte', 'green', 'noir', 'noire', 'black'],
-    location: 'Avenue Junot',
     coordinates: { lat: 48.8889, lng: 2.3345 }
   },
-  {
-    id: 'sym-18-04',
-    name: 'La Vigne Sacrée',
-    riddle: 'Du vin pousse encore sur la Butte. Chaque automne, les vendanges rappellent que Paris fut campagne.',
+  'sym-18-04': {
     riddleAnswer: 'vigne',
-    hint: 'Rue des Saules, angle rue Saint-Vincent. Le Clos Montmartre — la dernière vigne de Paris.',
-    proofQuestion: 'Quel est le nom du cabaret célèbre juste à côté de la vigne? (deux mots)',
     proofAnswers: ['lapin agile', 'le lapin agile', 'au lapin agile'],
-    location: 'Rue des Saules',
     coordinates: { lat: 48.8871, lng: 2.3403 }
   }
-];
+};
 
 type HuntPhase = 'intro' | 'riddle' | 'hunting' | 'gps_check' | 'proof' | 'success' | 'complete';
 
@@ -87,18 +68,65 @@ function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
+  const { t, tArray } = useTranslation();
+
+  // Build symbols from translations + technical data
+  const MONTMARTRE_HUNT = useMemo((): HunterSymbol[] => {
+    const symbols = tArray('treasure.symbols') as {
+      id: string;
+      name: string;
+      riddle: string;
+      clue: string;
+      proof: string;
+      place: string;
+    }[];
+    return symbols.map(s => {
+      const tech = SYMBOL_TECHNICAL[s.id];
+      return {
+        id: s.id,
+        name: s.name,
+        riddle: s.riddle,
+        riddleAnswer: tech?.riddleAnswer || '',
+        hint: s.clue,
+        proofQuestion: s.proof,
+        proofAnswers: tech?.proofAnswers || [],
+        location: s.place,
+        coordinates: tech?.coordinates || { lat: 0, lng: 0 }
+      };
+    });
+  }, [tArray]);
+
   // Find first uncollected symbol or start from beginning
-  const getInitialSymbol = () => {
+  const getInitialSymbol = useCallback(() => {
     for (let i = 0; i < MONTMARTRE_HUNT.length; i++) {
       if (!isSymbolCollected(MONTMARTRE_HUNT[i].id)) {
         return i;
       }
     }
     return MONTMARTRE_HUNT.length; // All complete
-  };
+  }, [MONTMARTRE_HUNT]);
 
-  const [currentSymbolIndex, setCurrentSymbolIndex] = useState(getInitialSymbol);
-  const [phase, setPhase] = useState<HuntPhase>(getInitialSymbol() >= MONTMARTRE_HUNT.length ? 'complete' : 'intro');
+  const [currentSymbolIndex, setCurrentSymbolIndex] = useState(() => {
+    // Initial calculation before MONTMARTRE_HUNT is ready
+    const symbolIds = ['sym-18-01', 'sym-18-02', 'sym-18-03', 'sym-18-04'];
+    for (let i = 0; i < symbolIds.length; i++) {
+      if (!isSymbolCollected(symbolIds[i])) {
+        return i;
+      }
+    }
+    return symbolIds.length;
+  });
+  const [phase, setPhase] = useState<HuntPhase>(() => {
+    const symbolIds = ['sym-18-01', 'sym-18-02', 'sym-18-03', 'sym-18-04'];
+    let initialIdx = symbolIds.length;
+    for (let i = 0; i < symbolIds.length; i++) {
+      if (!isSymbolCollected(symbolIds[i])) {
+        initialIdx = i;
+        break;
+      }
+    }
+    return initialIdx >= symbolIds.length ? 'complete' : 'intro';
+  });
   const [riddleAnswer, setRiddleAnswer] = useState('');
   const [proofAnswer, setProofAnswer] = useState('');
   const [timeLeft, setTimeLeft] = useState(RIDDLE_TIME);
@@ -350,7 +378,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
               marginBottom: '8px'
             }}
           >
-            Trésor Caché
+            {t('treasure.header.title')}
           </p>
           <h1
             style={{
@@ -361,7 +389,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
               marginBottom: '8px'
             }}
           >
-            Hunter: Montmartre
+            {t('treasure.header.subtitle')}
           </h1>
           <p
             style={{
@@ -372,7 +400,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
               opacity: 0.6
             }}
           >
-            {collectedCount} / {MONTMARTRE_HUNT.length} symboles trouvés
+            {t('treasure.header.progress', { count: collectedCount })}
           </p>
         </header>
 
@@ -411,7 +439,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
             cursor: 'pointer'
           }}
         >
-          {showMap ? '◇ Cacher la carte' : '◇ Voir la carte'}
+          {showMap ? t('treasure.buttons.hideMap') : t('treasure.buttons.showMap')}
         </button>
 
         {showMap && (
@@ -500,7 +528,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                     cursor: 'pointer'
                   }}
                 >
-                  Commencer l'énigme
+                  {t('treasure.buttons.startRiddle')}
                 </button>
               )}
 
@@ -595,7 +623,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                   cursor: 'pointer'
                 }}
               >
-                Valider
+                {t('treasure.buttons.validate')}
               </button>
             </>
           )}
@@ -683,7 +711,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                   cursor: 'pointer'
                 }}
               >
-                Je l'ai trouvé
+                {t('treasure.buttons.found')}
               </button>
             </>
           )}
@@ -712,7 +740,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                       marginBottom: '8px'
                     }}
                   >
-                    Vérification GPS...
+                    {t('treasure.gps.checking')}
                   </p>
                   <p
                     style={{
@@ -722,7 +750,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                       opacity: 0.6
                     }}
                   >
-                    Es-tu vraiment à {currentSymbol.location}?
+                    {t('treasure.gps.areYouAt', { location: currentSymbol.location })}
                   </p>
                 </>
               )}
@@ -984,7 +1012,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                   marginBottom: '8px'
                 }}
               >
-                Gardien de Montmartre
+                {t('treasure.final.title')}
               </h2>
               <p
                 style={{
@@ -997,8 +1025,8 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                   lineHeight: '1.6'
                 }}
               >
-                Tu as découvert tous les secrets de la Butte.<br />
-                Montmartre te reconnaît comme l'un des siens.
+                {t('treasure.final.line1')}<br />
+                {t('treasure.final.line2')}
               </p>
 
               <div
@@ -1010,7 +1038,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                 }}
               >
                 <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#003D2C', letterSpacing: '0.1em', marginBottom: '8px' }}>
-                  SYMBOLES COLLECTÉS
+                  {t('treasure.phases.collectedSymbols')}
                 </p>
                 {MONTMARTRE_HUNT.map(symbol => (
                   <p key={symbol.id} style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', color: '#1A1A1A', marginBottom: '4px' }}>
@@ -1033,7 +1061,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                   cursor: 'pointer'
                 }}
               >
-                Retour à l'accueil
+                {t('treasure.buttons.home')}
               </button>
             </div>
           )}

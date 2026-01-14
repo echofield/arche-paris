@@ -5,66 +5,79 @@
 
   "history.moments": [
     {
+      "id": "m01",
       "date": "−52 av. J.-C.",
       "word": "FRANCHISSEMENT",
       "sentence": "Un gué devient un centre. La circulation précède la capitale."
     },
     {
+      "id": "m02",
       "date": "508",
       "word": "DÉSIGNATION",
       "sentence": "Le pouvoir choisit un lieu. Paris devient nom, pas encore forme."
     },
     {
+      "id": "m03",
       "date": "987",
       "word": "ANCRAGE",
       "sentence": "La royauté s'installe. Le provisoire commence à durer."
     },
     {
+      "id": "m04",
       "date": "1163",
       "word": "ÉLÉVATION",
       "sentence": "On commence Notre-Dame. La ville regarde vers le haut."
     },
     {
+      "id": "m05",
       "date": "1200",
       "word": "ENCLOSURE",
       "sentence": "Philippe Auguste ferme Paris. Se protéger, c'est déjà exister."
     },
     {
+      "id": "m06",
       "date": "1305",
       "word": "INSTITUTION",
       "sentence": "La papauté arrive à Paris. Le spirituel devient politique."
     },
     {
+      "id": "m07",
       "date": "1572",
       "word": "RUPTURE",
       "sentence": "La ville se retourne contre elle-même. La foi fracture l'espace."
     },
     {
+      "id": "m08",
       "date": "1648",
       "word": "DÉBORDEMENT",
       "sentence": "La rue parle. Le pouvoir apprend à écouter la foule."
     },
     {
+      "id": "m09",
       "date": "1789",
       "word": "PASSAGE",
       "sentence": "Un meuble devient tribune. Le privé devient public."
     },
     {
+      "id": "m10",
       "date": "1853",
       "word": "PERCEMENT",
       "sentence": "Haussmann tranche. La circulation remplace l'enchevêtrement."
     },
     {
+      "id": "m11",
       "date": "1871",
       "word": "SOULÈVEMENT",
       "sentence": "La ville s'auto-administre. Trop tôt, trop fort."
     },
     {
+      "id": "m12",
       "date": "1968",
       "word": "SATURATION",
       "sentence": "La parole déborde partout. Plus rien ne contient le sens."
     },
     {
+      "id": "m13",
       "date": "Aujourd'hui",
       "word": "SUSPENSION",
       "sentence": "La ville hésite. Elle attend un nouveau geste."

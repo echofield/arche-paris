@@ -2,90 +2,27 @@ import { useState, useRef, useEffect } from 'react';
 import { Volume2 } from 'lucide-react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
+import { useTranslation } from '../utils/i18n';
 
 interface HistoireProps {
   onBack: () => void;
 }
 
 interface HistoricalMoment {
+  id: string;
   date: string;
   word: string;
   sentence: string;
-  audioUrl?: string; // Optional audio fragment
 }
 
-const MOMENTS: HistoricalMoment[] = [
-  {
-    date: '−52 av. J.-C.',
-    word: 'FRANCHISSEMENT',
-    sentence: 'Un gué devient un centre. La circulation précède la capitale.',
-    audioUrl: '/audio/franchissement.mp3' // Placeholder
-  },
-  {
-    date: '508',
-    word: 'DÉSIGNATION',
-    sentence: 'Le pouvoir choisit un lieu. Paris devient nom, pas encore forme.'
-  },
-  {
-    date: '987',
-    word: 'ANCRAGE',
-    sentence: 'La royauté s\'installe. Le provisoire commence à durer.'
-  },
-  {
-    date: '1163',
-    word: 'ÉLÉVATION',
-    sentence: 'On commence Notre-Dame. La ville regarde vers le haut.',
-    audioUrl: '/audio/elevation.mp3' // Placeholder
-  },
-  {
-    date: '1200',
-    word: 'ENCLOSURE',
-    sentence: 'Philippe Auguste ferme Paris. Se protéger, c\'est déjà exister.'
-  },
-  {
-    date: '1305',
-    word: 'INSTITUTION',
-    sentence: 'La papauté arrive à Paris. Le spirituel devient politique.'
-  },
-  {
-    date: '1572',
-    word: 'RUPTURE',
-    sentence: 'La ville se retourne contre elle-même. La foi fracture l\'espace.'
-  },
-  {
-    date: '1648',
-    word: 'DÉBORDEMENT',
-    sentence: 'La rue parle. Le pouvoir apprend à écouter la foule.'
-  },
-  {
-    date: '1789',
-    word: 'PASSAGE',
-    sentence: 'Un meuble devient tribune. Le privé devient public.',
-    audioUrl: '/audio/passage.mp3' // Placeholder
-  },
-  {
-    date: '1853',
-    word: 'PERCEMENT',
-    sentence: 'Haussmann tranche. La circulation remplace l\'enchevêtrement.',
-    audioUrl: '/audio/percement.mp3' // Placeholder
-  },
-  {
-    date: '1871',
-    word: 'SOULÈVEMENT',
-    sentence: 'La ville s\'auto-administre. Trop tôt, trop fort.'
-  },
-  {
-    date: '1968',
-    word: 'SATURATION',
-    sentence: 'La parole déborde partout. Plus rien ne contient le sens.',
-    audioUrl: '/audio/saturation.mp3' // Placeholder
-  },
-  {
-    date: 'Aujourd\'hui',
-    word: 'SUSPENSION',
-    sentence: 'La ville hésite. Elle attend un nouveau geste.'
-  }
-];
+// Audio URLs mapped by moment ID (keep separate from translations)
+const AUDIO_URLS: Record<string, string> = {
+  'm01': '/audio/franchissement.mp3',
+  'm04': '/audio/elevation.mp3',
+  'm09': '/audio/passage.mp3',
+  'm10': '/audio/percement.mp3',
+  'm12': '/audio/saturation.mp3'
+};
 
 /**
  * HISTOIRE — VERTICAL FADER
@@ -99,6 +36,9 @@ const MOMENTS: HistoricalMoment[] = [
  * Unstable. Alive. Fragmentary. Inevitable.
  */
 export function HistoireArchives({ onBack }: HistoireProps) {
+  const { t, tArray } = useTranslation();
+  const moments = tArray('history.moments') as HistoricalMoment[];
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -108,14 +48,14 @@ export function HistoireArchives({ onBack }: HistoireProps) {
   useEffect(() => {
     const handleScroll = () => {
       if (!scrollContainerRef.current) return;
-      
+
       const container = scrollContainerRef.current;
       const scrollTop = container.scrollTop;
       const scrollHeight = container.scrollHeight - container.clientHeight;
-      
-      // Map scroll to continuous progress (0 to MOMENTS.length - 1)
-      const progress = (scrollTop / scrollHeight) * (MOMENTS.length - 1);
-      setScrollProgress(Math.max(0, Math.min(progress, MOMENTS.length - 1)));
+
+      // Map scroll to continuous progress (0 to moments.length - 1)
+      const progress = (scrollTop / scrollHeight) * (moments.length - 1);
+      setScrollProgress(Math.max(0, Math.min(progress, moments.length - 1)));
     };
 
     const container = scrollContainerRef.current;
@@ -139,9 +79,10 @@ export function HistoireArchives({ onBack }: HistoireProps) {
 
   // Handle audio playback
   const handleAudioToggle = () => {
-    const moment = MOMENTS[currentIndex];
-    
-    if (!moment.audioUrl) return;
+    const moment = moments[currentIndex];
+    const audioUrl = AUDIO_URLS[moment.id];
+
+    if (!audioUrl) return;
 
     if (isPlaying && playingIndex === currentIndex) {
       // Stop current audio
@@ -156,9 +97,9 @@ export function HistoireArchives({ onBack }: HistoireProps) {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      
+
       // Start new audio
-      const audio = new Audio(moment.audioUrl);
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
       audio.onended = () => {
@@ -185,11 +126,11 @@ export function HistoireArchives({ onBack }: HistoireProps) {
 
   // Get current and next moment based on scroll progress
   const currentIndex = Math.floor(scrollProgress);
-  const nextIndex = Math.min(currentIndex + 1, MOMENTS.length - 1);
+  const nextIndex = Math.min(currentIndex + 1, moments.length - 1);
   const transition = scrollProgress - currentIndex; // 0 to 1
 
-  const currentMoment = MOMENTS[currentIndex];
-  const nextMoment = MOMENTS[nextIndex];
+  const currentMoment = moments[currentIndex];
+  const nextMoment = moments[nextIndex];
 
   // Stop audio if scrolling away from playing moment
   useEffect(() => {
@@ -249,7 +190,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
           zIndex: 1000
         }}
       >
-        HISTOIRE
+        {t('history.title')}
       </div>
 
       {/* Cross structure */}
@@ -314,7 +255,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
         }}
       >
         {/* Spacer to create scroll space */}
-        <div style={{ height: `${MOMENTS.length * 100}vh` }} />
+        <div style={{ height: `${moments.length * 100}vh` }} />
       </div>
 
       {/* Content layer (fixed at center) */}
@@ -451,7 +392,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
       </div>
 
       {/* Audio trigger (if available for current moment) */}
-      {currentMoment.audioUrl && (
+      {AUDIO_URLS[currentMoment.id] && (
         <button
           onClick={handleAudioToggle}
           style={{
@@ -463,8 +404,8 @@ export function HistoireArchives({ onBack }: HistoireProps) {
             height: '44px',
             borderRadius: '50%',
             border: '0.5px solid rgba(0, 61, 44, 0.2)',
-            background: isPlaying && playingIndex === currentIndex 
-              ? 'rgba(0, 61, 44, 0.08)' 
+            background: isPlaying && playingIndex === currentIndex
+              ? 'rgba(0, 61, 44, 0.08)'
               : 'rgba(250, 248, 243, 0.9)',
             backdropFilter: 'blur(8px)',
             display: 'flex',
@@ -484,7 +425,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
             e.currentTarget.style.opacity = currentOpacity > 0.5 ? '0.6' : '0';
             e.currentTarget.style.transform = 'translateX(-50%) scale(1)';
           }}
-          aria-label="Écouter le fragment"
+          aria-label={t('history.audio')}
         >
           <Volume2 
             size={16} 
@@ -516,7 +457,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
           zIndex: 100
         }}
       >
-        La ville se souvenir par fragments.
+        {t('history.footer')}
       </div>
 
       {/* Hide scrollbar + animations */}

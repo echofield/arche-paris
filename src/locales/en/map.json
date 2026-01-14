@@ -1,5 +1,5 @@
 {
-  "map.title": "My Map of Paris",
+  "map.title": "My Paris Map",
 
   "map.roles.traveler.name": "Traveler",
   "map.roles.traveler.title": "You begin your path",
@@ -12,6 +12,28 @@
 
   "map.stats.collected": "symbols collected",
   "map.stats.nextRole": "Next role: {role} ({count} symbols to go)",
+  "map.stats.yourRank": "Your rank",
+  "map.stats.symbols": "symbols",
+
+  "map.legend.toDiscover": "To discover",
+  "map.legend.inProgress": "In progress",
+  "map.legend.completed": "Completed",
+
+  "map.panel.arrondissement": "Arrondissement",
+
+  "map.detail.collect": "Collect this symbol",
+  "map.detail.collected": "Symbol already collected",
+  "map.detail.location": "Location:",
+  "map.detail.weight": "Weight:",
+  "map.detail.discoverOnSite": "Discover on site",
+  "map.detail.gpsCoords": "GPS Coordinates",
+  "map.detail.viewMap": "View map",
+  "map.detail.guardian": "Guardian:",
+  "map.detail.iFoundIt": "I found it",
+  "map.detail.inCollection": "In your collection",
+  "map.detail.close": "Close",
+
+  "map.footer": "Each symbol found lights up a neuron in the brain of Paris.",
 
   "map.arrondissements": {
     "1": "1st — Louvre",
@@ -35,11 +57,6 @@
     "19": "19th — Buttes-Chaumont",
     "20": "20th — Ménilmontant"
   },
-
-  "map.detail.collect": "Collect this symbol",
-  "map.detail.collected": "Symbol already collected",
-  "map.detail.location": "Location:",
-  "map.detail.weight": "Weight:",
 
   "map.messages.empty": "No symbols in this arrondissement",
   "map.messages.select": "Select an arrondissement on the map"
