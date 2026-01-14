@@ -66,29 +66,18 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     localStorage.setItem(LANGUAGE_KEY, lang);
   };
 
-  // Translation function
+  // Translation function - supports flat keys like "map.title"
   const t = (key: string, params?: Record<string, string | number>): string => {
-    const keys = key.split('.');
-    let value: any = translations[language];
+    // First try flat key lookup (e.g., "map.title" as a literal key)
+    let value: any = translations[language][key];
 
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
-      } else {
-        // Fallback to French if key not found
-        value = translations['fr'];
-        for (const fk of keys) {
-          if (value && typeof value === 'object' && fk in value) {
-            value = value[fk];
-          } else {
-            return key; // Return key if not found
-          }
-        }
-        break;
-      }
+    // Fallback to French if not found in current language
+    if (value === undefined) {
+      value = translations['fr'][key];
     }
 
-    if (typeof value !== 'string') {
+    // If still not found, return the key
+    if (value === undefined || typeof value !== 'string') {
       return key;
     }
 
@@ -104,15 +93,12 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
 
   // Get array translations (for moments, points, symbols, etc.)
   const tArray = (key: string): any[] => {
-    const keys = key.split('.');
-    let value: any = translations[language];
+    // First try flat key lookup
+    let value: any = translations[language][key];
 
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
-      } else {
-        return [];
-      }
+    // Fallback to French if not found
+    if (value === undefined) {
+      value = translations['fr'][key];
     }
 
     return Array.isArray(value) ? value : [];
