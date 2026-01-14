@@ -1,0 +1,80 @@
+{
+  "treasure.header.title": "Trésor Caché",
+  "treasure.header.subtitle": "Hunter: Montmartre",
+  "treasure.header.progress": "{count} / 4 symboles trouvés",
+
+  "treasure.buttons.hideMap": "◇ Cacher la carte",
+  "treasure.buttons.showMap": "◇ Voir la carte",
+  "treasure.buttons.startRiddle": "Commencer l'énigme",
+  "treasure.buttons.validate": "Valider",
+  "treasure.buttons.found": "Je l'ai trouvé",
+  "treasure.buttons.validatePresence": "Valider ma présence",
+  "treasure.buttons.viewClue": "Revoir l'indice",
+  "treasure.buttons.nextSymbol": "Symbole suivant",
+  "treasure.buttons.finish": "Terminer la chasse",
+  "treasure.buttons.home": "Retour à l'accueil",
+
+  "treasure.phases.patience": "Patience...",
+  "treasure.phases.riddle": "ÉNIGME",
+  "treasure.phases.clueRevealed": "Indice révélé",
+  "treasure.phases.proofOfPresence": "Preuve de présence",
+  "treasure.phases.yourAnswer": "Ta réponse...",
+  "treasure.phases.addedToCollection": "Ajouté à ta collection",
+  "treasure.phases.collectedSymbols": "SYMBOLES COLLECTÉS",
+
+  "treasure.gps.checking": "Vérification GPS...",
+  "treasure.gps.areYouAt": "Es-tu vraiment à {location}?",
+  "treasure.gps.confirmed": "Position confirmée!",
+  "treasure.gps.onSite": "Tu es bien sur place. Symbole validé.",
+  "treasure.gps.distance": "Tu sembles être à {distance}m",
+  "treasure.gps.fallback": "Pas de souci — réponds à une question pour valider.",
+  "treasure.gps.unavailable": "GPS indisponible",
+  "treasure.gps.switchToQuestion": "On passe à la question de vérification.",
+
+  "treasure.errors.timeUp": "Temps écoulé! Réessaie.",
+  "treasure.errors.wrongAnswer": "Ce n'est pas la bonne réponse...",
+  "treasure.errors.notOnSite": "Hmm, ce n'est pas ce que je vois... Es-tu vraiment sur place?",
+
+  "treasure.generic.solveFirst": "Pour révéler l'indice, tu dois d'abord résoudre l'énigme.",
+  "treasure.generic.findAndReturn": "Trouve ce symbole, puis reviens ici pour prouver ta découverte.",
+  "treasure.generic.onSiteOnly": "Les réponses de preuve ne sont trouvables que sur place.",
+
+  "treasure.final.title": "Gardien de Montmartre",
+  "treasure.final.line1": "Tu as découvert tous les secrets de la Butte.",
+  "treasure.final.line2": "Montmartre te reconnaît comme l'un des siens.",
+
+  "treasure.symbols": [
+    {
+      "id": "sym-18-01",
+      "name": "Le Passe-Muraille",
+      "riddle": "Je traverse les murs mais je suis figé pour l'éternité. Marcel m'a créé, Marais m'a sculpté. Qui suis-je?",
+      "clue": "Place Marcel Aymé, au bout de la rue Norvins. Un homme émerge du mur, coincé entre deux mondes.",
+      "proof": "De quelle main le Passe-Muraille sort-il du mur? (gauche/droite)",
+      "place": "Place Marcel Aymé"
+    },
+    {
+      "id": "sym-18-02",
+      "name": "Le Cadran du Coq",
+      "riddle": "QUAND SONNERA JE CHANTERAY — mais une lettre s'est rebellée, elle regarde dans l'autre sens.",
+      "clue": "Rue de l'Abreuvoir, sur une façade discrète. Un cadran solaire où le N refuse de suivre les autres.",
+      "proof": "Quelle lettre est inversée sur le cadran? (une seule lettre)",
+      "place": "Rue de l'Abreuvoir"
+    },
+    {
+      "id": "sym-18-03",
+      "name": "Le Rocher de la Sorcière",
+      "riddle": "Dans un jardin interdit aux passants, une pierre brute refuse d'être polie par la civilisation.",
+      "clue": "Avenue Junot, derrière une grille. Le jardin sauvage de Montmartre cache une roche ancienne.",
+      "proof": "Quelle est la couleur dominante de la grille qui protège le jardin? (un mot)",
+      "place": "Avenue Junot"
+    },
+    {
+      "id": "sym-18-04",
+      "name": "La Vigne Sacrée",
+      "riddle": "Du vin pousse encore sur la Butte. Chaque automne, les vendanges rappellent que Paris fut campagne.",
+      "clue": "Rue des Saules, angle rue Saint-Vincent. Le Clos Montmartre — la dernière vigne de Paris.",
+      "proof": "Quel est le nom du cabaret célèbre juste à côté de la vigne? (deux mots)",
+      "place": "Rue des Saules"
+    }
+  ]
+}

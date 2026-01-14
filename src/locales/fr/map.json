@@ -1,0 +1,46 @@
+{
+  "map.title": "Ma Carte de Paris",
+
+  "map.roles.traveler.name": "Voyageur",
+  "map.roles.traveler.title": "Tu commences ton parcours",
+  "map.roles.guide.name": "Guide",
+  "map.roles.guide.title": "Tu connais quelques secrets",
+  "map.roles.hero.name": "Héros",
+  "map.roles.hero.title": "Collectionneur aguerri",
+  "map.roles.guardian.name": "Gardien",
+  "map.roles.guardian.title": "Protecteur de la mémoire",
+
+  "map.stats.collected": "symboles collectés",
+  "map.stats.nextRole": "Prochain rôle: {role} (encore {count} symboles)",
+
+  "map.arrondissements": {
+    "1": "1er — Louvre",
+    "2": "2e — Bourse",
+    "3": "3e — Temple",
+    "4": "4e — Hôtel-de-Ville",
+    "5": "5e — Panthéon",
+    "6": "6e — Luxembourg",
+    "7": "7e — Palais-Bourbon",
+    "8": "8e — Élysée",
+    "9": "9e — Opéra",
+    "10": "10e — Enclos-St-Laurent",
+    "11": "11e — Popincourt",
+    "12": "12e — Reuilly",
+    "13": "13e — Gobelins",
+    "14": "14e — Observatoire",
+    "15": "15e — Vaugirard",
+    "16": "16e — Passy",
+    "17": "17e — Batignolles-Monceau",
+    "18": "18e — Butte-Montmartre",
+    "19": "19e — Buttes-Chaumont",
+    "20": "20e — Ménilmontant"
+  },
+
+  "map.detail.collect": "Collecter ce symbole",
+  "map.detail.collected": "Symbole déjà collecté",
+  "map.detail.location": "Localisation:",
+  "map.detail.weight": "Poids:",
+
+  "map.messages.empty": "Aucun symbole dans cet arrondissement",
+  "map.messages.select": "Sélectionne un arrondissement sur la carte"
+}

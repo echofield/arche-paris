@@ -1,0 +1,26 @@
+{
+  "home.title": "ARCHÉ",
+  "home.subtitle": "Your Paris begins here.",
+
+  "nav.quests": "Quests",
+  "nav.history": "History",
+  "nav.notebook": "Notebook",
+  "nav.map": "My Map",
+
+  "home.cta.primary": "Discover My Paris",
+
+  "home.intro.note": "Three ways to traverse Paris.",
+
+  "home.cards.origin.title": "Origin",
+  "home.cards.origin.subtitle": "Manifesto · Gesture · Foundation",
+
+  "home.cards.quests.title": "Quests",
+  "home.cards.quests.subtitle": "Lutetia · 1789 · Table",
+
+  "home.cards.history.title": "History",
+  "home.cards.history.subtitle": "Archives · Narratives · Memory",
+
+  "home.hidden.treasure": "Hidden Treasure",
+
+  "home.footer.signature": "Petit Souvenir"
+}

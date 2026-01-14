@@ -1,0 +1,73 @@
+{
+  "history.title": "HISTORY",
+  "history.footer": "The city remembers itself in fragments.",
+  "history.audio": "Listen to the fragment",
+
+  "history.moments": [
+    {
+      "date": "52 BC",
+      "word": "CROSSING",
+      "sentence": "A ford becomes a center. Movement comes before capital."
+    },
+    {
+      "date": "508",
+      "word": "DESIGNATION",
+      "sentence": "Power chooses a place. Paris becomes a name, not yet a form."
+    },
+    {
+      "date": "987",
+      "word": "ANCHORING",
+      "sentence": "Royalty settles in. The temporary begins to last."
+    },
+    {
+      "date": "1163",
+      "word": "ASCENT",
+      "sentence": "Notre-Dame begins. The city looks upward."
+    },
+    {
+      "date": "1200",
+      "word": "ENCLOSURE",
+      "sentence": "Philippe Auguste closes Paris. To protect is already to exist."
+    },
+    {
+      "date": "1305",
+      "word": "INSTITUTION",
+      "sentence": "The papacy arrives in Paris. The spiritual turns political."
+    },
+    {
+      "date": "1572",
+      "word": "RUPTURE",
+      "sentence": "The city turns against itself. Faith fractures space."
+    },
+    {
+      "date": "1648",
+      "word": "OVERFLOW",
+      "sentence": "The street speaks. Power learns to listen to the crowd."
+    },
+    {
+      "date": "1789",
+      "word": "PASSAGE",
+      "sentence": "A piece of furniture becomes a tribune. The private becomes public."
+    },
+    {
+      "date": "1853",
+      "word": "CUTTING THROUGH",
+      "sentence": "Haussmann slices. Circulation replaces entanglement."
+    },
+    {
+      "date": "1871",
+      "word": "UPRISING",
+      "sentence": "The city governs itself. Too early, too strong."
+    },
+    {
+      "date": "1968",
+      "word": "SATURATION",
+      "sentence": "Speech spills everywhere. Nothing contains meaning anymore."
+    },
+    {
+      "date": "Today",
+      "word": "SUSPENSION",
+      "sentence": "The city hesitates. It awaits a new gesture."
+    }
+  ]
+}

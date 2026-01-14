@@ -1,0 +1,80 @@
+{
+  "treasure.header.title": "Hidden Treasure",
+  "treasure.header.subtitle": "Hunter: Montmartre",
+  "treasure.header.progress": "{count} / 4 symbols found",
+
+  "treasure.buttons.hideMap": "◇ Hide the map",
+  "treasure.buttons.showMap": "◇ Show the map",
+  "treasure.buttons.startRiddle": "Start the riddle",
+  "treasure.buttons.validate": "Validate",
+  "treasure.buttons.found": "I found it",
+  "treasure.buttons.validatePresence": "Validate my presence",
+  "treasure.buttons.viewClue": "View the clue again",
+  "treasure.buttons.nextSymbol": "Next symbol",
+  "treasure.buttons.finish": "Finish the hunt",
+  "treasure.buttons.home": "Back to home",
+
+  "treasure.phases.patience": "Patience…",
+  "treasure.phases.riddle": "RIDDLE",
+  "treasure.phases.clueRevealed": "Clue revealed",
+  "treasure.phases.proofOfPresence": "Proof of presence",
+  "treasure.phases.yourAnswer": "Your answer…",
+  "treasure.phases.addedToCollection": "Added to your collection",
+  "treasure.phases.collectedSymbols": "COLLECTED SYMBOLS",
+
+  "treasure.gps.checking": "GPS check…",
+  "treasure.gps.areYouAt": "Are you really at {location}?",
+  "treasure.gps.confirmed": "Position confirmed!",
+  "treasure.gps.onSite": "You are on site. Symbol validated.",
+  "treasure.gps.distance": "You seem to be {distance}m away",
+  "treasure.gps.fallback": "No problem — answer a question to validate.",
+  "treasure.gps.unavailable": "GPS unavailable",
+  "treasure.gps.switchToQuestion": "Switching to the verification question.",
+
+  "treasure.errors.timeUp": "Time's up! Try again.",
+  "treasure.errors.wrongAnswer": "That's not the right answer…",
+  "treasure.errors.notOnSite": "Hmm, that's not what I see… Are you really on site?",
+
+  "treasure.generic.solveFirst": "To reveal the clue, you must first solve the riddle.",
+  "treasure.generic.findAndReturn": "Find this symbol, then come back here to prove your discovery.",
+  "treasure.generic.onSiteOnly": "Proof answers can only be found on site.",
+
+  "treasure.final.title": "Guardian of Montmartre",
+  "treasure.final.line1": "You have uncovered all the secrets of the Butte.",
+  "treasure.final.line2": "Montmartre recognizes you as one of its own.",
+
+  "treasure.symbols": [
+    {
+      "id": "sym-18-01",
+      "name": "The Man Who Walked Through Walls",
+      "riddle": "I pass through walls, yet I am frozen for eternity. Marcel created me, Marais sculpted me. Who am I?",
+      "clue": "Place Marcel Aymé, at the end of Rue Norvins. A man emerges from the wall, caught between two worlds.",
+      "proof": "Which hand is the Passe-Muraille coming out with? (left/right)",
+      "place": "Place Marcel Aymé"
+    },
+    {
+      "id": "sym-18-02",
+      "name": "The Rooster Sundial",
+      "riddle": "QUAND SONNERA JE CHANTERAY — but one letter rebelled; it faces the other way.",
+      "clue": "Rue de l'Abreuvoir, on a discreet façade. A sundial where the N refuses to follow the others.",
+      "proof": "Which letter is inverted on the dial? (one letter)",
+      "place": "Rue de l'Abreuvoir"
+    },
+    {
+      "id": "sym-18-03",
+      "name": "The Witch's Rock",
+      "riddle": "In a garden closed to passersby, a raw stone refuses to be polished by civilization.",
+      "clue": "Avenue Junot, behind a gate. Montmartre's wild garden hides an ancient rock.",
+      "proof": "What is the dominant color of the gate protecting the garden? (one word)",
+      "place": "Avenue Junot"
+    },
+    {
+      "id": "sym-18-04",
+      "name": "The Sacred Vine",
+      "riddle": "Wine still grows on the Butte. Each autumn, the harvest recalls that Paris was once countryside.",
+      "clue": "Rue des Saules, corner of Rue Saint-Vincent. Clos Montmartre — the last vineyard in Paris.",
+      "proof": "What is the name of the famous cabaret right next to the vine? (two words)",
+      "place": "Rue des Saules"
+    }
+  ]
+}

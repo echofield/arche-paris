@@ -1,0 +1,73 @@
+{
+  "history.title": "HISTOIRE",
+  "history.footer": "La ville se souvient par fragments.",
+  "history.audio": "Écouter le fragment",
+
+  "history.moments": [
+    {
+      "date": "−52 av. J.-C.",
+      "word": "FRANCHISSEMENT",
+      "sentence": "Un gué devient un centre. La circulation précède la capitale."
+    },
+    {
+      "date": "508",
+      "word": "DÉSIGNATION",
+      "sentence": "Le pouvoir choisit un lieu. Paris devient nom, pas encore forme."
+    },
+    {
+      "date": "987",
+      "word": "ANCRAGE",
+      "sentence": "La royauté s'installe. Le provisoire commence à durer."
+    },
+    {
+      "date": "1163",
+      "word": "ÉLÉVATION",
+      "sentence": "On commence Notre-Dame. La ville regarde vers le haut."
+    },
+    {
+      "date": "1200",
+      "word": "ENCLOSURE",
+      "sentence": "Philippe Auguste ferme Paris. Se protéger, c'est déjà exister."
+    },
+    {
+      "date": "1305",
+      "word": "INSTITUTION",
+      "sentence": "La papauté arrive à Paris. Le spirituel devient politique."
+    },
+    {
+      "date": "1572",
+      "word": "RUPTURE",
+      "sentence": "La ville se retourne contre elle-même. La foi fracture l'espace."
+    },
+    {
+      "date": "1648",
+      "word": "DÉBORDEMENT",
+      "sentence": "La rue parle. Le pouvoir apprend à écouter la foule."
+    },
+    {
+      "date": "1789",
+      "word": "PASSAGE",
+      "sentence": "Un meuble devient tribune. Le privé devient public."
+    },
+    {
+      "date": "1853",
+      "word": "PERCEMENT",
+      "sentence": "Haussmann tranche. La circulation remplace l'enchevêtrement."
+    },
+    {
+      "date": "1871",
+      "word": "SOULÈVEMENT",
+      "sentence": "La ville s'auto-administre. Trop tôt, trop fort."
+    },
+    {
+      "date": "1968",
+      "word": "SATURATION",
+      "sentence": "La parole déborde partout. Plus rien ne contient le sens."
+    },
+    {
+      "date": "Aujourd'hui",
+      "word": "SUSPENSION",
+      "sentence": "La ville hésite. Elle attend un nouveau geste."
+    }
+  ]
+}

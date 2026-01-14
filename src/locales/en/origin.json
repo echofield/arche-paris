@@ -1,0 +1,41 @@
+{
+  "origin.title": "Origin",
+  "origin.protocol": "Walking Protocol",
+
+  "origin.modal.submit": "Submit proof",
+  "origin.modal.describe": "Describe the threshold…",
+  "origin.modal.seal": "Seal the step",
+
+  "origin.points": [
+    {
+      "numeral": "I",
+      "name": "WATER IN GLASS",
+      "phrase": "I carried water, then I became transparent."
+    },
+    {
+      "numeral": "II",
+      "name": "LATIN AT THE THRESHOLD",
+      "phrase": "The law begins here, before language."
+    },
+    {
+      "numeral": "III",
+      "name": "THE COMMERCIAL PASSAGE",
+      "phrase": "I was not a street, but I had a flow."
+    },
+    {
+      "numeral": "IV",
+      "name": "THE STONE ALPHABET",
+      "phrase": "I speak without a voice. I mark without writing."
+    },
+    {
+      "numeral": "V",
+      "name": "THE INVISIBLE THRESHOLD",
+      "phrase": "You enter without knowing it. You leave without seeing it."
+    },
+    {
+      "numeral": "VI",
+      "name": "THE CIVIC CIRCLE",
+      "phrase": "I gather without a center."
+    }
+  ]
+}

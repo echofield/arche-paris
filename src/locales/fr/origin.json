@@ -1,0 +1,41 @@
+{
+  "origin.title": "Origine",
+  "origin.protocol": "Protocole de Marche",
+
+  "origin.modal.submit": "Déposer la preuve",
+  "origin.modal.describe": "Décrire le seuil...",
+  "origin.modal.seal": "Sceller l'étape",
+
+  "origin.points": [
+    {
+      "numeral": "I",
+      "name": "L'EAU EN VERRE",
+      "phrase": "J'ai porté l'eau, puis je suis devenu transparent."
+    },
+    {
+      "numeral": "II",
+      "name": "LE LATIN AU SEUIL",
+      "phrase": "La loi commence ici avant la langue."
+    },
+    {
+      "numeral": "III",
+      "name": "LE PASSAGE COMMERCIAL",
+      "phrase": "Je n'étais pas une rue, mais j'avais un flux."
+    },
+    {
+      "numeral": "IV",
+      "name": "L'ALPHABET DE PIERRE",
+      "phrase": "Je parle sans voix. Je marque sans écrire."
+    },
+    {
+      "numeral": "V",
+      "name": "LE SEUIL INVISIBLE",
+      "phrase": "On entre sans le savoir. On sort sans le voir."
+    },
+    {
+      "numeral": "VI",
+      "name": "LE CERCLE CIVIQUE",
+      "phrase": "Je rassemble sans centre."
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "map.title": "My Map of Paris",
+
+  "map.roles.traveler.name": "Traveler",
+  "map.roles.traveler.title": "You begin your path",
+  "map.roles.guide.name": "Guide",
+  "map.roles.guide.title": "You know a few secrets",
+  "map.roles.hero.name": "Hero",
+  "map.roles.hero.title": "Seasoned collector",
+  "map.roles.guardian.name": "Guardian",
+  "map.roles.guardian.title": "Protector of memory",
+
+  "map.stats.collected": "symbols collected",
+  "map.stats.nextRole": "Next role: {role} ({count} symbols to go)",
+
+  "map.arrondissements": {
+    "1": "1st — Louvre",
+    "2": "2nd — Bourse",
+    "3": "3rd — Temple",
+    "4": "4th — Hôtel-de-Ville",
+    "5": "5th — Panthéon",
+    "6": "6th — Luxembourg",
+    "7": "7th — Palais-Bourbon",
+    "8": "8th — Élysée",
+    "9": "9th — Opéra",
+    "10": "10th — Enclos-St-Laurent",
+    "11": "11th — Popincourt",
+    "12": "12th — Reuilly",
+    "13": "13th — Gobelins",
+    "14": "14th — Observatoire",
+    "15": "15th — Vaugirard",
+    "16": "16th — Passy",
+    "17": "17th — Batignolles-Monceau",
+    "18": "18th — Butte-Montmartre",
+    "19": "19th — Buttes-Chaumont",
+    "20": "20th — Ménilmontant"
+  },
+
+  "map.detail.collect": "Collect this symbol",
+  "map.detail.collected": "Symbol already collected",
+  "map.detail.location": "Location:",
+  "map.detail.weight": "Weight:",
+
+  "map.messages.empty": "No symbols in this arrondissement",
+  "map.messages.select": "Select an arrondissement on the map"
+}

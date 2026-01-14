@@ -10,6 +10,8 @@ import { HunterMontmartre } from './components/HunterMontmartre';
 import { CultureQuiz } from './components/CultureQuiz';
 import { CardEntry } from './components/CardEntry';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
+import { LanguageProvider } from './utils/i18n';
+import { LanguageSelector } from './components/LanguageSelector';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection' | 'seuil';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
@@ -170,5 +172,12 @@ export default function App() {
     }
   };
 
-  return <div style={{ minHeight: '100vh', background: '#FAF8F2' }}>{renderScreen()}</div>;
+  return (
+    <LanguageProvider>
+      <div style={{ minHeight: '100vh', background: '#FAF8F2' }}>
+        <LanguageSelector />
+        {renderScreen()}
+      </div>
+    </LanguageProvider>
+  );
 }
