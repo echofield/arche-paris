@@ -399,6 +399,26 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
         >
           Ma Carte
         </button>
+        <button
+          onClick={onEnterSeuil}
+          className="small-caps"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: '#B8860B',
+            opacity: 0.8,
+            cursor: 'pointer',
+            transition: 'opacity var(--transition)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+        >
+          Le Seuil
+        </button>
       </nav>
 
       {/* Trésor Caché — Entrée mystérieuse pour Hunter */}
