@@ -10,6 +10,7 @@ interface HomepageV1Props {
   onEnterCarnet?: () => void;
   onEnterHunter?: () => void;
   onEnterCollection?: () => void;
+  onEnterSeuil?: () => void;
 }
 
 /**

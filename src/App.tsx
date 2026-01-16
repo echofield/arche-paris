@@ -90,7 +90,7 @@ export default function App() {
       } else if (hash === 'collection') {
         setCurrentScreen('collection');
       } else if (hash === 'seuil') {
-        setCurrentScreen('collection');
+        setCurrentScreen('seuil');
       } else if (hash === 'quetes') {
         setCurrentScreen('quetes');
       } else if (hash.startsWith('quete/')) {
@@ -140,6 +140,7 @@ export default function App() {
             onEnterCarnet={() => navigateTo('carnet')}
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
+            onEnterSeuil={() => navigateTo('seuil')}
           />
         );
       case 'origine':
@@ -167,6 +168,8 @@ export default function App() {
         return <CarnetParisien cardId={cardStatus?.cardId || 'unknown'} onBack={() => navigateTo('homepage')} />;
       case 'collection':
         return <CollectionMap onBack={() => navigateTo('homepage')} />;
+      case 'seuil':
+        return <CultureQuiz onBack={() => navigateTo('homepage')} />;
       default:
         return null;
     }
