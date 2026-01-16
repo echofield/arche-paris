@@ -80,3 +80,4 @@ Write-Host "   1. Configurez les variables d'environnement dans Vercel Dashboard
 Write-Host "   2. Exécutez runMigration() dans la console du navigateur" -ForegroundColor White
 Write-Host "   3. Générez les codes QR pour les cartes" -ForegroundColor White
 
+

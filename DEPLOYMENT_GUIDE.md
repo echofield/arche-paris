@@ -260,3 +260,4 @@ curl -X POST https://YOUR_PROJECT.supabase.co/functions/v1/server/generate-codes
 
 **🎉 Votre projet ARCHÉ est maintenant déployé sur Vercel !**
 
+

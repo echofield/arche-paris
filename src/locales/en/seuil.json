@@ -1,0 +1,28 @@
+{
+  "seuil.title": "CULTURE",
+  "seuil.subtitle": "Test your knowledge of Paris",
+  "seuil.back": "← Back",
+
+  "seuil.menu.level": "LEVEL",
+  "seuil.menu.mode": "MODE",
+  "seuil.menu.perQuestion": "s per question",
+  "seuil.menu.start": "START",
+
+  "seuil.mode.classique": "CLASSIC",
+  "seuil.mode.classique.desc": "10 questions",
+  "seuil.mode.sprint": "SPRINT",
+  "seuil.mode.sprint.desc": "Accelerated timer",
+
+  "seuil.result.replay": "PLAY AGAIN",
+  "seuil.result.menu": "MENU",
+  "seuil.result.quote": "\"True knowledge begins when you walk.\"",
+
+  "seuil.result.msg.perfect": "You know Paris like the back of your hand.",
+  "seuil.result.msg.great": "A beautiful stroll through history.",
+  "seuil.result.msg.good": "The city still holds secrets for you.",
+  "seuil.result.msg.low": "Paris awaits you. Go walk.",
+
+  "seuil.reveal.continue": "CONTINUE",
+  "seuil.reveal.correct": "Correct",
+  "seuil.reveal.incorrect": "Incorrect"
+}

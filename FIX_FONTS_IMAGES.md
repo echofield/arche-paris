@@ -98,3 +98,4 @@ Cela garantit que les polices se chargent même si une méthode échoue.
 **Status :** ✅ Corrections appliquées et poussées sur GitHub
 **Prochaine action :** Redéployer sur Vercel
 
+

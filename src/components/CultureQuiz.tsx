@@ -14,6 +14,7 @@ import {
   LEVELS,
   type QuizQuestion
 } from '../data/quiz-questions';
+import { useTranslation } from '../utils/i18n';
 
 type QuizPhase = 'menu' | 'playing' | 'reveal' | 'result';
 type GameMode = 'classique' | 'sprint';
@@ -23,6 +24,7 @@ interface CultureQuizProps {
 }
 
 export function CultureQuiz({ onBack }: CultureQuizProps) {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<QuizPhase>('menu');
   const [mode, setMode] = useState<GameMode>('classique');
   const [level, setLevel] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -113,16 +115,16 @@ export function CultureQuiz({ onBack }: CultureQuizProps) {
   if (phase === 'menu') {
     return (
       <div style={styles.container}>
-        <button onClick={onBack} style={styles.backButton}>← Retour</button>
+        <button onClick={onBack} style={styles.backButton}>{t('seuil.back')}</button>
 
         <div style={styles.menuContent}>
           <p style={styles.menuSymbol}>◇</p>
-          <h1 style={styles.menuTitle}>CULTURE</h1>
-          <p style={styles.menuSubtitle}>Teste ta connaissance de Paris</p>
+          <h1 style={styles.menuTitle}>{t('seuil.title')}</h1>
+          <p style={styles.menuSubtitle}>{t('seuil.subtitle')}</p>
 
           {/* Level selector */}
           <div style={styles.selector}>
-            <p style={styles.selectorLabel}>NIVEAU</p>
+            <p style={styles.selectorLabel}>{t('seuil.menu.level')}</p>
             <div style={styles.levelButtons}>
               {([1, 2, 3, 4, 5] as const).map(l => (
                 <button
@@ -139,12 +141,12 @@ export function CultureQuiz({ onBack }: CultureQuizProps) {
               ))}
             </div>
             <p style={styles.levelName}>{levelData.name}</p>
-            <p style={styles.levelDesc}>{levelData.timer}s par question</p>
+            <p style={styles.levelDesc}>{levelData.timer}{t('seuil.menu.perQuestion')}</p>
           </div>
 
           {/* Mode selector */}
           <div style={styles.selector}>
-            <p style={styles.selectorLabel}>MODE</p>
+            <p style={styles.selectorLabel}>{t('seuil.menu.mode')}</p>
             <div style={styles.modeButtons}>
               <button
                 onClick={() => setMode('classique')}
@@ -154,8 +156,8 @@ export function CultureQuiz({ onBack }: CultureQuizProps) {
                   color: mode === 'classique' ? '#FAF8F2' : '#003D2C'
                 }}
               >
-                CLASSIQUE
-                <span style={styles.modeDesc}>10 questions</span>
+                {t('seuil.mode.classique')}
+                <span style={styles.modeDesc}>{t('seuil.mode.classique.desc')}</span>
               </button>
               <button
                 onClick={() => setMode('sprint')}
@@ -165,14 +167,14 @@ export function CultureQuiz({ onBack }: CultureQuizProps) {
                   color: mode === 'sprint' ? '#FAF8F2' : '#003D2C'
                 }}
               >
-                SPRINT
-                <span style={styles.modeDesc}>Timer accéléré</span>
+                {t('seuil.mode.sprint')}
+                <span style={styles.modeDesc}>{t('seuil.mode.sprint.desc')}</span>
               </button>
             </div>
           </div>
 
           <button onClick={startGame} style={styles.startButton}>
-            COMMENCER
+            {t('seuil.menu.start')}
           </button>
         </div>
       </div>
@@ -183,10 +185,10 @@ export function CultureQuiz({ onBack }: CultureQuizProps) {
   if (phase === 'result') {
     const percentage = Math.round((score / questions.length) * 100);
     const getMessage = () => {
-      if (percentage >= 90) return "Tu connais Paris comme ta poche.";
-      if (percentage >= 70) return "Belle promenade dans l'histoire.";
-      if (percentage >= 50) return "La ville a encore des secrets pour toi.";
-      return "Paris t'attend. Va marcher.";
+      if (percentage >= 90) return t('seuil.result.msg.perfect');
+      if (percentage >= 70) return t('seuil.result.msg.great');
+      if (percentage >= 50) return t('seuil.result.msg.good');
+      return t('seuil.result.msg.low');
     };
 
     return (
@@ -211,15 +213,15 @@ export function CultureQuiz({ onBack }: CultureQuizProps) {
 
           <div style={styles.resultActions}>
             <button onClick={startGame} style={styles.replayButton}>
-              REJOUER
+              {t('seuil.result.replay')}
             </button>
             <button onClick={resetQuiz} style={styles.menuButton}>
-              MENU
+              {t('seuil.result.menu')}
             </button>
           </div>
 
           <p style={styles.resultEcho}>
-            "La vraie connaissance commence quand on marche."
+            {t('seuil.result.quote')}
           </p>
         </div>
       </div>

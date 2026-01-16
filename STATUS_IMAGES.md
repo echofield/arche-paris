@@ -28,3 +28,4 @@ Les fichiers SVG locaux **EXISTENT** dans `src/assets/` :
 
 Remplacer tous les liens Imgur par les imports des fichiers SVG locaux.
 
+

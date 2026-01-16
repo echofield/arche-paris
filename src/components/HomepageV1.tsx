@@ -1,4 +1,5 @@
 import { MamlukGrid } from './MamlukGrid';
+import { useTranslation } from '../utils/i18n';
 // Imgur images for better visual experience
 const luteceHero = 'https://i.imgur.com/woVnvZ9h.jpeg';
 
@@ -26,6 +27,8 @@ interface HomepageV1Props {
  * L'interface doit pouvoir exister imprimée.
  */
 export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onEnterCarnet, onEnterHunter, onEnterCollection, onEnterSeuil }: HomepageV1Props) {
+  const { t } = useTranslation();
+
   return (
     <div 
       className="min-h-screen relative flex items-center justify-center"
@@ -110,7 +113,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
               maxWidth: '400px'
             }}
           >
-            Votre Paris commence ici.
+            {t('home.subtitle')}
           </p>
 
           {/* CTA principal */}
@@ -140,7 +143,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            Découvrir mon Paris
+            {t('home.cta.primary')}
           </button>
 
           {/* Ligne optionnelle discrète */}
@@ -156,7 +159,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
               fontWeight: '400'
             }}
           >
-            Trois manières de traverser Paris.
+            {t('home.intro.note')}
           </p>
 
           {/* 3 CARTES ÉDITORIALES — Secondaires, silencieuses */}
@@ -197,9 +200,9 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
                   marginBottom: '8px'
                 }}
               >
-                Origine
+                {t('home.cards.origin.title')}
               </p>
-              <p 
+              <p
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: '9px',
@@ -209,7 +212,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
                   opacity: 0.5
                 }}
               >
-                Manifeste · Geste · Fondation
+                {t('home.cards.origin.subtitle')}
               </p>
             </button>
 
@@ -243,9 +246,9 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
                   marginBottom: '8px'
                 }}
               >
-                Quêtes
+                {t('home.cards.quests.title')}
               </p>
-              <p 
+              <p
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: '9px',
@@ -255,7 +258,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
                   opacity: 0.5
                 }}
               >
-                Lutèce · 1789 · Table
+                {t('home.cards.quests.subtitle')}
               </p>
             </button>
 
@@ -289,9 +292,9 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
                   marginBottom: '8px'
                 }}
               >
-                Histoire
+                {t('home.cards.history.title')}
               </p>
-              <p 
+              <p
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: '9px',
@@ -301,7 +304,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
                   opacity: 0.5
                 }}
               >
-                Archives · Récits · Mémoire
+                {t('home.cards.history.subtitle')}
               </p>
             </button>
           </div>
@@ -337,7 +340,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
         >
-          Quêtes
+          {t('nav.quests')}
         </button>
         <button
           onClick={onEnterHistoire}
@@ -357,7 +360,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
         >
-          Histoire
+          {t('nav.history')}
         </button>
         <button
           onClick={onEnterCarnet}
@@ -377,7 +380,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
         >
-          Carnet
+          {t('nav.notebook')}
         </button>
         <button
           onClick={onEnterCollection}
@@ -397,7 +400,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
         >
-          Ma Carte
+          {t('nav.map')}
         </button>
         <button
           onClick={onEnterSeuil}
@@ -417,7 +420,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
         >
-          Le Seuil
+          {t('nav.seuil')}
         </button>
       </nav>
 
@@ -455,7 +458,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
             opacity: 0.6
           }}
         >
-          ◇ Trésor caché
+          ◇ {t('home.hidden.treasure')}
         </span>
       </button>
 
@@ -471,7 +474,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           opacity: 0.15
         }}
       >
-        Petit Souvenir
+        {t('home.footer.signature')}
       </div>
 
       {/* Responsive */}

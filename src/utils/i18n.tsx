@@ -18,17 +18,19 @@ import frHistory from '../locales/fr/history.json';
 import frOrigin from '../locales/fr/origin.json';
 import frMap from '../locales/fr/map.json';
 import frTreasure from '../locales/fr/treasure.json';
+import frSeuil from '../locales/fr/seuil.json';
 
 import enHome from '../locales/en/home.json';
 import enHistory from '../locales/en/history.json';
 import enOrigin from '../locales/en/origin.json';
 import enMap from '../locales/en/map.json';
 import enTreasure from '../locales/en/treasure.json';
+import enSeuil from '../locales/en/seuil.json';
 
 // Merge all translations per language
 const translations: Record<Language, Record<string, any>> = {
-  fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure },
-  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure }
+  fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure, ...frSeuil },
+  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil }
 };
 
 // Storage key
