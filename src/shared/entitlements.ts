@@ -6,7 +6,8 @@
  */
 
 // TODO: Replace with actual entitlement logic (auth, API, etc.)
-export const entitlements: string[] = [];
+// TEMP: Force Card 001 visible for verification (REMOVE AFTER TEST)
+export const entitlements: string[] = ["card_001_threshold"];
 
 export const hasCard = (cardId: string): boolean => {
   return entitlements.includes(cardId);
