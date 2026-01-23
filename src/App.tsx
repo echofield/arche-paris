@@ -9,8 +9,9 @@ import { CollectionMap } from './components/CollectionMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
 import { CultureQuiz } from './components/CultureQuiz';
 import { CardEntry } from './components/CardEntry';
+import { CardDrawer } from './components/CardDrawer';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
-import { LanguageProvider } from './utils/i18n';
+import { LanguageProvider, useTranslation } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection' | 'seuil';
@@ -180,6 +181,7 @@ export default function App() {
       <div style={{ minHeight: '100vh', background: '#FAF8F2' }}>
         <LanguageSelector />
         {renderScreen()}
+        <CardDrawer />
       </div>
     </LanguageProvider>
   );

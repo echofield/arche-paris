@@ -1,0 +1,33 @@
+{
+  "cards": [
+    {
+      "card_id": "card_001_threshold",
+      "name": {
+        "fr": "Le Seuil",
+        "en": "The Threshold"
+      },
+      "body": {
+        "fr": [
+          "Tu n'es pas encore entré.",
+          "Mais tu n'es plus tout à fait dehors.",
+          "",
+          "Ce moment existe dans toutes les villes.",
+          "Celui où l'on ralentit sans savoir pourquoi.",
+          "",
+          "ARCHÉ ne commence pas quand tu marches.",
+          "Elle commence quand tu reconnais."
+        ],
+        "en": [
+          "You have not yet entered.",
+          "But you are no longer outside.",
+          "",
+          "Every city holds this moment.",
+          "When your pace changes without reason.",
+          "",
+          "ARCHÉ does not begin when you walk.",
+          "It begins when you recognize."
+        ]
+      }
+    }
+  ]
+}
