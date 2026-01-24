@@ -58,9 +58,10 @@ export function CardDrawer() {
 
   return (
     <>
-      {/* Trigger — bottom right */}
+      {/* Trigger — bottom right (hidden on mobile to prevent accidental taps) */}
       <button
         onClick={() => setIsOpen(true)}
+        className="card-drawer-trigger"
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -82,6 +83,13 @@ export function CardDrawer() {
       >
         &#9671;
       </button>
+      <style>{`
+        @media (max-width: 768px) {
+          .card-drawer-trigger {
+            display: none !important;
+          }
+        }
+      `}</style>
 
       {/* Overlay */}
       {isOpen && (

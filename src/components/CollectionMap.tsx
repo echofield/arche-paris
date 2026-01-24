@@ -272,6 +272,7 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
 
         {/* Map Container */}
         <div
+          className="collection-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: selectedArr ? '1fr 1fr' : '1fr',
@@ -898,6 +899,30 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
         @media (max-width: 900px) {
           .collection-grid {
             grid-template-columns: 1fr !important;
+            gap: 24px !important;
+          }
+          .collection-grid > div:first-child {
+            padding: 16px !important;
+          }
+          .collection-grid > div:first-child svg {
+            max-width: 100% !important;
+          }
+          .collection-grid > div:last-child {
+            padding: 16px !important;
+            max-height: 50vh;
+            overflow-y: auto;
+          }
+        }
+        @media (max-width: 480px) {
+          .collection-grid {
+            gap: 16px !important;
+          }
+          .collection-grid > div:first-child {
+            padding: 12px !important;
+          }
+          .collection-grid > div:last-child {
+            padding: 12px !important;
+            max-height: 40vh;
           }
         }
       `}</style>
