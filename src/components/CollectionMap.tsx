@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
+import { InscriptionsPanel } from './InscriptionsPanel';
 import { SYMBOLS, getSymbolsByArrondissement, type Symbol } from '../data/symbols';
 import { GAME_CARDS, type GameCard } from '../data/game-cards';
 import { getCollectionStats, collectSymbol, isSymbolCollected } from '../utils/collection-service';
 import { useTranslation } from '../utils/i18n';
+import type { LieuMinimal } from '../types/inscriptions';
 
 // Get matching game card for a symbol (by location/name matching)
 function getMatchingGameCard(symbol: Symbol): GameCard | undefined {
@@ -150,6 +152,9 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
   const [stats, setStats] = useState(getCollectionStats(SYMBOLS));
   const [showSymbolDetail, setShowSymbolDetail] = useState<Symbol | null>(null);
 
+  // Inscriptions panel state
+  const [inscriptionsLieu, setInscriptionsLieu] = useState<LieuMinimal | null>(null);
+
   // Build roles with translations
   const walkerRoles = useMemo((): WalkerRole[] => {
     return ROLE_THRESHOLDS.map(r => ({
@@ -169,6 +174,16 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
     collectSymbol(symbolId);
     refreshStats();
     setShowSymbolDetail(null);
+  };
+
+  // Open inscriptions panel for a symbol
+  const openInscriptions = (symbol: Symbol, gameCard?: GameCard) => {
+    setInscriptionsLieu({
+      id: symbol.id,
+      name: gameCard?.name || symbol.name,
+      arrondissement: `${symbol.arrondissement}e arrondissement`
+    });
+    setShowSymbolDetail(null); // Close detail modal when opening inscriptions
   };
 
   const symbols = selectedArr ? getSymbolsByArrondissement(selectedArr) : [];
@@ -812,6 +827,34 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                     </p>
                   )}
 
+                  {/* Inscriptions CTA - subtle invitation */}
+                  <button
+                    onClick={() => openInscriptions(showSymbolDetail, gameCard)}
+                    style={{
+                      width: '100%',
+                      background: 'transparent',
+                      color: '#003D2C',
+                      border: '1px dashed rgba(0, 61, 44, 0.25)',
+                      padding: '12px 24px',
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '13px',
+                      fontStyle: 'italic',
+                      cursor: 'pointer',
+                      marginBottom: '16px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.5)';
+                      e.currentTarget.style.background = 'rgba(0, 61, 44, 0.03)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.25)';
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    Inscrire un fragment...
+                  </button>
+
                   <div style={{ display: 'flex', gap: '12px' }}>
                     {!collected ? (
                       <button
@@ -926,6 +969,15 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
           }
         }
       `}</style>
+
+      {/* Inscriptions Panel Overlay */}
+      {inscriptionsLieu && (
+        <InscriptionsPanel
+          lieu={inscriptionsLieu}
+          isOpen={!!inscriptionsLieu}
+          onClose={() => setInscriptionsLieu(null)}
+        />
+      )}
     </div>
   );
 }
