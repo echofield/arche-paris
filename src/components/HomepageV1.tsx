@@ -157,10 +157,7 @@ export function HomepageV1({
             letterSpacing: '0.15em',
             marginBottom: '8px',
             lineHeight: 1,
-            color: 'transparent',
-            WebkitTextFillColor: 'transparent',
-            WebkitTextStrokeWidth: '1px',
-            WebkitTextStrokeColor: '#1A1A1A'
+            color: '#003D2C'
           }}
         >
           ARCHÉ
