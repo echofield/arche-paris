@@ -152,16 +152,15 @@ export function HomepageV1({
         <h1
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: 'clamp(28px, 6vw, 48px)',
-            fontWeight: '300',
-            color: '#1A1A1A',
-            letterSpacing: '0.25em',
-            marginBottom: '6px',
+            fontSize: 'clamp(48px, 10vw, 96px)',
+            fontWeight: '400',
+            letterSpacing: '0.15em',
+            marginBottom: '8px',
             lineHeight: 1,
-            opacity: 0.85
+            color: '#003D2C'
           }}
         >
-          ARCHE
+          ARCHÉ
         </h1>
 
         <p
