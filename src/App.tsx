@@ -6,9 +6,10 @@ import { OrigineMap } from './components/OrigineMap';
 import { HistoireArchives } from './components/HistoireArchives';
 import { CarnetParisien } from './components/CarnetParisien';
 import { CollectionMap } from './components/CollectionMap';
+import { PersonalMemoryMap } from './components/PersonalMemoryMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
 import { CultureQuiz } from './components/CultureQuiz';
-import { EtudesPage } from './components/EtudesPage';
+import { EtudesHub } from './components/EtudesHub';
 import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
@@ -97,6 +98,8 @@ export default function App() {
         setCurrentScreen('etudes');
       } else if (hash === 'quetes') {
         setCurrentScreen('quetes');
+      } else if (hash === 'etudes') {
+        setCurrentScreen('etudes');
       } else if (hash.startsWith('quete/')) {
         setSelectedQueteId(hash.split('/')[1]);
         setCurrentScreen('detail');
@@ -172,11 +175,11 @@ export default function App() {
       case 'carnet':
         return <CarnetParisien cardId={cardStatus?.cardId || 'unknown'} onBack={() => navigateTo('homepage')} />;
       case 'collection':
-        return <CollectionMap onBack={() => navigateTo('homepage')} />;
+        return <PersonalMemoryMap onBack={() => navigateTo('homepage')} />;
       case 'seuil':
         return <CultureQuiz onBack={() => navigateTo('homepage')} />;
       case 'etudes':
-        return <EtudesPage onBack={() => navigateTo('homepage')} />;
+        return <EtudesHub onClose={() => navigateTo('homepage')} />;
       default:
         return null;
     }

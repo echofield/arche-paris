@@ -4,27 +4,19 @@
   "home.subtitle": "Votre Paris commence ici.",
   "home.invitation": "Voir la carte",
   "home.sentence": "La ville nous attend.",
-
-  "nav.quests": "Quêtes",
+  "nav.quests": "Marches",
   "nav.history": "Histoire",
   "nav.notebook": "Carnet",
   "nav.map": "Ma Carte",
   "nav.seuil": "Le Seuil",
-
   "home.cta.primary": "Découvrir Mon Paris",
-
   "home.intro.note": "Trois façons de traverser Paris.",
-
   "home.cards.origin.title": "Origine",
   "home.cards.origin.subtitle": "Manifeste · Geste · Fondation",
-
-  "home.cards.quests.title": "Quêtes",
+  "home.cards.quests.title": "Marches",
   "home.cards.quests.subtitle": "Lutèce · 1789 · Table",
-
   "home.cards.history.title": "Histoire",
   "home.cards.history.subtitle": "Archives · Récits · Mémoire",
-
   "home.hidden.treasure": "Trésor Caché",
-
   "home.footer.signature": "Petit Souvenir"
 }
