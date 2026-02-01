@@ -205,20 +205,20 @@ export default function App() {
           aria-label="Presence"
           style={{
             position: 'fixed',
-            top: 20,
+            top: 24,
             left: 24,
             zIndex: 10001,
             padding: 0,
             border: 'none',
             background: 'transparent',
             cursor: 'pointer',
-            opacity: 0.85,
-            transition: 'opacity 0.3s ease'
+            opacity: 0.6,
+            transition: 'opacity 0.4s ease'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
         >
-          <ArcheSymbol size={48} />
+          <ArcheSymbol size={32} />
         </button>
 
         {/* Minimal Fade panel: opens only on glyph click. No lists, counts, or urgency. */}
