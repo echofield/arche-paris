@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 
@@ -20,6 +21,7 @@ export function HomepageV1({
   onEnterSeuil
 }: HomepageV1Props) {
   const { t } = useTranslation();
+  const [mapHover, setMapHover] = useState(false);
 
   return (
     <div
@@ -167,10 +169,10 @@ export function HomepageV1({
           style={{
             fontFamily: 'var(--font-sans)',
             fontSize: '14px',
-            letterSpacing: '0.3em',
+            letterSpacing: '0.35em',
             textTransform: 'uppercase',
-            color: '#003D2C',
-            opacity: 0.5,
+            color: '#1A1A1A',
+            opacity: 0.6,
             marginBottom: '48px'
           }}
         >
@@ -179,43 +181,51 @@ export function HomepageV1({
 
         <div
           onClick={onEnterCollection}
+          onMouseEnter={() => setMapHover(true)}
+          onMouseLeave={() => setMapHover(false)}
+          role="button"
+          tabIndex={0}
+          aria-label={t('home.invitation')}
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
             marginBottom: '32px',
             cursor: 'pointer',
-            transition: 'opacity 0.3s ease'
+            transition: 'opacity 0.35s ease'
           }}
+          onKeyDown={(e) => e.key === 'Enter' && onEnterCollection()}
         >
           <img
-            src="/Parissvg.svg"
+            src="/Parissvg-taupe.svg"
             alt="Paris"
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              opacity: 0.15
+              opacity: mapHover ? 1 : 0.85,
+              transition: 'opacity 0.35s ease'
             }}
           />
         </div>
 
         <button
           onClick={onEnterCollection}
+          type="button"
           style={{
             background: 'transparent',
             border: 'none',
             fontFamily: 'var(--font-sans)',
             fontSize: '12px',
-            letterSpacing: '0.15em',
+            letterSpacing: '0.2em',
             textTransform: 'uppercase',
             color: '#003D2C',
-            opacity: 0.5,
+            opacity: 0.6,
             cursor: 'pointer',
             transition: 'opacity 0.3s ease',
             marginBottom: '48px'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
         >
           {t('home.invitation')}
         </button>
@@ -236,10 +246,12 @@ export function HomepageV1({
 
       <button
         onClick={onEnterHunter}
+        type="button"
         style={{
           position: 'absolute',
-          bottom: '24px',
-          left: '32px',
+          left: '24px',
+          top: '50%',
+          transform: 'translateY(-50%)',
           background: 'transparent',
           border: 'none',
           fontFamily: 'var(--font-sans)',
@@ -247,13 +259,15 @@ export function HomepageV1({
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
           color: '#1A1A1A',
-          opacity: 0.25,
+          opacity: 0.35,
           cursor: 'pointer',
           transition: 'opacity 0.3s ease',
-          zIndex: 100
+          zIndex: 100,
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed'
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.5')}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.25')}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.6')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.35')}
       >
         {t('home.hunter')}
       </button>
