@@ -1,5 +1,4 @@
 import { MamlukGrid } from './MamlukGrid';
-import { ParisMap } from './ParisMap';
 import { useTranslation } from '../utils/i18n';
 
 interface HomepageV1Props {
@@ -179,14 +178,25 @@ export function HomepageV1({
         </p>
 
         <div
+          onClick={onEnterCollection}
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
-            opacity: 0.15,
-            marginBottom: '32px'
+            marginBottom: '32px',
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease'
           }}
         >
-          <ParisMap breathing={true} onTap={onEnterCollection} />
+          <img
+            src="/Parissvg.svg"
+            alt="Paris"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              opacity: 0.15
+            }}
+          />
         </div>
 
         <button
