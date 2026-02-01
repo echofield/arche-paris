@@ -152,26 +152,28 @@ export function HomepageV1({
         <h1
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: 'clamp(28px, 6vw, 48px)',
-            fontWeight: '300',
-            color: '#1A1A1A',
-            letterSpacing: '0.25em',
-            marginBottom: '6px',
+            fontSize: 'clamp(48px, 10vw, 96px)',
+            fontWeight: '400',
+            letterSpacing: '0.15em',
+            marginBottom: '8px',
             lineHeight: 1,
-            opacity: 0.85
+            color: 'transparent',
+            WebkitTextFillColor: 'transparent',
+            WebkitTextStrokeWidth: '1px',
+            WebkitTextStrokeColor: '#1A1A1A'
           }}
         >
-          ARCHE
+          ARCHÉ
         </h1>
 
         <p
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: '11px',
-            letterSpacing: '0.35em',
+            fontSize: '14px',
+            letterSpacing: '0.3em',
             textTransform: 'uppercase',
             color: '#003D2C',
-            opacity: 0.4,
+            opacity: 0.5,
             marginBottom: '48px'
           }}
         >
