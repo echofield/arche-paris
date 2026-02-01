@@ -142,8 +142,6 @@ export default function App() {
         return (
           <HomepageV1
             onEnterQuetes={() => navigateTo('quetes')}
-            onEnterOrigine={() => navigateTo('origine')}
-            onEnterHistoire={() => navigateTo('histoire')}
             onEnterCarnet={() => navigateTo('carnet')}
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
