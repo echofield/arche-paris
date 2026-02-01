@@ -92,30 +92,43 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         minHeight: '100vh',
         background: '#FAF8F2',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'auto'
       }}
     >
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
       <BackButton onClick={onBack} />
 
-      {/* Map as full background, no box, no white — breathing */}
+      <style>{`
+        @keyframes my-paris-breathe {
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.22; transform: scale(1.02); }
+        }
+        .my-paris-map-breathe {
+          animation: my-paris-breathe 8s ease-in-out infinite;
+        }
+      `}</style>
+
       <div
         style={{
-          position: 'absolute',
-          inset: 0,
+          maxWidth: '560px',
+          margin: '0 auto',
+          padding: 'clamp(24px, 4vw, 48px)',
+          paddingTop: 'clamp(80px, 10vh, 100px)',
+          position: 'relative',
+          zIndex: 10,
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 0
+          flexDirection: 'column',
+          alignItems: 'center'
         }}
       >
+        {/* Map: homepage size or a bit bigger, then all content below */}
         <div
           style={{
             position: 'relative',
-            width: 'min(100vw, 100vh * (2037 / 1615))',
-            height: 'min(100vh, 100vw * (1615 / 2037))',
-            maxWidth: '100%',
-            maxHeight: '100%'
+            width: 'clamp(280px, 50vw, 420px)',
+            height: 'clamp(200px, 35vw, 320px)',
+            marginBottom: '32px',
+            flexShrink: 0
           }}
         >
           <img
@@ -179,28 +192,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             </div>
           ))}
         </div>
-      </div>
 
-      <style>{`
-        @keyframes my-paris-breathe {
-          0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 0.22; transform: scale(1.02); }
-        }
-        .my-paris-map-breathe {
-          animation: my-paris-breathe 8s ease-in-out infinite;
-        }
-      `}</style>
-
-      <div
-        style={{
-          maxWidth: '560px',
-          margin: '0 auto',
-          padding: 'clamp(24px, 4vw, 48px)',
-          paddingTop: 'clamp(80px, 10vh, 100px)',
-          position: 'relative',
-          zIndex: 10
-        }}
-      >
+        {/* Content below the map — full width of container */}
+        <div style={{ width: '100%' }}>
         <header style={{ textAlign: 'center', marginBottom: '24px' }}>
           <h1
             style={{
@@ -379,6 +373,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             {t('myparis.footer')}
           </p>
         </footer>
+        </div>
       </div>
     </div>
   );
