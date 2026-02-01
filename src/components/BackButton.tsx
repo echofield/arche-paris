@@ -1,43 +1,47 @@
 interface BackButtonProps {
   onClick: () => void;
+  onBack?: () => void;
   label?: string;
 }
 
 /**
- * BACK BUTTON — Composant réutilisable
- * Style éditorial cohérent avec ARCHÉ
+ * BACK BUTTON — Aligned with arch-citizen
+ * Glyph is hidden on sub-pages (App.tsx) so BackButton has top-left to itself.
+ * Label "Retour à la cité" by default; clear spacing from icon.
  */
-export function BackButton({ onClick, label = 'Retour' }: BackButtonProps) {
+export function BackButton({ onClick, onBack, label = 'Retour à la cité' }: BackButtonProps) {
+  const handleClick = onBack ?? onClick;
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       style={{
         position: 'fixed',
         top: 'clamp(20px, 4vw, 32px)',
-        left: 'clamp(20px, 4vw, 32px)',
+        left: 'clamp(24px, 4vw, 40px)',
         background: 'transparent',
         border: 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        gap: '12px',
         fontSize: 'clamp(11px, 2vw, 13px)',
         color: '#6B6455',
         cursor: 'pointer',
-        opacity: 0.4,
-        transition: 'opacity 400ms',
+        opacity: 0.5,
+        transition: 'opacity 400ms ease',
         zIndex: 1000,
-        fontFamily: 'Cormorant Garamond, serif',
+        fontFamily: 'var(--font-serif)',
         letterSpacing: '0.05em',
         padding: '8px 12px',
         WebkitTapHighlightColor: 'transparent'
       }}
-      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
-      onTouchStart={(e) => e.currentTarget.style.opacity = '0.9'}
-      onTouchEnd={(e) => e.currentTarget.style.opacity = '0.4'}
+      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+      onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+      onTouchStart={(e) => (e.currentTarget.style.opacity = '0.9')}
+      onTouchEnd={(e) => (e.currentTarget.style.opacity = '0.5')}
     >
-      <span style={{ fontSize: 'clamp(16px, 3vw, 20px)' }}>‹</span>
-      <span className="back-label">{label}</span>
+      <span style={{ fontSize: 'clamp(16px, 3vw, 20px)', flexShrink: 0 }}>‹</span>
+      <span className="back-label" style={{ whiteSpace: 'nowrap' }}>{label}</span>
     </button>
   );
 }

@@ -198,28 +198,30 @@ export default function App() {
           </>
         )}
 
-        {/* Glyph from arch-citizen (Blason): single boundary symbol, always visible. No badge, count, tooltip. */}
-        <button
-          type="button"
-          onClick={() => setFadePanelOpen((prev) => !prev)}
-          aria-label="Presence"
-          style={{
-            position: 'fixed',
-            top: 20,
-            left: 24,
-            zIndex: 10001,
-            padding: 0,
-            border: 'none',
-            background: 'transparent',
-            cursor: 'pointer',
-            opacity: 0.85,
-            transition: 'opacity 0.3s ease'
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
-        >
-          <ArcheSymbol size={48} />
-        </button>
+        {/* Glyph only on homepage — like arch-citizen: disappears when a page opens so BackButton has room. */}
+        {currentScreen === 'homepage' && (
+          <button
+            type="button"
+            onClick={() => setFadePanelOpen((prev) => !prev)}
+            aria-label="Presence"
+            style={{
+              position: 'fixed',
+              top: 20,
+              left: 24,
+              zIndex: 10001,
+              padding: 0,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              opacity: 0.85,
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
+          >
+            <ArcheSymbol size={48} />
+          </button>
+        )}
 
         {/* Minimal Fade panel: opens only on glyph click. No lists, counts, or urgency. */}
         {fadePanelOpen && (
