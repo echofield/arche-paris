@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
+import { ParisMap } from './ParisMap';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { useTranslation } from '../utils/i18n';
-// Imgur images for better visual experience
-const luteceHero = 'https://i.imgur.com/woVnvZ9h.jpeg';
 
 interface HomepageV1Props {
   onEnterQuetes: () => void;
@@ -11,6 +12,7 @@ interface HomepageV1Props {
   onEnterHunter?: () => void;
   onEnterCollection?: () => void;
   onEnterSeuil?: () => void;
+  onEnterEtudes?: () => void;
 }
 
 /**
@@ -27,8 +29,15 @@ interface HomepageV1Props {
  * 
  * L'interface doit pouvoir exister imprimée.
  */
-export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onEnterCarnet, onEnterHunter, onEnterCollection, onEnterSeuil }: HomepageV1Props) {
+export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onEnterCarnet, onEnterHunter, onEnterCollection, onEnterSeuil, onEnterEtudes }: HomepageV1Props) {
   const { t } = useTranslation();
+  const [mapOverlayOpen, setMapOverlayOpen] = useState(false);
+
+  const handleMapTap = () => {
+    if (onEnterEtudes ?? onEnterQuetes ?? onEnterCarnet) {
+      setMapOverlayOpen(true);
+    }
+  };
 
   return (
     <div 
@@ -56,7 +65,7 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
         }}
         className="homepage-container"
       >
-        {/* COLONNE GAUCHE — IMAGE ÉDITORIALE (cachée sur mobile) */}
+        {/* COLONNE GAUCHE — Paris map (stroke-only, no pins/labels) */}
         <div 
           style={{
             position: 'relative',
@@ -70,17 +79,9 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           }}
           className="homepage-image"
         >
-          {/* Image Hero — Full Cover */}
-          <img 
-            src={luteceHero} 
-            alt="Paris — Geste fondateur"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover'
-              
-              
-            }}
+          <ParisMap
+            breathing={true}
+            onTap={handleMapTap}
           />
         </div>
 
@@ -311,6 +312,84 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
           </div>
         </div>
       </div>
+
+      {/* Map tap overlay — Walks / Carnet / Études (world door) */}
+      <Sheet open={mapOverlayOpen} onOpenChange={setMapOverlayOpen}>
+        <SheetContent side="bottom" style={{ background: '#FAF8F2', borderColor: '#DBD4C6' }}>
+          <SheetHeader>
+            <SheetTitle style={{ fontFamily: 'var(--font-serif)', color: '#1A1A1A' }}>
+              {t('nav.map')}
+            </SheetTitle>
+          </SheetHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '8px 0' }}>
+            <button
+              onClick={() => { onEnterQuetes(); setMapOverlayOpen(false); }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                textAlign: 'left',
+                background: 'transparent',
+                border: '1px solid rgba(0, 61, 44, 0.2)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '12px',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 61, 44, 0.04)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              {t('nav.quests')}
+            </button>
+            <button
+              onClick={() => { onEnterCarnet?.(); setMapOverlayOpen(false); }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                textAlign: 'left',
+                background: 'transparent',
+                border: '1px solid rgba(0, 61, 44, 0.2)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '12px',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 61, 44, 0.04)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            >
+              {t('nav.notebook')}
+            </button>
+            {onEnterEtudes && (
+              <button
+                onClick={() => { onEnterEtudes(); setMapOverlayOpen(false); }}
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: '1px solid rgba(0, 61, 44, 0.2)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '12px',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#003D2C',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 61, 44, 0.04)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                Études
+              </button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Navigation discrète en haut */}
       <nav 

@@ -8,13 +8,14 @@ import { CarnetParisien } from './components/CarnetParisien';
 import { CollectionMap } from './components/CollectionMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
 import { CultureQuiz } from './components/CultureQuiz';
+import { EtudesPage } from './components/EtudesPage';
 import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
 import { LanguageProvider, useTranslation } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection' | 'seuil';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection' | 'seuil' | 'etudes';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -92,6 +93,8 @@ export default function App() {
         setCurrentScreen('collection');
       } else if (hash === 'seuil') {
         setCurrentScreen('seuil');
+      } else if (hash === 'etudes') {
+        setCurrentScreen('etudes');
       } else if (hash === 'quetes') {
         setCurrentScreen('quetes');
       } else if (hash.startsWith('quete/')) {
@@ -142,6 +145,7 @@ export default function App() {
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
             onEnterSeuil={() => navigateTo('seuil')}
+            onEnterEtudes={() => navigateTo('etudes')}
           />
         );
       case 'origine':
@@ -171,6 +175,8 @@ export default function App() {
         return <CollectionMap onBack={() => navigateTo('homepage')} />;
       case 'seuil':
         return <CultureQuiz onBack={() => navigateTo('homepage')} />;
+      case 'etudes':
+        return <EtudesPage onBack={() => navigateTo('homepage')} />;
       default:
         return null;
     }
