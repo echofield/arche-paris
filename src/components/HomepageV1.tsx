@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 
@@ -21,7 +20,6 @@ export function HomepageV1({
   onEnterSeuil
 }: HomepageV1Props) {
   const { t } = useTranslation();
-  const [mapHover, setMapHover] = useState(false);
 
   return (
     <div
@@ -154,25 +152,26 @@ export function HomepageV1({
         <h1
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: 'clamp(48px, 10vw, 96px)',
-            fontWeight: '400',
-            letterSpacing: '0.15em',
-            marginBottom: '8px',
+            fontSize: 'clamp(28px, 6vw, 48px)',
+            fontWeight: '300',
+            color: '#1A1A1A',
+            letterSpacing: '0.25em',
+            marginBottom: '6px',
             lineHeight: 1,
-            color: '#003D2C'
+            opacity: 0.85
           }}
         >
-          ARCHÉ
+          ARCHE
         </h1>
 
         <p
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: '14px',
+            fontSize: '11px',
             letterSpacing: '0.35em',
             textTransform: 'uppercase',
-            color: '#1A1A1A',
-            opacity: 0.6,
+            color: '#003D2C',
+            opacity: 0.4,
             marginBottom: '48px'
           }}
         >
@@ -181,51 +180,43 @@ export function HomepageV1({
 
         <div
           onClick={onEnterCollection}
-          onMouseEnter={() => setMapHover(true)}
-          onMouseLeave={() => setMapHover(false)}
-          role="button"
-          tabIndex={0}
-          aria-label={t('home.invitation')}
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
             marginBottom: '32px',
             cursor: 'pointer',
-            transition: 'opacity 0.35s ease'
+            transition: 'opacity 0.3s ease'
           }}
-          onKeyDown={(e) => e.key === 'Enter' && onEnterCollection()}
         >
           <img
-            src="/Parissvg-taupe.svg"
+            src="/Parissvg.svg"
             alt="Paris"
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              opacity: mapHover ? 1 : 0.85,
-              transition: 'opacity 0.35s ease'
+              opacity: 0.15
             }}
           />
         </div>
 
         <button
           onClick={onEnterCollection}
-          type="button"
           style={{
             background: 'transparent',
             border: 'none',
             fontFamily: 'var(--font-sans)',
             fontSize: '12px',
-            letterSpacing: '0.2em',
+            letterSpacing: '0.15em',
             textTransform: 'uppercase',
             color: '#003D2C',
-            opacity: 0.6,
+            opacity: 0.5,
             cursor: 'pointer',
             transition: 'opacity 0.3s ease',
             marginBottom: '48px'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
         >
           {t('home.invitation')}
         </button>
