@@ -12,6 +12,7 @@ import { CultureQuiz } from './components/CultureQuiz';
 import { EtudesHub } from './components/EtudesHub';
 import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
+import { ArcheSymbol } from './components/ArcheSymbol';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
 import { sealingStub } from './utils/sealing-stub';
 import { LanguageProvider, useTranslation } from './utils/i18n';
@@ -217,13 +218,7 @@ export default function App() {
           onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
         >
-          <img
-            src="/aura-glyph.svg"
-            alt=""
-            width={48}
-            height={60}
-            style={{ display: 'block', pointerEvents: 'none' }}
-          />
+          <ArcheSymbol size={48} />
         </button>
 
         {/* Minimal Fade panel: opens only on glyph click. No lists, counts, or urgency. */}
