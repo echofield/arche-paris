@@ -98,6 +98,99 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
       <BackButton onClick={onBack} />
 
+      {/* Map as full background, no box, no white — breathing */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 0
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: 'min(100vw, 100vh * (2037 / 1615))',
+            height: 'min(100vh, 100vw * (1615 / 2037))',
+            maxWidth: '100%',
+            maxHeight: '100%'
+          }}
+        >
+          <img
+            src="/Parissvg.svg"
+            alt=""
+            className="my-paris-map-breathe"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              pointerEvents: 'none'
+            }}
+          />
+          {points.map(({ symbol, x, y }) => (
+            <div
+              key={symbol.id}
+              style={{
+                position: 'absolute',
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 2
+              }}
+              onMouseEnter={() => setHoveredId(symbol.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <div
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  background: '#003D2C',
+                  cursor: 'default',
+                  transition: 'transform 0.2s ease',
+                  transform: hoveredId === symbol.id ? 'scale(1.4)' : 'scale(1)'
+                }}
+              />
+              {hoveredId === symbol.id && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    marginBottom: '8px',
+                    padding: '6px 12px',
+                    background: '#1A1A1A',
+                    color: '#FAF8F2',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: '10px',
+                    letterSpacing: '0.05em',
+                    whiteSpace: 'nowrap',
+                    borderRadius: '2px'
+                  }}
+                >
+                  {symbol.name}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes my-paris-breathe {
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.22; transform: scale(1.02); }
+        }
+        .my-paris-map-breathe {
+          animation: my-paris-breathe 8s ease-in-out infinite;
+        }
+      `}</style>
+
       <div
         style={{
           maxWidth: '560px',
@@ -143,81 +236,6 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             {collectedCount} / {totalCount} {t('map.stats.symbols')}
           </p>
         </header>
-
-        {/* Map */}
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            maxWidth: '400px',
-            aspectRatio: '2037 / 1615',
-            margin: '0 auto',
-            background: 'rgba(255, 255, 255, 0.25)',
-            border: '1px solid rgba(0, 61, 44, 0.12)',
-            borderRadius: '4px',
-            overflow: 'hidden'
-          }}
-        >
-          <img
-            src="/Parissvg.svg"
-            alt="Paris"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              opacity: 0.2
-            }}
-          />
-          {points.map(({ symbol, x, y }) => (
-            <div
-              key={symbol.id}
-              style={{
-                position: 'absolute',
-                left: `${x}%`,
-                top: `${y}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 20
-              }}
-              onMouseEnter={() => setHoveredId(symbol.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <div
-                style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#003D2C',
-                  cursor: 'default',
-                  transition: 'transform 0.2s ease',
-                  transform: hoveredId === symbol.id ? 'scale(1.4)' : 'scale(1)'
-                }}
-              />
-              {hoveredId === symbol.id && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '100%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    marginBottom: '8px',
-                    padding: '6px 12px',
-                    background: '#1A1A1A',
-                    color: '#FAF8F2',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '10px',
-                    letterSpacing: '0.05em',
-                    whiteSpace: 'nowrap',
-                    borderRadius: '2px'
-                  }}
-                >
-                  {symbol.name}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
 
         {/* Optional note — saved to journal → appears in Carnet */}
         <div style={{ marginTop: '24px' }}>
