@@ -16,18 +16,10 @@ interface HomepageV1Props {
 }
 
 /**
- * HOMEPAGE V1 — LE GRAND HÔTEL
- * 
- * Seuil symbolique.
- * Pas de fonctionnalités, juste une entrée.
- * 
- * Structure :
- * - 1 image éditoriale forte (format vertical, type gravure)
- * - Titre : Le Grand Hôtel
- * - Phrase de seuil : Votre Paris commence ici.
- * - 1 CTA : Découvrir mon Paris
- * 
- * L'interface doit pouvoir exister imprimée.
+ * HOMEPAGE V1 — SEUIL (arch-citizen style)
+ *
+ * Centered vertical composition: title, faint map, single invitation, large sentence.
+ * Tapping map or invitation opens overlay (Walks / Carnet / Études).
  */
 export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onEnterCarnet, onEnterHunter, onEnterCollection, onEnterSeuil, onEnterEtudes }: HomepageV1Props) {
   const { t } = useTranslation();
@@ -50,267 +42,110 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
       {/* Ghost Grid Mamluk — Très subtile */}
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
 
-      {/* Container principal */}
-      <div 
+      {/* Seuil — centered vertical composition */}
+      <div
         style={{
-          maxWidth: '1200px',
+          maxWidth: '560px',
           width: '100%',
-          padding: 'clamp(24px, 5vw, 80px)',
+          margin: '0 auto',
+          padding: 'clamp(48px, 10vh, 120px) clamp(24px, 5vw, 48px)',
           position: 'relative',
           zIndex: 10,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))',
-          gap: 'clamp(32px, 5vw, 80px)',
-          alignItems: 'center'
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '70vh',
+          textAlign: 'center'
         }}
         className="homepage-container"
       >
-        {/* COLONNE GAUCHE — Paris map (stroke-only, no pins/labels) */}
-        <div 
+        {/* Title */}
+        <h1
           style={{
-            position: 'relative',
-            aspectRatio: '3 / 4',
-            background: '#E7E1D8',
-            border: '1px solid #DBD4C6',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden'
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'clamp(40px, 8vw, 72px)',
+            fontWeight: '400',
+            color: '#1A1A1A',
+            marginBottom: '4px',
+            letterSpacing: '0.05em',
+            lineHeight: '1'
           }}
-          className="homepage-image"
         >
-          <ParisMap
-            breathing={true}
-            onTap={handleMapTap}
-          />
+          {t('home.title')}
+        </h1>
+        {/* Place — cartographic label */}
+        <p
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: '12px',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.5,
+            marginBottom: 'clamp(24px, 4vh, 48px)'
+          }}
+        >
+          {t('home.place')}
+        </p>
+
+        {/* Faint Paris map — memory skin, very low opacity */}
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '320px',
+            aspectRatio: '4 / 3',
+            opacity: 0.22,
+            marginBottom: 'clamp(20px, 3vh, 32px)',
+            cursor: onEnterEtudes ?? onEnterQuetes ?? onEnterCarnet ? 'pointer' : 'default'
+          }}
+          onClick={handleMapTap}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleMapTap(); } }}
+          role={(onEnterEtudes ?? onEnterQuetes ?? onEnterCarnet) ? 'button' : undefined}
+          tabIndex={(onEnterEtudes ?? onEnterQuetes ?? onEnterCarnet) ? 0 : undefined}
+          aria-label={(onEnterEtudes ?? onEnterQuetes ?? onEnterCarnet) ? t('home.invitation') : undefined}
+        >
+          <ParisMap breathing={true} onTap={undefined} />
         </div>
 
-        {/* COLONNE DROITE — TEXTE & CTA */}
-        <div>
-          {/* Titre monumental */}
-          <h1 
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 'clamp(48px, 8vw, 96px)',
-              fontWeight: '400',
-              color: '#1A1A1A',
-              marginBottom: 'var(--space-lg)',
-              letterSpacing: '0.05em',
-              lineHeight: '1'
-            }}
-          >
-            ARCHÉ
-          </h1>
+        {/* Single invitation line — tap opens overlay */}
+        <button
+          type="button"
+          onClick={handleMapTap}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.5,
+            cursor: 'pointer',
+            marginBottom: 'clamp(32px, 5vh, 56px)',
+            transition: 'opacity 0.3s ease',
+            padding: '8px 0'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+        >
+          {t('home.invitation')}
+        </button>
 
-          {/* Phrase de seuil */}
-          <p 
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 'clamp(18px, 2.5vw, 24px)',
-              fontStyle: 'italic',
-              color: '#1A1A1A',
-              opacity: 0.7,
-              marginBottom: 'var(--space-xxl)',
-              lineHeight: '1.6',
-              maxWidth: '400px'
-            }}
-          >
-            {t('home.subtitle')}
-          </p>
-
-          {/* CTA principal */}
-          <button
-            onClick={onEnterQuetes}
-            style={{
-              background: '#003D2C',
-              color: '#FAF8F2',
-              border: 'none',
-              padding: '20px 48px',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '13px',
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              transition: 'all var(--transition)',
-              fontWeight: '500'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#00543D';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 61, 44, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#003D2C';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            {t('home.cta.primary')}
-          </button>
-
-          {/* Ligne optionnelle discrète */}
-          <p 
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: '14px',
-              color: '#1A1A1A',
-              opacity: 0.4,
-              marginTop: '24px',
-              marginBottom: '48px',
-              fontStyle: 'italic',
-              fontWeight: '400'
-            }}
-          >
-            {t('home.intro.note')}
-          </p>
-
-          {/* 3 CARTES ÉDITORIALES — Secondaires, silencieuses */}
-          <div 
-            style={{
-              display: 'flex',
-              gap: '16px',
-              marginTop: '48px'
-            }}
-          >
-            {/* Carte 1 — ORIGINE */}
-            <button
-              onClick={onEnterOrigine}
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: '0.5px solid rgba(0, 61, 44, 0.15)',
-                padding: '24px 16px',
-                cursor: 'pointer',
-                transition: 'all var(--transition)',
-                textAlign: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(0, 61, 44, 0.02)';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.15)';
-              }}
-            >
-              <p 
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  color: '#1A1A1A',
-                  marginBottom: '8px'
-                }}
-              >
-                {t('home.cards.origin.title')}
-              </p>
-              <p
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '9px',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: '#003D2C',
-                  opacity: 0.5
-                }}
-              >
-                {t('home.cards.origin.subtitle')}
-              </p>
-            </button>
-
-            {/* Carte 2 — QUÊTES */}
-            <button
-              onClick={onEnterQuetes}
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: '0.5px solid rgba(0, 61, 44, 0.15)',
-                padding: '24px 16px',
-                cursor: 'pointer',
-                transition: 'all var(--transition)',
-                textAlign: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(0, 61, 44, 0.02)';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.15)';
-              }}
-            >
-              <p 
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  color: '#1A1A1A',
-                  marginBottom: '8px'
-                }}
-              >
-                {t('home.cards.quests.title')}
-              </p>
-              <p
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '9px',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: '#003D2C',
-                  opacity: 0.5
-                }}
-              >
-                {t('home.cards.quests.subtitle')}
-              </p>
-            </button>
-
-            {/* Carte 3 — HISTOIRE */}
-            <button
-              onClick={onEnterHistoire}
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: '0.5px solid rgba(0, 61, 44, 0.15)',
-                padding: '24px 16px',
-                cursor: 'pointer',
-                transition: 'all var(--transition)',
-                textAlign: 'center'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(0, 61, 44, 0.02)';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.15)';
-              }}
-            >
-              <p 
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  color: '#1A1A1A',
-                  marginBottom: '8px'
-                }}
-              >
-                {t('home.cards.history.title')}
-              </p>
-              <p
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '9px',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: '#003D2C',
-                  opacity: 0.5
-                }}
-              >
-                {t('home.cards.history.subtitle')}
-              </p>
-            </button>
-          </div>
-        </div>
+        {/* Large sentence — bottom call */}
+        <p
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'clamp(20px, 3.5vw, 28px)',
+            fontStyle: 'italic',
+            color: '#1A1A1A',
+            opacity: 0.9,
+            lineHeight: 1.4,
+            maxWidth: '400px'
+          }}
+        >
+          {t('home.sentence')}
+        </p>
       </div>
 
       {/* Map tap overlay — Walks / Carnet / Études (world door) */}
@@ -561,31 +396,9 @@ export function HomepageV1({ onEnterQuetes, onEnterOrigine, onEnterHistoire, onE
       <style>{`
         @media (max-width: 968px) {
           .homepage-container {
-            grid-template-columns: 1fr !important;
-            gap: var(--space-lg) !important;
-            text-align: center !important;
+            min-height: 60vh !important;
+            padding-top: clamp(64px, 12vh, 100px) !important;
           }
-          
-          .homepage-image {
-            display: flex !important;
-            order: -1;
-            max-width: 400px;
-            margin: 0 auto var(--space-xl) auto;
-          }
-          
-          h1 {
-            font-size: 48px !important;
-          }
-          
-          p[style*="max-width: 400px"] {
-            margin-left: auto !important;
-            margin-right: auto !important;
-          }
-          
-          button[style*="padding: 20px"] {
-            width: 100%;
-          }
-          
           nav {
             top: var(--space-md) !important;
             right: var(--space-md) !important;

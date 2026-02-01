@@ -1,6 +1,9 @@
 {
   "home.title": "ARCHÉ",
+  "home.place": "Paris",
   "home.subtitle": "Your Paris begins here.",
+  "home.invitation": "See the map",
+  "home.sentence": "The city awaits us.",
 
   "nav.quests": "Quests",
   "nav.history": "History",
