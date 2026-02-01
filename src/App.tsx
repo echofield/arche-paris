@@ -13,6 +13,7 @@ import { EtudesHub } from './components/EtudesHub';
 import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
+import { sealingStub } from './utils/sealing-stub';
 import { LanguageProvider, useTranslation } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [cardStatus, setCardStatus] = useState<CardStatus | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
+  const [fadePanelOpen, setFadePanelOpen] = useState(false);
 
   // Initialize card on mount
   useEffect(() => {
@@ -123,18 +125,6 @@ export default function App() {
     }
   };
 
-  // Card entry/validation states
-  if (appState !== 'ready') {
-    return (
-      <CardEntry
-        status={appState}
-        cardStatus={cardStatus || undefined}
-        onManualEntry={handleManualEntry}
-        onContinue={() => setAppState('ready')}
-      />
-    );
-  }
-
   // Main app
   const renderScreen = () => {
     switch (currentScreen) {
@@ -191,10 +181,150 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <div style={{ minHeight: '100vh', background: '#FAF8F2' }}>
-        <LanguageSelector />
-        {renderScreen()}
-        <CardDrawer />
+      <div style={{ minHeight: '100vh', background: '#FAF8F2', position: 'relative' }}>
+        {appState !== 'ready' ? (
+          <CardEntry
+            status={appState}
+            cardStatus={cardStatus || undefined}
+            onManualEntry={handleManualEntry}
+            onContinue={() => setAppState('ready')}
+          />
+        ) : (
+          <>
+            <LanguageSelector />
+            {renderScreen()}
+            <CardDrawer />
+          </>
+        )}
+
+        {/* Glyph from arch-citizen (Blason): single boundary symbol, always visible. No badge, count, tooltip. */}
+        <button
+          type="button"
+          onClick={() => setFadePanelOpen((prev) => !prev)}
+          aria-label="Presence"
+          style={{
+            position: 'fixed',
+            top: 20,
+            left: 24,
+            zIndex: 10001,
+            padding: 0,
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer',
+            opacity: 0.85,
+            transition: 'opacity 0.3s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
+        >
+          <img
+            src="/aura-glyph.svg"
+            alt=""
+            width={48}
+            height={60}
+            style={{ display: 'block', pointerEvents: 'none' }}
+          />
+        </button>
+
+        {/* Minimal Fade panel: opens only on glyph click. No lists, counts, or urgency. */}
+        {fadePanelOpen && (
+          <div
+            role="dialog"
+            aria-label="Seal a moment"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.2)',
+              padding: 24
+            }}
+            onClick={() => setFadePanelOpen(false)}
+          >
+            <div
+              style={{
+                background: '#FAF8F2',
+                border: '1px solid rgba(0, 61, 44, 0.15)',
+                borderRadius: 4,
+                padding: 32,
+                maxWidth: 360,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 20,
+                  fontWeight: 400,
+                  color: '#1A1A1A',
+                  marginBottom: 12
+                }}
+              >
+                Seal a moment
+              </h2>
+              <p
+                style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 14,
+                  color: '#003D2C',
+                  opacity: 0.7,
+                  lineHeight: 1.5,
+                  marginBottom: 24
+                }}
+              >
+                Some moments can be sealed. This is optional.
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setFadePanelOpen(false)}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    opacity: 0.7,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '8px 16px'
+                  }}
+                >
+                  Not now
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await sealingStub.seal({
+                      kind: 'card_activated',
+                      id: `fade-${Date.now()}`,
+                      cardId: cardStatus?.cardId,
+                      completedAt: new Date().toISOString()
+                    });
+                    setFadePanelOpen(false);
+                  }}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    background: 'transparent',
+                    border: '0.5px solid rgba(0, 61, 44, 0.3)',
+                    cursor: 'pointer',
+                    padding: '8px 16px'
+                  }}
+                >
+                  Seal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </LanguageProvider>
   );
