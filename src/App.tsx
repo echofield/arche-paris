@@ -173,7 +173,13 @@ export default function App() {
       case 'carnet':
         return <CarnetParisien cardId={cardStatus?.cardId || 'unknown'} onBack={() => navigateTo('homepage')} />;
       case 'collection':
-        return <PersonalMemoryMap onBack={() => navigateTo('homepage')} />;
+        return (
+          <PersonalMemoryMap
+            cardId={cardStatus?.cardId || 'unknown'}
+            onBack={() => navigateTo('homepage')}
+            onOpenNotebook={() => navigateTo('carnet')}
+          />
+        );
       case 'seuil':
         return <CultureQuiz onBack={() => navigateTo('homepage')} />;
       case 'etudes':

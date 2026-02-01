@@ -1,52 +1,90 @@
 /**
- * PERSONAL MEMORY MAP — Ma Carte
+ * PERSONAL MEMORY MAP — My Paris (Ma Carte)
  *
- * Based on petitsouvenir "My Paris" concept
+ * Full alignment with petitsouvenir "My Paris":
+ * - Real collected symbols from collection-service (pins)
+ * - Optional note → saved to journal_entries → appears in Carnet (notes)
+ * - Share My Paris → copy link to #collection
+ * - Link "In your notebook" → opens Carnet
  *
- * Rules:
- * - Same Paris map structure
- * - Scale reduced to ~1/3 size
- * - Small dots representing saved places/memories
- * - No GPS, no live tracking
- * - Memory map, not navigation
- *
- * "The place where users collect, save, and live the experience"
+ * When user pins (collects) or writes here, it gets printed into notes (Carnet).
  */
 
-import { useState } from 'react';
-import { ParisStrokeMap } from './ParisStrokeMap';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
-
-interface MemoryPoint {
-  id: string;
-  name: string;
-  x: number; // percentage position
-  y: number;
-  collected: boolean;
-}
-
-// Static memory points (placeholder data)
-const MEMORY_POINTS: MemoryPoint[] = [
-  { id: 'mp-1', name: 'Notre-Dame', x: 48, y: 52, collected: true },
-  { id: 'mp-2', name: 'Sacre-Coeur', x: 52, y: 28, collected: true },
-  { id: 'mp-3', name: 'Tour Eiffel', x: 28, y: 48, collected: true },
-  { id: 'mp-4', name: 'Louvre', x: 45, y: 45, collected: false },
-  { id: 'mp-5', name: 'Pantheon', x: 50, y: 58, collected: false },
-  { id: 'mp-6', name: 'Pere Lachaise', x: 68, y: 45, collected: true },
-  { id: 'mp-7', name: 'Montmartre', x: 50, y: 25, collected: false },
-  { id: 'mp-8', name: 'Bastille', x: 58, y: 50, collected: true },
-];
+import { getCollection } from '../utils/collection-service';
+import { SYMBOLS, getSymbolById, type Symbol } from '../data/symbols';
+import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
+import { loadMyParisNote, saveMyParisNote } from '../utils/journal-sync';
+import { useTranslation } from '../utils/i18n';
 
 interface PersonalMemoryMapProps {
+  cardId: string;
   onBack: () => void;
+  onOpenNotebook?: () => void;
 }
 
-export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
-  const [hoveredPoint, setHoveredPoint] = useState<string | null>(null);
+interface MapPoint {
+  symbol: Symbol;
+  x: number;
+  y: number;
+}
 
-  const collectedCount = MEMORY_POINTS.filter(p => p.collected).length;
-  const totalCount = MEMORY_POINTS.length;
+function getCollectedPoints(): MapPoint[] {
+  const collection = getCollection();
+  if (!collection) return [];
+
+  const byArr: Record<number, number> = {};
+  return collection.symbols
+    .map((cs) => {
+      const symbol = getSymbolById(cs.symbolId);
+      if (!symbol) return null;
+      const pos = ARRONDISSEMENT_MAP_POSITION[symbol.arrondissement];
+      if (!pos) return null;
+      const jitter = (byArr[symbol.arrondissement] ?? 0) * 3;
+      byArr[symbol.arrondissement] = (byArr[symbol.arrondissement] ?? 0) + 1;
+      return {
+        symbol,
+        x: pos.x + (jitter % 5) - 2,
+        y: pos.y + (Math.floor(jitter / 5) % 5) - 2
+      };
+    })
+    .filter((p): p is MapPoint => p !== null);
+}
+
+export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMemoryMapProps) {
+  const { t } = useTranslation();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  const collection = getCollection();
+  const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
+  const collectedCount = collection?.symbols.length ?? 0;
+  const totalCount = SYMBOLS.length;
+
+  useEffect(() => {
+    loadMyParisNote(cardId).then(setNote);
+  }, [cardId]);
+
+  const handleNoteBlur = useCallback(() => {
+    saveMyParisNote(cardId, note).catch(console.warn);
+  }, [cardId, note]);
+
+  const handleShare = useCallback(() => {
+    const url = `${window.location.origin}${window.location.pathname}#collection`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        setShareStatus('copied');
+        setTimeout(() => setShareStatus('idle'), 2500);
+      },
+      () => {
+        setShareStatus('error');
+        setTimeout(() => setShareStatus('idle'), 2500);
+      }
+    );
+  }, []);
 
   return (
     <div
@@ -62,7 +100,7 @@ export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
 
       <div
         style={{
-          maxWidth: '900px',
+          maxWidth: '560px',
           margin: '0 auto',
           padding: 'clamp(24px, 4vw, 48px)',
           paddingTop: 'clamp(80px, 10vh, 100px)',
@@ -70,32 +108,19 @@ export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
           zIndex: 10
         }}
       >
-        {/* Header */}
-        <header style={{ textAlign: 'center', marginBottom: '48px' }}>
+        <header style={{ textAlign: 'center', marginBottom: '24px' }}>
           <h1
             style={{
               fontFamily: 'var(--font-serif)',
               fontSize: 'clamp(32px, 4vw, 48px)',
               fontWeight: '400',
               color: '#1A1A1A',
-              marginBottom: '12px',
+              marginBottom: '8px',
               letterSpacing: '-0.02em'
             }}
           >
-            Ma Carte
+            {t('myparis.title')}
           </h1>
-          <p
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: '16px',
-              fontStyle: 'italic',
-              color: '#1A1A1A',
-              opacity: 0.5,
-              marginBottom: '8px'
-            }}
-          >
-            Mes souvenirs de Paris
-          </p>
           <p
             style={{
               fontFamily: 'var(--font-sans)',
@@ -104,67 +129,72 @@ export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
               opacity: 0.6
             }}
           >
-            {collectedCount} / {totalCount} lieux
+            {t('myparis.savedOnDevice')}
+          </p>
+          <p
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              color: '#003D2C',
+              opacity: 0.5,
+              marginTop: '4px'
+            }}
+          >
+            {collectedCount} / {totalCount} {t('map.stats.symbols')}
           </p>
         </header>
 
-        {/* Map Container - Reduced size (~1/3) */}
+        {/* Map */}
         <div
           style={{
             position: 'relative',
             width: '100%',
             maxWidth: '400px',
-            aspectRatio: '1 / 1',
+            aspectRatio: '2037 / 1615',
             margin: '0 auto',
-            background: 'rgba(255, 255, 255, 0.3)',
-            border: '1px solid rgba(0, 61, 44, 0.1)',
+            background: 'rgba(255, 255, 255, 0.25)',
+            border: '1px solid rgba(0, 61, 44, 0.12)',
             borderRadius: '4px',
             overflow: 'hidden'
           }}
         >
-          {/* Paris Stroke Map Background */}
-          <div
+          <img
+            src="/Parissvg.svg"
+            alt="Paris"
             style={{
               position: 'absolute',
               inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              opacity: 0.2
             }}
-          >
-            <ParisStrokeMap opacity={0.12} blur={0.5} />
-          </div>
-
-          {/* Memory Points */}
-          {MEMORY_POINTS.map((point) => (
+          />
+          {points.map(({ symbol, x, y }) => (
             <div
-              key={point.id}
+              key={symbol.id}
               style={{
                 position: 'absolute',
-                left: `${point.x}%`,
-                top: `${point.y}%`,
+                left: `${x}%`,
+                top: `${y}%`,
                 transform: 'translate(-50%, -50%)',
                 zIndex: 20
               }}
-              onMouseEnter={() => setHoveredPoint(point.id)}
-              onMouseLeave={() => setHoveredPoint(null)}
+              onMouseEnter={() => setHoveredId(symbol.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
-              {/* Dot */}
               <div
                 style={{
-                  width: point.collected ? '10px' : '6px',
-                  height: point.collected ? '10px' : '6px',
+                  width: '10px',
+                  height: '10px',
                   borderRadius: '50%',
-                  background: point.collected ? '#003D2C' : 'transparent',
-                  border: point.collected ? 'none' : '1.5px solid rgba(0, 61, 44, 0.3)',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  transform: hoveredPoint === point.id ? 'scale(1.5)' : 'scale(1)'
+                  background: '#003D2C',
+                  cursor: 'default',
+                  transition: 'transform 0.2s ease',
+                  transform: hoveredId === symbol.id ? 'scale(1.4)' : 'scale(1)'
                 }}
               />
-
-              {/* Tooltip */}
-              {hoveredPoint === point.id && (
+              {hoveredId === symbol.id && (
                 <div
                   style={{
                     position: 'absolute',
@@ -182,50 +212,115 @@ export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
                     borderRadius: '2px'
                   }}
                 >
-                  {point.name}
-                  {!point.collected && (
-                    <span style={{ opacity: 0.5, marginLeft: '6px' }}>
-                      (a decouvrir)
-                    </span>
-                  )}
+                  {symbol.name}
                 </div>
               )}
             </div>
           ))}
+        </div>
 
-          {/* Center label */}
-          <div
+        {/* Optional note — saved to journal → appears in Carnet */}
+        <div style={{ marginTop: '24px' }}>
+          <label
             style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center',
-              pointerEvents: 'none',
-              zIndex: 5
+              display: 'block',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '10px',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              opacity: 0.6,
+              marginBottom: '8px'
             }}
           >
-            <p
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '14px',
-                fontStyle: 'italic',
-                color: '#1A1A1A',
-                opacity: 0.3
-              }}
-            >
-              Paris
-            </p>
-          </div>
+            {t('myparis.notePlaceholder').replace('…', '')}
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={handleNoteBlur}
+            placeholder={t('myparis.notePlaceholder')}
+            rows={3}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              fontFamily: 'var(--font-serif)',
+              fontSize: '15px',
+              fontWeight: 300,
+              color: '#1A1A1A',
+              background: 'transparent',
+              border: '0.5px solid rgba(0, 61, 44, 0.2)',
+              borderRadius: '2px',
+              resize: 'vertical',
+              boxSizing: 'border-box'
+            }}
+          />
         </div>
+
+        {/* Share My Paris */}
+        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={handleShare}
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '10px',
+              fontWeight: 500,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              padding: '14px 28px',
+              background: 'transparent',
+              color: '#0E3F2F',
+              border: '0.5px solid rgba(14, 63, 47, 0.3)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              minHeight: 44
+            }}
+          >
+            {t('myparis.share')}
+          </button>
+          {shareStatus === 'copied' && (
+            <span style={{ fontSize: '11px', color: '#003D2C', opacity: 0.7 }}>
+              {t('myparis.linkCopied')}
+            </span>
+          )}
+          {shareStatus === 'error' && (
+            <span style={{ fontSize: '11px', color: '#8B0000', opacity: 0.8 }}>
+              {t('myparis.couldNotCopy')}
+            </span>
+          )}
+        </div>
+
+        {/* Link to notebook (notes) */}
+        {onOpenNotebook && (
+          <button
+            type="button"
+            onClick={onOpenNotebook}
+            style={{
+              marginTop: '20px',
+              background: 'none',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              color: '#003D2C',
+              opacity: 0.5,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              padding: 0
+            }}
+          >
+            {t('myparis.inNotebook')}
+          </button>
+        )}
 
         {/* Legend */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'center',
-            gap: '32px',
-            marginTop: '32px',
+            gap: '24px',
+            marginTop: '28px',
             fontSize: '11px',
             fontFamily: 'var(--font-sans)',
             color: '#1A1A1A',
@@ -241,26 +336,15 @@ export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
                 background: '#003D2C'
               }}
             />
-            Visite
+            {t('myparis.legend.collected')}
           </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                border: '1.5px solid rgba(0, 61, 44, 0.3)'
-              }}
-            />
-            A decouvrir
-          </span>
+          <span>{t('myparis.legend.toDiscover')}</span>
         </div>
 
-        {/* Footer message */}
         <footer
           style={{
             textAlign: 'center',
-            marginTop: '48px',
+            marginTop: '40px',
             paddingTop: '24px',
             borderTop: '1px solid rgba(0, 61, 44, 0.08)'
           }}
@@ -274,7 +358,7 @@ export function PersonalMemoryMap({ onBack }: PersonalMemoryMapProps) {
               opacity: 0.4
             }}
           >
-            Une carte de memoire, pas de navigation.
+            {t('myparis.footer')}
           </p>
         </footer>
       </div>

@@ -1,5 +1,15 @@
 {
   "map.title": "Ma Carte de Paris",
+  "myparis.title": "Mon Paris",
+  "myparis.savedOnDevice": "Sauvé sur cet appareil.",
+  "myparis.notePlaceholder": "Quelques mots sur ton Paris…",
+  "myparis.share": "Partager Mon Paris",
+  "myparis.linkCopied": "Lien copié.",
+  "myparis.couldNotCopy": "Copie impossible.",
+  "myparis.inNotebook": "Dans ton carnet",
+  "myparis.legend.collected": "Collecté",
+  "myparis.legend.toDiscover": "À découvrir",
+  "myparis.footer": "Une carte de mémoire, pas de navigation.",
 
   "map.roles.traveler.name": "Voyageur",
   "map.roles.traveler.title": "Tu commences ton parcours",

@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { InscriptionsPanel } from './InscriptionsPanel';
-import { SYMBOLS, getSymbolsByArrondissement, type Symbol } from '../data/symbols';
+import { SYMBOLS, getSymbolsByArrondissement, getSymbolById, type Symbol } from '../data/symbols';
 import { GAME_CARDS, type GameCard } from '../data/game-cards';
 import { getCollectionStats, collectSymbol, isSymbolCollected } from '../utils/collection-service';
+import { getStoredCard } from '../utils/card-service';
+import { syncCollectionToJournal } from '../utils/journal-sync';
 import { useTranslation } from '../utils/i18n';
 import type { LieuMinimal } from '../types/inscriptions';
 
@@ -171,7 +173,12 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
   };
 
   const handleCollect = (symbolId: string) => {
-    collectSymbol(symbolId);
+    const added = collectSymbol(symbolId);
+    if (added) {
+      const cardId = getStoredCard();
+      const symbol = getSymbolById(symbolId);
+      if (cardId) syncCollectionToJournal(cardId, symbolId, symbol?.name).catch(() => {});
+    }
     refreshStats();
     setShowSymbolDetail(null);
   };

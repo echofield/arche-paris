@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { collectSymbol, isSymbolCollected } from '../utils/collection-service';
+import { getStoredCard } from '../utils/card-service';
+import { syncCollectionToJournal } from '../utils/journal-sync';
 import { useTranslation } from '../utils/i18n';
 
 interface HunterMontmartreProps {
@@ -218,7 +220,10 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
           // Success! User is at the location
           setGpsStatus('success');
           setTimeout(() => {
-            collectSymbol(currentSymbol.id);
+            if (collectSymbol(currentSymbol.id)) {
+              const cardId = getStoredCard();
+              if (cardId) syncCollectionToJournal(cardId, currentSymbol.id, currentSymbol.name).catch(() => {});
+            }
             setPhase('success');
           }, 1500);
         } else {
@@ -261,7 +266,10 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
 
     if (isCorrect) {
       // Collect the symbol!
-      collectSymbol(currentSymbol.id);
+      if (collectSymbol(currentSymbol.id)) {
+        const cardId = getStoredCard();
+        if (cardId) syncCollectionToJournal(cardId, currentSymbol.id, currentSymbol.name).catch(() => {});
+      }
       setPhase('success');
       setError(null);
     } else {
