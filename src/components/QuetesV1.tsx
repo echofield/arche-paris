@@ -48,15 +48,6 @@ const QUETES: QueteCard[] = [
     shortDescription: 'Une ville se raconte par ce qu\'elle avale. Paris est une gorge, un ventre, une bouche. Elle a toujours eu faim. Elle a toujours eu soif.',
     image: tableImg,
     duree: '≈ 2h30–3h'
-  },
-  {
-    id: 'temporal-meridians',
-    title: 'MÉRIDIENS TEMPORELS',
-    registre: 'SEUIL · TEMPS · ORIGINE',
-    theme: 'Saint-Sulpice, l\'horloge, le zéro.',
-    shortDescription: 'Une courte marche le long du temps : le méridien à Saint-Sulpice, l\'heure civile à la Conciergerie, le point d\'où partent les distances.',
-    image: luteceImg,
-    duree: '≈ 45–60 min'
   }
 ];
 

@@ -94,6 +94,49 @@ export function getTodaySummary(): { approxKm: number; entries: WalkEntry[] } {
   };
 }
 
+/** Total km walked (all days). Used for silent milestones (10, 50, 100, 500). */
+export function getTotalKm(): number {
+  const log = loadWalkLog();
+  return Object.values(log).reduce((sum, day) => sum + (day.approxKm ?? 0), 0);
+}
+
+const MILESTONES_SEEN_KEY = 'arche_milestones_seen_v1';
+const MILESTONE_THRESHOLDS = [10, 50, 100, 500] as const;
+
+function loadMilestonesSeen(): number[] {
+  try {
+    const raw = localStorage.getItem(MILESTONES_SEEN_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((n: unknown) => typeof n === 'number') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getMilestonesSeen(): number[] {
+  return loadMilestonesSeen();
+}
+
+export function markMilestoneSeen(km: number): void {
+  const seen = loadMilestonesSeen();
+  if (seen.includes(km)) return;
+  try {
+    localStorage.setItem(MILESTONES_SEEN_KEY, JSON.stringify([...seen, km].sort((a, b) => a - b)));
+  } catch (e) {
+    console.warn('walk-service: markMilestoneSeen failed', e);
+  }
+}
+
+/** Returns the next threshold not yet seen (e.g. 10 if total >= 10 and 10 not in seen). */
+export function getNextMilestoneToInscribe(totalKm: number): number | null {
+  const seen = loadMilestonesSeen();
+  for (const threshold of MILESTONE_THRESHOLDS) {
+    if (totalKm >= threshold && !seen.includes(threshold)) return threshold;
+  }
+  return null;
+}
+
 /** Parse distance string (e.g. "~2 km", "1.5 km") for approx km when quest has no approxKm. */
 export function parseApproxKmFromDistance(distance: string | undefined): number | undefined {
   if (!distance || typeof distance !== 'string') return undefined;

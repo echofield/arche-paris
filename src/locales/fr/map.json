@@ -11,6 +11,12 @@
   "myparis.legend.collected": "Collecté",
   "myparis.legend.toDiscover": "À découvrir",
   "myparis.footer": "Une carte de mémoire, pas de navigation.",
+  "myparis.absence.title": "Absence",
+  "myparis.absence.refused": "Refusé:",
+  "myparis.absence.promptTitle": "Tu n'as pas marché ici",
+  "myparis.absence.prompt": "Tu n'as pas marché ici. Est-ce un choix ?",
+  "myparis.absence.yes": "Oui",
+  "myparis.absence.no": "Non",
 
   "map.roles.traveler.name": "Voyageur",
   "map.roles.traveler.title": "Tu commences ton parcours",

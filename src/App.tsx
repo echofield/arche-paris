@@ -8,6 +8,7 @@ import { CarnetParisien } from './components/CarnetParisien';
 import { CollectionMap } from './components/CollectionMap';
 import { PersonalMemoryMap } from './components/PersonalMemoryMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
+import { MeridiensLive } from './components/MeridiensLive';
 import { QuestRun } from './components/QuestRun';
 import { CultureQuiz } from './components/CultureQuiz';
 import { EtudesHub } from './components/EtudesHub';
@@ -18,10 +19,12 @@ import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
 import { decayIfNeeded } from './utils/companion-service';
+import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
+import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-runner';
 import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -40,6 +43,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
+  const [showSilencePrompt, setShowSilencePrompt] = useState(false);
 
   // Initialize card on mount
   useEffect(() => {
@@ -71,6 +75,18 @@ export default function App() {
       if (sessionStorage.getItem('arche_companion_decay_done')) return;
       decayIfNeeded();
       sessionStorage.setItem('arche_companion_decay_done', '1');
+    } catch {}
+  }, [appState]);
+
+  // Last open + silence prompt check + delayed resonance (echo) + silent milestones on ready
+  useEffect(() => {
+    if (appState !== 'ready') return;
+    try {
+      const showSilence = shouldShowSilencePrompt();
+      setShowSilencePrompt(showSilence);
+      recordAppOpen();
+      runEchoIfNeeded();
+      runMilestonesIfNeeded();
     } catch {}
   }, [appState]);
 
@@ -124,6 +140,8 @@ export default function App() {
         setCurrentScreen('questRun');
       } else if (hash === 'aura') {
         setCurrentScreen('aura');
+      } else if (hash === 'meridiens') {
+        setCurrentScreen('meridiens');
       } else {
         setCurrentScreen('homepage');
       }
@@ -152,12 +170,18 @@ export default function App() {
       case 'homepage':
         return (
           <HomepageV1
+            showSilencePrompt={showSilencePrompt}
+            onSilencePromptShown={() => {
+              markSilencePromptShown();
+              setShowSilencePrompt(false);
+            }}
             onEnterQuetes={() => navigateTo('quetes')}
             onEnterCarnet={() => navigateTo('carnet')}
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
             onEnterSeuil={() => navigateTo('seuil')}
             onEnterEtudes={() => navigateTo('etudes')}
+            onEnterMeridiens={() => navigateTo('meridiens')}
           />
         );
       case 'origine':
@@ -211,6 +235,13 @@ export default function App() {
       case 'aura':
         return (
           <AuraPage
+            onBack={() => navigateTo('homepage')}
+            cardId={cardStatus?.cardId ?? null}
+          />
+        );
+      case 'meridiens':
+        return (
+          <MeridiensLive
             onBack={() => navigateTo('homepage')}
             cardId={cardStatus?.cardId ?? null}
           />

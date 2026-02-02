@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 
 interface HomepageV1Props {
+  showSilencePrompt?: boolean;
+  onSilencePromptShown?: () => void;
   onEnterQuetes: () => void;
   onEnterOrigine?: () => void;
   onEnterEtudes?: () => void;
@@ -10,17 +13,25 @@ interface HomepageV1Props {
   onEnterHunter?: () => void;
   onEnterCollection?: () => void;
   onEnterSeuil?: () => void;
+  onEnterMeridiens?: () => void;
 }
 
 export function HomepageV1({
+  showSilencePrompt,
+  onSilencePromptShown,
   onEnterQuetes,
   onEnterEtudes,
   onEnterCarnet,
   onEnterHunter,
   onEnterCollection,
-  onEnterSeuil
+  onEnterSeuil,
+  onEnterMeridiens
 }: HomepageV1Props) {
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
+  }, [showSilencePrompt, onSilencePromptShown]);
 
   return (
     <div
@@ -61,6 +72,27 @@ export function HomepageV1({
         >
           {t('nav.quests')}
         </button>
+        {onEnterMeridiens && (
+          <button
+            onClick={onEnterMeridiens}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              opacity: 0.6,
+              cursor: 'pointer',
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+          >
+            {t('nav.meridiens')}
+          </button>
+        )}
         <button
           onClick={onEnterEtudes}
           style={{
@@ -150,6 +182,21 @@ export function HomepageV1({
           zIndex: 10
         }}
       >
+        {showSilencePrompt && (
+          <p
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: 'clamp(16px, 2.5vw, 20px)',
+              fontStyle: 'italic',
+              color: '#003D2C',
+              opacity: 0.85,
+              marginBottom: '32px',
+              maxWidth: '320px'
+            }}
+          >
+            {t('home.silence')}
+          </p>
+        )}
         <h1
           style={{
             fontFamily: 'var(--font-serif)',

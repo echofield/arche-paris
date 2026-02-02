@@ -103,8 +103,10 @@ export function QuestRun({ questId, cardId, onBack, onClose }: QuestRunProps) {
   };
 
   const currentStop = quest && run ? quest.nodes[run.currentIndex] : null;
+  const nextStop = quest && run && run.currentIndex < quest.nodes.length - 1 ? quest.nodes[run.currentIndex + 1] : null;
   const isLastStop = quest && run && run.currentIndex >= quest.nodes.length - 1;
   const isClosed = run?.closedAt;
+  const isMeridiens = questId === 'temporal-meridians';
 
   const handleImHere = () => {
     if (!quest || !run) return;
@@ -231,7 +233,7 @@ export function QuestRun({ questId, cardId, onBack, onClose }: QuestRunProps) {
           marginBottom: 4
         }}
       >
-        {quest.title}
+        {isMeridiens ? 'Méridiens' : quest.title}
       </h1>
       <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#6B6455', marginBottom: 24 }}>
         {quest.subtitle}
@@ -276,13 +278,20 @@ export function QuestRun({ questId, cardId, onBack, onClose }: QuestRunProps) {
             marginBottom: 16
           }}
         >
-          <div style={{ fontSize: 12, color: '#6B6455', marginBottom: 4 }}>
-            Stop {run!.currentIndex + 1} of {quest.nodes.length}
-          </div>
+          {!isMeridiens && (
+            <div style={{ fontSize: 12, color: '#6B6455', marginBottom: 4 }}>
+              Stop {run!.currentIndex + 1} of {quest.nodes.length}
+            </div>
+          )}
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: '#1A1A1A' }}>
             {currentStop.name}
           </div>
           <div style={{ fontSize: 12, color: '#6B6455', marginTop: 4 }}>{currentStop.address}</div>
+          {isMeridiens && nextStop && (
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontStyle: 'italic', color: '#6B6455', marginTop: 12, opacity: 0.9 }}>
+              Next: {nextStop.name}
+            </p>
+          )}
 
           {!showProof ? (
             <button

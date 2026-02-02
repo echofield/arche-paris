@@ -25,6 +25,7 @@ import {
   getLayerSymbol
 } from '../utils/inscriptions-service';
 import { bump } from '../utils/companion-service';
+import { recordPlaceVisit } from '../utils/place-visits';
 
 interface InscriptionsPanelProps {
   lieu: LieuMinimal;
@@ -93,6 +94,7 @@ export function InscriptionsPanel({ lieu, isOpen, onClose }: InscriptionsPanelPr
     setSaving(false);
 
     if (result.success) {
+      recordPlaceVisit(lieu.id);
       bump('inscription_written');
       setFeedback({ type: 'success', message: result.message });
       setInputText('');

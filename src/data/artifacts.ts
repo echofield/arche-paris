@@ -14,6 +14,11 @@ export interface Artifact {
   proofCodeHint?: string;
   /** Quest id for "See the linked walk" (e.g. temporal-meridians, hunter-montmartre) */
   linkedQuestId?: string;
+  /** If true, artifact only appears / responds between 22h and 5h. */
+  nocturne?: boolean;
+  /** Nocturne proof copy (e.g. "Photograph the absence." / "Record 10 seconds of silence.") */
+  proofInstructionNocturneFR?: string;
+  proofInstructionNocturneEN?: string;
 }
 
 export const ARTIFACTS: Artifact[] = [
@@ -38,6 +43,18 @@ export const ARTIFACTS: Artifact[] = [
     proofInstructionEN: 'A photo of the statue or the wall. No location is stored.',
     proofCodeHint: 'Marcel Aymé',
     linkedQuestId: 'hunter-montmartre'
+  },
+  {
+    id: 'point-zero-nocturne',
+    title: 'Point Zéro — Nuit',
+    areaLabel: 'Notre-Dame',
+    lat: 48.8534,
+    lng: 2.3488,
+    proofInstructionFR: 'Photographier l\'absence. Dix secondes de silence.',
+    proofInstructionEN: 'Photograph the absence. Record 10 seconds of silence.',
+    proofInstructionNocturneFR: 'Photographier l\'absence. Dix secondes de silence.',
+    proofInstructionNocturneEN: 'Photograph the absence. Record 10 seconds of silence.',
+    nocturne: true
   }
 ];
 

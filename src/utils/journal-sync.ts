@@ -12,6 +12,9 @@ import { getSymbolById } from '../data/symbols';
 
 export const MY_PARIS_PLACE_ID = '__my_paris__';
 export const WALK_PLACE_ID = '__walk__';
+export const ECHO_PLACE_ID_PREFIX = '__echo__';
+export const MILESTONE_PLACE_ID = '__milestone__';
+export const MERIDIEN_PLACE_ID_PREFIX = '__meridien__';
 
 /**
  * Load the My Paris note for this card (for display in My Paris page).
@@ -104,5 +107,81 @@ export async function appendWalkToJournal(cardId: string, content: string): Prom
     });
   } catch (e) {
     console.warn('appendWalkToJournal:', e);
+  }
+}
+
+/**
+ * Insert one "Witnessed" line for Delayed Resonance (24–48h after proof).
+ * Idempotent: call only once per proof (track via arche_proof_echoed_v1).
+ */
+export async function appendEchoToJournal(
+  cardId: string,
+  artifactId: string,
+  artifactTitle: string,
+  proofAt: string
+): Promise<void> {
+  const dateStr = new Date(proofAt).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+  const content = `${dateStr} — ${artifactTitle}. Witnessed.`;
+  const now = new Date().toISOString();
+  try {
+    await supabase.from('journal_entries').insert({
+      content,
+      place_id: `${ECHO_PLACE_ID_PREFIX}${artifactId}`,
+      card_id: cardId,
+      created_at: now,
+      updated_at: now
+    });
+  } catch (e) {
+    console.warn('appendEchoToJournal:', e);
+  }
+}
+
+/**
+ * Insert one silent milestone line (10/50/100/500 km).
+ * Idempotent: call only once per threshold (track via arche_milestones_seen_v1).
+ */
+export async function appendMilestoneToJournal(
+  cardId: string,
+  km: number,
+  contentLine: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  try {
+    await supabase.from('journal_entries').insert({
+      content: contentLine,
+      place_id: `${MILESTONE_PLACE_ID}_${km}`,
+      card_id: cardId,
+      created_at: now,
+      updated_at: now
+    });
+  } catch (e) {
+    console.warn('appendMilestoneToJournal:', e);
+  }
+}
+
+/**
+ * Insert one Méridiens threshold inscription into the journal (Carnet).
+ * Tagged with __meridien__{thresholdId} so it appears as a Méridiens note.
+ */
+export async function appendMeridienInscription(
+  cardId: string,
+  thresholdId: string,
+  content: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  try {
+    await supabase.from('journal_entries').insert({
+      content,
+      place_id: `${MERIDIEN_PLACE_ID_PREFIX}${thresholdId}`,
+      card_id: cardId,
+      created_at: now,
+      updated_at: now
+    });
+  } catch (e) {
+    console.warn('appendMeridienInscription:', e);
   }
 }

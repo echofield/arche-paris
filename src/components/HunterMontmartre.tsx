@@ -8,6 +8,22 @@ import { useTranslation } from '../utils/i18n';
 import { ARTIFACTS, type Artifact } from '../data/artifacts';
 import { haversineMeters, bearingDegrees } from '../utils/geo';
 import { getPressureZone, isWithinProofRange } from '../utils/compass-constants';
+import { isNocturne } from '../utils/nocturne';
+import { isArtifactEchoed, getEchoedProofAt } from '../utils/proof-echo';
+import { getProofDensity, type DensityCategory } from '../utils/proof-density';
+import { recordPlaceVisit, isPlaceClaimed, hasReturnedInNewSeason } from '../utils/place-visits';
+import { CompassSVG } from './CompassSVG';
+
+function formatDurationSince(isoDate: string): string {
+  const then = new Date(isoDate).getTime();
+  const now = Date.now();
+  const days = Math.floor((now - then) / (24 * 60 * 60 * 1000));
+  if (days < 30) return `${days} days`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months !== 1 ? 's' : ''}`;
+  const years = Math.floor(months / 12);
+  return `${years} year${years !== 1 ? 's' : ''}`;
+}
 
 interface HunterMontmartreProps {
   onBack: () => void;
@@ -151,16 +167,19 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [proofModalArtifact, setProofModalArtifact] = useState<Artifact | null>(null);
   const [inscribedForArtifact, setInscribedForArtifact] = useState<string | null>(null);
+  const [compassDensity, setCompassDensity] = useState<DensityCategory>('none');
 
   const currentSymbol = MONTMARTRE_HUNT[currentSymbolIndex];
   const collectedCount = MONTMARTRE_HUNT.filter(s => isSymbolCollected(s.id)).length;
 
-  // Compass: nearest artifact, distance, bearing, pressure (no coords stored)
+  // Compass: nearest artifact (nocturne-only artifacts only at night), distance, bearing, pressure
   const compassState = useMemo(() => {
     if (!userPos) return { nearest: null as Artifact | null, distanceM: null as number | null, bearing: null as number | null, zone: 'far' as const, inProofRange: false };
+    const nocturne = isNocturne();
+    const candidates = nocturne ? ARTIFACTS : ARTIFACTS.filter((a) => !a.nocturne);
     let minD = Infinity;
     let nearest: Artifact | null = null;
-    for (const a of ARTIFACTS) {
+    for (const a of candidates) {
       const d = haversineMeters(userPos.lat, userPos.lng, a.lat, a.lng);
       if (d < minD) {
         minD = d;
@@ -173,6 +192,19 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
     const inProofRange = isWithinProofRange(minD);
     return { nearest, distanceM: minD, bearing, zone, inProofRange };
   }, [userPos]);
+
+  // Proof density for nearest artifact (stub until backend)
+  useEffect(() => {
+    if (!compassState.nearest) {
+      setCompassDensity('none');
+      return;
+    }
+    let cancelled = false;
+    getProofDensity(compassState.nearest.id).then((d) => {
+      if (!cancelled) setCompassDensity(d);
+    });
+    return () => { cancelled = true; };
+  }, [compassState.nearest?.id]);
 
   // Start/stop geolocation watch when compass is active (foreground only; clear on unmount)
   useEffect(() => {
@@ -491,17 +523,8 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
             </button>
             {compassState.nearest && compassState.distanceM != null && (
               <>
-                <div style={{ marginBottom: '12px', position: 'relative', height: 48 }}>
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      fontSize: 28,
-                      transform: `rotate(${compassState.bearing ?? 0}deg)`,
-                      transition: 'transform 0.3s ease'
-                    }}
-                  >
-                    ↑
-                  </span>
+                <div style={{ marginBottom: '12px', position: 'relative', height: 80 }}>
+                  <CompassSVG bearing={compassState.bearing ?? 0} size={80} />
                 </div>
                 <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#003D2C', marginBottom: '8px' }}>
                   {Math.round(compassState.distanceM)} m
@@ -513,11 +536,31 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                     fontStyle: 'italic',
                     color: '#1A1A1A',
                     opacity: 0.8,
-                    marginBottom: '16px'
+                    marginBottom: compassState.nearest && isArtifactEchoed(compassState.nearest.id) ? '6px' : '16px'
                   }}
                 >
-                  {t(`treasure.compass.pressure.${compassState.zone}`)}
+                  {compassState.nearest && isArtifactEchoed(compassState.nearest.id)
+                    ? t('treasure.compass.echo.remembers')
+                    : t(isNocturne() ? `treasure.compass.pressureNocturne.${compassState.zone}` : `treasure.compass.pressure.${compassState.zone}`)}
                 </p>
+                {compassState.nearest && isArtifactEchoed(compassState.nearest.id) && (() => {
+                  const proofAt = getEchoedProofAt(compassState.nearest!.id);
+                  return proofAt ? (
+                    <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontStyle: 'italic', color: '#6B6455', marginBottom: '16px' }}>
+                      {t('treasure.compass.echo.duration', { duration: formatDurationSince(proofAt) })}
+                    </p>
+                  ) : null;
+                })()}
+                {(compassDensity === 'few' || compassDensity === 'many') && (
+                  <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontStyle: 'italic', color: '#6B6455', marginBottom: '16px' }}>
+                    {t(`treasure.compass.density.${compassDensity}`)}
+                  </p>
+                )}
+                {compassState.nearest && isPlaceClaimed(compassState.nearest.id) && hasReturnedInNewSeason(compassState.nearest.id) && (
+                  <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontStyle: 'italic', color: '#003D2C', opacity: 0.8, marginBottom: '16px' }}>
+                    {t('treasure.compass.return.prompt1')}
+                  </p>
+                )}
                 {compassState.nearest.linkedQuestId && (
                   <p style={{ marginBottom: '12px' }}>
                     <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.7 }}>
@@ -527,7 +570,8 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.hash = `quete/${compassState.nearest!.linkedQuestId}`;
+                        const q = compassState.nearest!.linkedQuestId;
+                        window.location.hash = q === 'temporal-meridians' ? 'meridiens' : `quete/${q}`;
                       }}
                       style={{
                         background: 'none',
@@ -1249,7 +1293,9 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                 {proofModalArtifact.title}
               </p>
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#003D2C', opacity: 0.8, marginBottom: 16, lineHeight: 1.5 }}>
-                {language === 'fr' ? proofModalArtifact.proofInstructionFR : proofModalArtifact.proofInstructionEN}
+                {language === 'fr'
+                  ? (isNocturne() && proofModalArtifact.proofInstructionNocturneFR ? proofModalArtifact.proofInstructionNocturneFR : proofModalArtifact.proofInstructionFR)
+                  : (isNocturne() && proofModalArtifact.proofInstructionNocturneEN ? proofModalArtifact.proofInstructionNocturneEN : proofModalArtifact.proofInstructionEN)}
               </p>
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#6B6455', opacity: 0.7, marginBottom: 20 }}>
                 {t('treasure.compass.proofModal.body')}
@@ -1278,9 +1324,11 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                     const card = getStoredCard();
                     const cardShort = card ? card.slice(-4) : 'guest';
                     const subject = `ARCHE PROOF — ${proofModalArtifact.id} — ${cardShort}`;
+                    const proofText = language === 'fr'
+                      ? (isNocturne() && proofModalArtifact.proofInstructionNocturneFR ? proofModalArtifact.proofInstructionNocturneFR : proofModalArtifact.proofInstructionFR)
+                      : (isNocturne() && proofModalArtifact.proofInstructionNocturneEN ? proofModalArtifact.proofInstructionNocturneEN : proofModalArtifact.proofInstructionEN);
                     const body = encodeURIComponent(
-                      (language === 'fr' ? proofModalArtifact.proofInstructionFR : proofModalArtifact.proofInstructionEN) +
-                        '\n\nYour code:\n\nOptional note:\n'
+                      proofText + '\n\nYour code:\n\nOptional note:\n'
                     );
                     const mailto = `mailto:${ARCHE_PROOF_EMAIL}?subject=${encodeURIComponent(subject)}&body=${body}`;
                     try {
@@ -1292,6 +1340,7 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
                       });
                       localStorage.setItem(PROOF_REQUESTS_KEY, JSON.stringify(log));
                     } catch (_) {}
+                    recordPlaceVisit(proofModalArtifact.id);
                     window.location.href = mailto;
                     setInscribedForArtifact(proofModalArtifact.id);
                     setProofModalArtifact(null);

@@ -25,7 +25,10 @@ import { project } from '../utils/map-project';
 import { QUETES_DATA } from './QueteDetail';
 import { CompanionBlock } from './CompanionBlock';
 import { useTranslation } from '../utils/i18n';
+import { getRefusedArrondissements, isRefused, setRefused } from '../utils/refused-arrondissements';
 import type { QuestThreadTrace } from '../types/traces';
+
+const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 
 interface PersonalMemoryMapProps {
   cardId: string;
@@ -78,6 +81,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [addWalkMinutes, setAddWalkMinutes] = useState('');
   const [selectedTraceV1, setSelectedTraceV1] = useState<QuestThreadTrace | null>(null);
   const [walkLogRefresh, setWalkLogRefresh] = useState(0);
+  const [refusedList, setRefusedList] = useState<number[]>(() => getRefusedArrondissements());
+  const [unmarkedPromptArr, setUnmarkedPromptArr] = useState<number | null>(null);
 
   const collection = getCollection();
   const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
@@ -92,6 +97,22 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     return list;
   }, [showThreads, showTemporalOnly]);
   const temporalUnlocked = isTemporalMeridiansUnlocked();
+
+  // Arrondissements with 0 collected symbols (unvisited)
+  const visitedArrondissements = useMemo(() => {
+    const set = new Set<number>();
+    collection?.symbols.forEach((cs) => {
+      const sym = getSymbolById(cs.symbolId);
+      if (sym) set.add(sym.arrondissement);
+    });
+    return set;
+  }, [collection?.symbols.length, collection?.lastUpdated]);
+  const unvisitedArrondissements = useMemo(
+    () => ARRONDISSEMENTS.filter((arr) => !visitedArrondissements.has(arr)),
+    [visitedArrondissements]
+  );
+  const unvisitedNotRefused = unvisitedArrondissements.filter((arr) => !refusedList.includes(arr));
+  const unvisitedRefused = unvisitedArrondissements.filter((arr) => refusedList.includes(arr));
 
   useEffect(() => {
     loadMyParisNote(cardId).then(setNote);
@@ -327,6 +348,141 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             </div>
           ))}
         </div>
+
+        {/* Absence (Unmarked) — arrondissements with 0 symbols: tappable → "Is this choice?" → refused */}
+        {(unvisitedArrondissements.length > 0 || unvisitedRefused.length > 0) && (
+          <div
+            style={{
+              width: '100%',
+              marginBottom: '24px',
+              paddingTop: '16px',
+              borderTop: '1px solid rgba(0, 61, 44, 0.08)'
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: '10px',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                opacity: 0.6,
+                marginBottom: '10px'
+              }}
+            >
+              {t('myparis.absence.title')}
+            </div>
+            {unvisitedNotRefused.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                {unvisitedNotRefused.map((arr) => (
+                  <button
+                    key={arr}
+                    type="button"
+                    onClick={() => setUnmarkedPromptArr(arr)}
+                    style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: '12px',
+                      color: '#003D2C',
+                      background: 'transparent',
+                      border: '1px dashed rgba(0, 61, 44, 0.3)',
+                      padding: '6px 12px',
+                      cursor: 'pointer',
+                      borderRadius: 2
+                    }}
+                  >
+                    {arr}e
+                  </button>
+                ))}
+              </div>
+            )}
+            {unvisitedRefused.length > 0 && (
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '12px', color: '#6B6455', fontStyle: 'italic' }}>
+                <span style={{ marginRight: '6px' }}>{t('myparis.absence.refused')}</span>
+                <span style={{ textDecoration: 'line-through' }}>
+                  {unvisitedRefused.map((arr) => `${arr}e`).join(', ')}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Refusal prompt modal */}
+        {unmarkedPromptArr != null && (
+          <div
+            role="dialog"
+            aria-label={t('myparis.absence.promptTitle')}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10002,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.2)',
+              padding: 24
+            }}
+            onClick={() => setUnmarkedPromptArr(null)}
+          >
+            <div
+              style={{
+                background: '#FAF8F2',
+                border: '1px solid rgba(0, 61, 44, 0.15)',
+                borderRadius: 4,
+                padding: 24,
+                maxWidth: 320,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+                textAlign: 'center'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: '#1A1A1A', marginBottom: 20 }}>
+                {t('myparis.absence.prompt')}
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRefused(unmarkedPromptArr, true);
+                    setRefusedList((prev) => (prev.includes(unmarkedPromptArr) ? prev : [...prev, unmarkedPromptArr]));
+                    setUnmarkedPromptArr(null);
+                  }}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    background: 'rgba(0, 61, 44, 0.1)',
+                    border: 'none',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    borderRadius: 4
+                  }}
+                >
+                  {t('myparis.absence.yes')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUnmarkedPromptArr(null)}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: '#6B6455',
+                    background: 'transparent',
+                    border: '1px solid rgba(0, 61, 44, 0.2)',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    borderRadius: 4
+                  }}
+                >
+                  {t('myparis.absence.no')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content below the map — full width of container */}
         <div style={{ width: '100%' }}>
