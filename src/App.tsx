@@ -238,18 +238,18 @@ export default function App() {
           </>
         )}
 
-        {/* Glyph + Companion: click navigates to /aura (not modal). Hidden on Aura page. */}
+        {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura page. */}
         {appState === 'ready' && currentScreen !== 'aura' && (
           <div
             style={{
               position: 'fixed',
-              top: 20,
-              right: 24,
-              left: 'auto',
+              top: 72,
+              left: 'clamp(24px, 4vw, 40px)',
+              right: 'auto',
               zIndex: 10001,
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'flex-end',
+              alignItems: 'flex-start',
               gap: '12px'
             }}
           >
