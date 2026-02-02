@@ -4,7 +4,15 @@ import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { ExternalLink, MapPin, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getActiveRun, startRun, stampNode, closeRun } from '../utils/quest-run-service';
+import type { QuestRun } from '../types/quest-run';
+import { getOracleLine } from '../data/oracle';
+import { getTodayKey, addQuestWalk } from '../utils/walk-service';
+import { addOrUpdateQuestTraceV1 } from '../utils/trace-service';
+import { bump } from '../utils/companion-service';
+import { appendWalkToJournal } from '../utils/journal-sync';
+import type { QuestThreadTrace, QuestStopStamp } from '../types/traces';
 // Imgur images for better visual experience
 const luteceImg = 'https://i.imgur.com/1uLhXial.jpeg';
 const revolutionImg = 'https://i.imgur.com/iyCcmoSl.jpeg';
@@ -23,6 +31,9 @@ interface Stop {
   name: string;
   googleMapsUrl: string;
   geste: string;
+  /** For quest-run thread on map */
+  nodeId?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
 interface QueteData {
@@ -34,9 +45,13 @@ interface QueteData {
   itineraireComplet: string;
   stops: Stop[];
   image: string;
+  /** When closed run completes (e.g. ARC-000) */
+  reward?: { kind: 'card'; id: string };
+  /** Optional approx km for walk log (no tracking). */
+  approxKm?: number;
 }
 
-const QUETES_DATA: Record<string, QueteData> = {
+export const QUETES_DATA: Record<string, QueteData> = {
   lutece: {
     id: 'lutece',
     title: 'LUTÈCE — ORIGINE',
@@ -50,36 +65,12 @@ const QUETES_DATA: Record<string, QueteData> = {
     duree: '≈ 1h30–2h',
     itineraireComplet: 'https://www.google.com/maps/dir/Parvis+Notre-Dame+-+Pl.+Jean-Paul+II,+Paris/Petit+Pont+-+Cardinal+Lustiger,+Quai+du+Marché+Neuf+-+Maurice+Grimaud,+Paris/4+Rue+de+la+Colombe,+75004+Paris/Rue+Saint-Jacques,+Paris/Pl.+du+Panthéon,+75005+Paris/Musée+de+Cluny+-+Musée+national+du+Moyen+Âge,+Place+Paul+Painlevé,+Paris/@48.8517265,2.3435555,16z/data=!3m1!4b1!4m38!4m37!1m5!1m1!1s0x47e671e19ff53a01:0x364022c7cc569f43!2m2!1d2.3479104!2d48.8530491!1m5!1m1!1s0x47e671e041334c2d:0x933470701899a80e!2m2!1d2.3470293!2d48.8525862!1m5!1m1!1s0x47e671e06718d7db:0x1b4122d699264426!2m2!1d2.350352!2d48.8534888!1m5!1m1!1s0x47e671e6e0622a55:0x8797435f2945e415!2m2!1d2.3429383!2d48.8437021!1m5!1m1!1s0x47e671e860951161:0x7052a6597c5e263d!2m2!1d2.3458986!2d48.8464115!1m5!1m1!1s0x47e671e6878b668d:0x6b97368686f345a5!2m2!1d2.3433608!2d48.8504351!3e2',
     stops: [
-      {
-        name: 'Parvis Notre-Dame — Le point zéro',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Parvis+Notre-Dame+-+Pl.+Jean-Paul+II,+Paris',
-        geste: 'Tu es au centre. Pas symboliquement — géométriquement. Toutes les distances de France se mesurent depuis la plaque sous tes pieds. Mais avant d\'être un centre, c\'était un port. Les bateaux accostaient ici. La cathédrale est venue après, sur un lieu déjà utile. Le sacré s\'installe toujours sur ce qui fonctionne. Geste — Trouve la plaque du kilomètre zéro. Tiens-toi dessus. Tu es à l\'origine des routes.'
-      },
-      {
-        name: 'Petit Pont — Le premier passage',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Petit+Pont+-+Cardinal+Lustiger,+Quai+du+Marché+Neuf+-+Maurice+Grimaud,+Paris',
-        geste: 'C\'est le plus vieux point de traversée de Paris. Il a brûlé onze fois. Avant la pierre, c\'était du bois. Et sur le bois, des maisons. Des gens vivaient au-dessus de l\'eau, dans le risque permanent. Arrête-toi au milieu du pont. Regarde l\'eau. Elle a toujours voulu reprendre ce passage. La ville a toujours reconstruit. Geste — Reste une minute immobile au milieu. Sens le flux sous toi. La ville commence par une insistance.'
-      },
-      {
-        name: 'Rue de la Colombe — Le mur invisible',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=4+Rue+de+la+Colombe,+75004+Paris',
-        geste: 'Cette rue suit le tracé exact du rempart gallo-romain. Il n\'existe plus, mais la ville a gardé sa forme. Cherche au sol : il y a des pavés plus sombres qui marquent la ligne de l\'ancienne muraille. Paris ne détruit jamais complètement. Elle absorbe, elle recouvre, elle garde les réflexes. Geste — Marche le long de la ligne. Tu suis une frontière que plus personne ne défend.'
-      },
-      {
-        name: 'Rue Saint-Jacques — L\'axe romain',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Rue+Saint-Jacques,+Paris',
-        geste: 'Tu entres sur le Cardo Maximus. La colonne vertébrale que Rome a plantée dans la boue gauloise. Cette rue existait avant les rois, avant les églises, avant le nom même de Paris. Monte lentement. Ne regarde pas les boutiques. Regarde la pente. Cette ligne droite qui monte vers le sud, c\'est une décision vieille de deux mille ans. Geste — Marche au milieu de la rue quand tu peux. Sens l\'axe dans ton corps. Tu remonts le temps en montant la pente.'
-      },
-      {
-        name: 'Place du Panthéon — La mesure du ciel',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Pl.+du+Panthéon,+75005+Paris',
-        geste: 'Ici, la ville a décidé de s\'aligner sur une idée. La perspective, la symétrie, le Panthéon au bout — ce n\'est pas un hasard. C\'est une géométrie imposée au sol. Au XVIIIe siècle, on a voulu que Paris ressemble à ce qu\'on pensait de la raison. Cette place est une croyance devenue pierre. Geste — Place-toi dans l\'axe exact de la rue Soufflot. Regarde le Panthéon. Quelqu\'un a voulu que tu te tiennes exactement là.'
-      },
-      {
-        name: 'Musée de Cluny — La continuité',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Musée+de+Cluny+-+Musée+national+du+Moyen+Âge,+Place+Paul+Painlevé,+Paris',
-        geste: 'Si tu entres, tu refermes la boucle. Ce lieu est construit sur des thermes romains. Les pierres que tu vois dans la cour ont chauffé des corps il y a deux mille ans. Au-dessus, un hôtel médiéval. La ville s\'empile sur elle-même. Tu ne visites pas un musée. Tu descends dans les couches. Geste — Si tu n\'entres pas, touche le mur extérieur. La pierre est romaine. Ta main touche ce que la ville a décidé de ne pas effacer.'
-      }
+      { name: 'Parvis Notre-Dame — Le point zéro', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Parvis+Notre-Dame+-+Pl.+Jean-Paul+II,+Paris', geste: 'Tu es au centre. Pas symboliquement — géométriquement. Toutes les distances de France se mesurent depuis la plaque sous tes pieds. Mais avant d\'être un centre, c\'était un port. Les bateaux accostaient ici. La cathédrale est venue après, sur un lieu déjà utile. Le sacré s\'installe toujours sur ce qui fonctionne. Geste — Trouve la plaque du kilomètre zéro. Tiens-toi dessus. Tu es à l\'origine des routes.', nodeId: 'lutece-1', coordinates: { lat: 48.853, lng: 2.3499 } },
+      { name: 'Petit Pont — Le premier passage', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Petit+Pont+-+Cardinal+Lustiger,+Quai+du+Marché+Neuf+-+Maurice+Grimaud,+Paris', geste: 'C\'est le plus vieux point de traversée de Paris. Il a brûlé onze fois. Avant la pierre, c\'était du bois. Et sur le bois, des maisons. Des gens vivaient au-dessus de l\'eau, dans le risque permanent. Arrête-toi au milieu du pont. Regarde l\'eau. Elle a toujours voulu reprendre ce passage. La ville a toujours reconstruit. Geste — Reste une minute immobile au milieu. Sens le flux sous toi. La ville commence par une insistance.', nodeId: 'lutece-2', coordinates: { lat: 48.8526, lng: 2.347 } },
+      { name: 'Rue de la Colombe — Le mur invisible', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=4+Rue+de+la+Colombe,+75004+Paris', geste: 'Cette rue suit le tracé exact du rempart gallo-romain. Il n\'existe plus, mais la ville a gardé sa forme. Cherche au sol : il y a des pavés plus sombres qui marquent la ligne de l\'ancienne muraille. Paris ne détruit jamais complètement. Elle absorbe, elle recouvre, elle garde les réflexes. Geste — Marche le long de la ligne. Tu suis une frontière que plus personne ne défend.', nodeId: 'lutece-3', coordinates: { lat: 48.8535, lng: 2.3504 } },
+      { name: 'Rue Saint-Jacques — L\'axe romain', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Rue+Saint-Jacques,+Paris', geste: 'Tu entres sur le Cardo Maximus. La colonne vertébrale que Rome a plantée dans la boue gauloise. Cette rue existait avant les rois, avant les églises, avant le nom même de Paris. Monte lentement. Ne regarde pas les boutiques. Regarde la pente. Cette ligne droite qui monte vers le sud, c\'est une décision vieille de deux mille ans. Geste — Marche au milieu de la rue quand tu peux. Sens l\'axe dans ton corps. Tu remonts le temps en montant la pente.', nodeId: 'lutece-4', coordinates: { lat: 48.8464, lng: 2.3429 } },
+      { name: 'Place du Panthéon — La mesure du ciel', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Pl.+du+Panthéon,+75005+Paris', geste: 'Ici, la ville a décidé de s\'aligner sur une idée. La perspective, la symétrie, le Panthéon au bout — ce n\'est pas un hasard. C\'est une géométrie imposée au sol. Au XVIIIe siècle, on a voulu que Paris ressemble à ce qu\'on pensait de la raison. Cette place est une croyance devenue pierre. Geste — Place-toi dans l\'axe exact de la rue Soufflot. Regarde le Panthéon. Quelqu\'un a voulu que tu te tiennes exactement là.', nodeId: 'lutece-5', coordinates: { lat: 48.8462, lng: 2.3464 } },
+      { name: 'Musée de Cluny — La continuité', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Musée+de+Cluny+-+Musée+national+du+Moyen+Âge,+Place+Paul+Painlevé,+Paris', geste: 'Si tu entres, tu refermes la boucle. Ce lieu est construit sur des thermes romains. Les pierres que tu vois dans la cour ont chauffé des corps il y a deux mille ans. Au-dessus, un hôtel médiéval. La ville s\'empile sur elle-même. Tu ne visites pas un musée. Tu descends dans les couches. Geste — Si tu n\'entres pas, touche le mur extérieur. La pierre est romaine. Ta main touche ce que la ville a décidé de ne pas effacer.', nodeId: 'lutece-6', coordinates: { lat: 48.8504, lng: 2.3434 } }
     ],
     image: luteceImg
   },
@@ -96,36 +87,12 @@ const QUETES_DATA: Record<string, QueteData> = {
     duree: '≈ 2h–2h30',
     itineraireComplet: 'https://www.google.com/maps/dir/Jardin+du+Palais+Royal,+75001+Paris/Galerie+Montpensier,+75001+Paris/Rue+Saint-Honoré,+75001+Paris/230+Rue+de+Rivoli,+75001+Paris/Jardin+des+Tuileries,+75001+Paris/Place+de+la+Concorde,+75008+Paris/@48.8636,2.3277,15z/data=!3m1!4b1!4m38!4m37!1m5!1m1!1s0x47e66e1da38e76d5:0x7a1f8b3b3b3b3b3b!2m2!1d2.3377778!2d48.8638889!1m5!1m1!1s0x47e66e1da38e76d5:0x7a1f8b3b3b3b3b3b!2m2!1d2.3377778!2d48.8638889!1m5!1m1!1s0x47e66e1f5c0e0e0e:0x0e0e0e0e0e0e0e0e!2m2!1d2.3333333!2d48.8666667!1m5!1m1!1s0x47e66e1f5c0e0e0e:0x0e0e0e0e0e0e0e0e!2m2!1d2.3308333!2d48.8641667!1m5!1m1!1s0x47e66e2e0e0e0e0e:0x0e0e0e0e0e0e0e0e!2m2!1d2.3275!2d48.8636111!1m5!1m1!1s0x47e66e2e0e0e0e0e:0x0e0e0e0e0e0e0e0e!2m2!1d2.3213889!2d48.8656111!3e2',
     stops: [
-      {
-        name: 'Jardin du Palais-Royal — La chambre d\'écho',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Jardin+du+Palais+Royal,+75001+Paris',
-        geste: 'Entre par n\'importe quelle entrée. Fais le tour sous les arcades avant d\'aller au centre. Sens comment l\'espace te retient. Les galeries forment un rectangle fermé. Le son rebondit. Les regards se croisent. Au XVIIIe siècle, c\'était le seul endroit de Paris où la police n\'entrait pas — propriété privée du duc d\'Orléans. On pouvait parler. On pouvait imprimer. On pouvait comploter à ciel ouvert. Geste — Assieds-toi quelques minutes sur une chaise du jardin. Regarde les gens passer sous les arcades. Imagine le même lieu avec dix fois plus de monde, dix fois plus de bruit, et aucune loi.'
-      },
-      {
-        name: 'Galerie Montpensier — Le café de Foy',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Galerie+Montpensier,+75001+Paris',
-        geste: 'Cherche l\'emplacement. Il n\'y a plus de café de Foy, mais la zone est là — côté est du jardin, sous les arcades. Le 12 juillet 1789, Camille Desmoulins monte sur une table. Il parle. Il crie. Il arrache une feuille d\'arbre et la met à son chapeau — signe de ralliement. Deux jours plus tard, la Bastille tombe. Ce n\'était pas un discours prévu. C\'était un débordement. L\'espace l\'a permis. Geste — Tiens-toi à l\'endroit approximatif. Regarde la hauteur des arcades. Imagine la voix qui porte, qui rebondit, qui enfle. Une table, un corps debout, et la suite de l\'histoire.'
-      },
-      {
-        name: 'Sortie vers Rue Saint-Honoré — La propagation',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Rue+Saint-Honoré,+75001+Paris',
-        geste: 'Sors du Palais-Royal par le passage qui donne sur la rue Saint-Honoré. Tu passes du rectangle clos à la ligne ouverte. La rumeur qui naît dans la chambre d\'écho se propage ici, dans les rues. Elle marche plus vite que l\'ordre écrit. Les gens courent. Les nouvelles se déforment. Ce qui était une parole devient un mouvement. Geste — Marche vite pendant deux minutes. Ne regarde pas les vitrines. Sens l\'accélération. La ville devient un circuit.'
-      },
-      {
-        name: '230 Rue de Rivoli — Le Manège disparu',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=230+Rue+de+Rivoli,+75001+Paris',
-        geste: 'Cherche la plaque. Il n\'y a plus rien à voir — un passage, des immeubles. Mais ici se tenait la salle du Manège, où l\'Assemblée nationale s\'est installée. Imagine une salle étroite, mal aérée, bruyante. Les députés qui crient pour se faire entendre. La politique avant l\'éloquence solennelle. Avant d\'être majestueuse, la démocratie a été inaudible. Geste — Lis la plaque. Reste un moment devant ce vide. Les lieux de décision disparaissent. Les décisions restent.'
-      },
-      {
-        name: 'Jardin des Tuileries — Le calme d\'après',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Jardin+des+Tuileries,+75001+Paris',
-        geste: 'Entre dans le jardin. Marche lentement. Le contraste est violent. Ce silence, cette géométrie, ces arbres alignés — c\'est le pouvoir qui reprend l\'espace. Les Tuileries ont vu des émeutes, des invasions, des foules. Aujourd\'hui, des enfants et des touristes. Le pouvoir aime les jardins. Il aime que les choses aient l\'air calmes. Geste — Trouve un banc. Assieds-toi face au Louvre. Respire. Tu traverses le temps d\'après la décision.'
-      },
-      {
-        name: 'Place de la Concorde — Le seuil final',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Place+de+la+Concorde,+75008+Paris',
-        geste: 'Tu arrives sur la place. Elle est trop grande. C\'est fait exprès. Ici, le 21 janvier 1793, la décision est devenue irréversible. Une tête est tombée. Après ça, plus personne ne pouvait dire "on arrête, on revient en arrière". Le pays entier a basculé dans l\'inconnu. Tu n\'as pas besoin d\'imaginer la guillotine. Regarde l\'espace. Sens l\'exposition. Être ici, c\'était être vu par des milliers de personnes. Le pouvoir et la mort, même mise en scène. Geste — Traverse la place à pied. Ne contourne pas. Va jusqu\'à l\'obélisque, puis continue. La ville reprend après. La décision reste derrière toi.'
-      }
+      { name: 'Jardin du Palais-Royal — La chambre d\'écho', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Jardin+du+Palais+Royal,+75001+Paris', geste: 'Entre par n\'importe quelle entrée. Fais le tour sous les arcades avant d\'aller au centre. Sens comment l\'espace te retient. Les galeries forment un rectangle fermé. Le son rebondit. Les regards se croisent. Au XVIIIe siècle, c\'était le seul endroit de Paris où la police n\'entrait pas — propriété privée du duc d\'Orléans. On pouvait parler. On pouvait imprimer. On pouvait comploter à ciel ouvert. Geste — Assieds-toi quelques minutes sur une chaise du jardin. Regarde les gens passer sous les arcades. Imagine le même lieu avec dix fois plus de monde, dix fois plus de bruit, et aucune loi.', nodeId: '1789-1', coordinates: { lat: 48.8639, lng: 2.3378 } },
+      { name: 'Galerie Montpensier — Le café de Foy', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Galerie+Montpensier,+75001+Paris', geste: 'Cherche l\'emplacement. Il n\'y a plus de café de Foy, mais la zone est là — côté est du jardin, sous les arcades. Le 12 juillet 1789, Camille Desmoulins monte sur une table. Il parle. Il crie. Il arrache une feuille d\'arbre et la met à son chapeau — signe de ralliement. Deux jours plus tard, la Bastille tombe. Ce n\'était pas un discours prévu. C\'était un débordement. L\'espace l\'a permis. Geste — Tiens-toi à l\'endroit approximatif. Regarde la hauteur des arcades. Imagine la voix qui porte, qui rebondit, qui enfle. Une table, un corps debout, et la suite de l\'histoire.', nodeId: '1789-2', coordinates: { lat: 48.8639, lng: 2.3378 } },
+      { name: 'Sortie vers Rue Saint-Honoré — La propagation', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Rue+Saint-Honoré,+75001+Paris', geste: 'Sors du Palais-Royal par le passage qui donne sur la rue Saint-Honoré. Tu passes du rectangle clos à la ligne ouverte. La rumeur qui naît dans la chambre d\'écho se propage ici, dans les rues. Elle marche plus vite que l\'ordre écrit. Les gens courent. Les nouvelles se déforment. Ce qui était une parole devient un mouvement. Geste — Marche vite pendant deux minutes. Ne regarde pas les vitrines. Sens l\'accélération. La ville devient un circuit.', nodeId: '1789-3', coordinates: { lat: 48.866, lng: 2.333 } },
+      { name: '230 Rue de Rivoli — Le Manège disparu', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=230+Rue+de+Rivoli,+75001+Paris', geste: 'Cherche la plaque. Il n\'y a plus rien à voir — un passage, des immeubles. Mais ici se tenait la salle du Manège, où l\'Assemblée nationale s\'est installée. Imagine une salle étroite, mal aérée, bruyante. Les députés qui crient pour se faire entendre. La politique avant l\'éloquence solennelle. Avant d\'être majestueuse, la démocratie a été inaudible. Geste — Lis la plaque. Reste un moment devant ce vide. Les lieux de décision disparaissent. Les décisions restent.', nodeId: '1789-4', coordinates: { lat: 48.864, lng: 2.33 } },
+      { name: 'Jardin des Tuileries — Le calme d\'après', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Jardin+des+Tuileries,+75001+Paris', geste: 'Entre dans le jardin. Marche lentement. Le contraste est violent. Ce silence, cette géométrie, ces arbres alignés — c\'est le pouvoir qui reprend l\'espace. Les Tuileries ont vu des émeutes, des invasions, des foules. Aujourd\'hui, des enfants et des touristes. Le pouvoir aime les jardins. Il aime que les choses aient l\'air calmes. Geste — Trouve un banc. Assieds-toi face au Louvre. Respire. Tu traverses le temps d\'après la décision.', nodeId: '1789-5', coordinates: { lat: 48.8636, lng: 2.3275 } },
+      { name: 'Place de la Concorde — Le seuil final', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Place+de+la+Concorde,+75008+Paris', geste: 'Tu arrives sur la place. Elle est trop grande. C\'est fait exprès. Ici, le 21 janvier 1793, la décision est devenue irréversible. Une tête est tombée. Après ça, plus personne ne pouvait dire "on arrête, on revient en arrière". Le pays entier a basculé dans l\'inconnu. Tu n\'as pas besoin d\'imaginer la guillotine. Regarde l\'espace. Sens l\'exposition. Être ici, c\'était être vu par des milliers de personnes. Le pouvoir et la mort, même mise en scène. Geste — Traverse la place à pied. Ne contourne pas. Va jusqu\'à l\'obélisque, puis continue. La ville reprend après. La décision reste derrière toi.', nodeId: '1789-6', coordinates: { lat: 48.8656, lng: 2.3214 } }
     ],
     image: revolutionImg
   },
@@ -142,38 +109,36 @@ const QUETES_DATA: Record<string, QueteData> = {
     duree: '≈ 2h30–3h',
     itineraireComplet: 'https://www.google.com/maps/dir/Église+Saint-Eustache,+Paris/Jardin+Nelson-Mandela,+Allée+Jules+Supervielle,+Paris/Rue+Montorgueil,+Paris/Stohrer,+Rue+Montorgueil,+Paris/Au+Rocher+de+Cancale,+Rue+Montorgueil,+Paris/Passage+du+Grand-Cerf,+Paris/@48.8648,2.345,16z/data=!3m1!4b1!4m38!4m37!1m5!1m1!1s0x47e66e1f0e35261b:0x5e0892042738260!2m2!1d2.3452445!2d48.8633393!1m5!1m1!1s0x47e66e1f9a888805:0x98555848e43e2e5e!2m2!1d2.3458686!2d48.8624389!1m5!1m1!1s0x47e66e18af291f09:0xd2755e105051a37c!2m2!1d2.3463378!2d48.8652618!1m5!1m1!1s0x47e66e1ed637b38d:0x22876805d76d8b94!2m2!1d2.3468965!2d48.8658607!1m5!1m1!1s0x47e66e1933a3641b:0x536a00445a6c1741!2m2!1d2.3473105!2d48.8672052!1m5!1m1!1s0x47e66e19636657c9:0x417036437d25e0c!2m2!1d2.3496667!2d48.8663889!3e2',
     stops: [
-      {
-        name: 'Saint-Eustache — L\'église du ventre',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=2+Impasse+Saint-Eustache,+75001+Paris',
-        geste: 'Cette église est énorme, et ce n\'est pas un hasard. Elle a été construite avec l\'argent des marchands des Halles. Pendant des siècles, les gens qui nourrissaient Paris venaient ici remercier ou demander. Le sacré et la bouffe, même adresse. Entre quelques minutes. L\'acoustique est immense. Laisse le silence te préparer au bruit qui vient.'
-      },
-      {
-        name: 'Jardin Nelson-Mandela — Le fantôme des Halles',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Jardin+Nelson+Mandela,+Allée+Jules+Supervielle,+75001+Paris',
-        geste: 'Tu marches sur un vide. Jusqu\'en 1971, ici, c\'était le ventre de Paris. Le plus grand marché alimentaire d\'Europe. Des pavillons de fer et de verre. Des cris dès 3h du matin. L\'odeur du sang, du fromage, des légumes écrabouillés. On a tout rasé. Il reste ce jardin, cette canopée, ce centre commercial. Mais le sol se souvient. Cherche les quelques traces : la fontaine des Innocents (ancien cimetière devenu place de marché), les rues autour qui portent encore les noms des métiers.'
-      },
-      {
-        name: 'Rue Montorgueil — L\'entrée par le bas',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Rue+Montorgueil,+75002+Paris',
-        geste: 'Tu entres dans l\'artère par le sud, là où elle commence. Ne marche pas sur le côté. Marche au milieu, dans le flux. Cette rue n\'a jamais été silencieuse. Avant les pavés, avant les devantures, c\'était déjà une circulation de bouches et de mains. Poissonniers, fromagers, marchands de quatre-saisons. Aujourd\'hui le décor a changé, pas l\'énergie. Achète quelque chose que tu mangeras en marchant. N\'importe quoi. Le geste compte plus que le choix.'
-      },
-      {
-        name: 'Stohrer — La pâtisserie continue',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=51+Rue+Montorgueil,+75002+Paris',
-        geste: 'Stohrer existe depuis 1730. Ce n\'est pas un "monument historique". C\'est un lieu qui n\'a jamais fermé. Le pâtissier de la reine Marie Leszczyńska a ouvert ici, et depuis, quelqu\'un a toujours vendu des gâteaux à cet endroit. Un lieu n\'est pas vieux. Il est continu. Entre. Prends un baba au rhum ou un puits d\'amour. Mange-le dehors, debout. C\'est comme ça qu\'on faisait.'
-      },
-      {
-        name: 'Au Rocher de Cancale — La façade qui parle',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=78+Rue+Montorgueil,+75002+Paris',
-        geste: 'Regarde la devanture. Les coquilles sculptées. Les détails. Ce restaurant existe depuis 1804. Balzac y venait, mais pas pour la cuisine. Au XIXe siècle, les restaurants étaient des bourses aux nouvelles. On venait entendre ce qui se passait, qui faisait quoi, où allait l\'argent. Manger était un prétexte. L\'information circulait entre les plats. La nourriture a toujours été politique. Si tu as le temps, entre boire un verre. Sinon, reste devant. Imagine les conversations qui ont traversé ces murs.'
-      },
-      {
-        name: 'Passage du Grand-Cerf — L\'ouverture',
-        googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=145+Rue+Saint-Denis,+75002+Paris',
-        geste: 'Tu ne termines pas. Tu traverses. Ce passage est l\'un des plus hauts de Paris. Verrière, fer forgé, lumière. Il relie deux mondes : le quartier gourmand que tu quittes, et le Paris populaire de Strasbourg-Saint-Denis qui t\'attend. Un bon parcours ne se ferme pas. Il ouvre sur ce qui vient après. Traverse lentement. Regarde en l\'air. Puis sors de l\'autre côté et continue ta journée. La ville ne s\'arrête pas.'
-      }
+      { name: 'Saint-Eustache — L\'église du ventre', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=2+Impasse+Saint-Eustache,+75001+Paris', geste: 'Cette église est énorme, et ce n\'est pas un hasard. Elle a été construite avec l\'argent des marchands des Halles. Pendant des siècles, les gens qui nourrissaient Paris venaient ici remercier ou demander. Le sacré et la bouffe, même adresse. Entre quelques minutes. L\'acoustique est immense. Laisse le silence te préparer au bruit qui vient.', nodeId: 'table-1', coordinates: { lat: 48.8633, lng: 2.3452 } },
+      { name: 'Jardin Nelson-Mandela — Le fantôme des Halles', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Jardin+Nelson+Mandela,+Allée+Jules+Supervielle,+75001+Paris', geste: 'Tu marches sur un vide. Jusqu\'en 1971, ici, c\'était le ventre de Paris. Le plus grand marché alimentaire d\'Europe. Des pavillons de fer et de verre. Des cris dès 3h du matin. L\'odeur du sang, du fromage, des légumes écrabouillés. On a tout rasé. Il reste ce jardin, cette canopée, ce centre commercial. Mais le sol se souvient. Cherche les quelques traces : la fontaine des Innocents (ancien cimetière devenu place de marché), les rues autour qui portent encore les noms des métiers.', nodeId: 'table-2', coordinates: { lat: 48.8624, lng: 2.3459 } },
+      { name: 'Rue Montorgueil — L\'entrée par le bas', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Rue+Montorgueil,+75002+Paris', geste: 'Tu entres dans l\'artère par le sud, là où elle commence. Ne marche pas sur le côté. Marche au milieu, dans le flux. Cette rue n\'a jamais été silencieuse. Avant les pavés, avant les devantures, c\'était déjà une circulation de bouches et de mains. Poissonniers, fromagers, marchands de quatre-saisons. Aujourd\'hui le décor a changé, pas l\'énergie. Achète quelque chose que tu mangeras en marchant. N\'importe quoi. Le geste compte plus que le choix.', nodeId: 'table-3', coordinates: { lat: 48.8653, lng: 2.3463 } },
+      { name: 'Stohrer — La pâtisserie continue', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=51+Rue+Montorgueil,+75002+Paris', geste: 'Stohrer existe depuis 1730. Ce n\'est pas un "monument historique". C\'est un lieu qui n\'a jamais fermé. Le pâtissier de la reine Marie Leszczyńska a ouvert ici, et depuis, quelqu\'un a toujours vendu des gâteaux à cet endroit. Un lieu n\'est pas vieux. Il est continu. Entre. Prends un baba au rhum ou un puits d\'amour. Mange-le dehors, debout. C\'est comme ça qu\'on faisait.', nodeId: 'table-4', coordinates: { lat: 48.8659, lng: 2.3469 } },
+      { name: 'Au Rocher de Cancale — La façade qui parle', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=78+Rue+Montorgueil,+75002+Paris', geste: 'Regarde la devanture. Les coquilles sculptées. Les détails. Ce restaurant existe depuis 1804. Balzac y venait, mais pas pour la cuisine. Au XIXe siècle, les restaurants étaient des bourses aux nouvelles. On venait entendre ce qui se passait, qui faisait quoi, où allait l\'argent. Manger était un prétexte. L\'information circulait entre les plats. La nourriture a toujours été politique. Si tu as le temps, entre boire un verre. Sinon, reste devant. Imagine les conversations qui ont traversé ces murs.', nodeId: 'table-5', coordinates: { lat: 48.8672, lng: 2.3473 } },
+      { name: 'Passage du Grand-Cerf — L\'ouverture', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=145+Rue+Saint-Denis,+75002+Paris', geste: 'Tu ne termines pas. Tu traverses. Ce passage est l\'un des plus hauts de Paris. Verrière, fer forgé, lumière. Il relie deux mondes : le quartier gourmand que tu quittes, et le Paris populaire de Strasbourg-Saint-Denis qui t\'attend. Un bon parcours ne se ferme pas. Il ouvre sur ce qui vient après. Traverse lentement. Regarde en l\'air. Puis sors de l\'autre côté et continue ta journée. La ville ne s\'arrête pas.', nodeId: 'table-6', coordinates: { lat: 48.8664, lng: 2.3497 } }
     ],
     image: tableImg
+  },
+
+  // ============================================
+  // TEMPORAL MERIDIANS — Saint-Sulpice, Horloge, Point Zéro (Quest Run)
+  // ============================================
+  'temporal-meridians': {
+    id: 'temporal-meridians',
+    title: 'Temporal Meridians',
+    registre: 'Seuil · Temps · Origine',
+    texte: [
+      'Saint-Sulpice, the clock, the zero. A short walk along time: the meridian at Saint-Sulpice, civil time at the Conciergerie (Charles V, 1370–1371), and the point from which distances begin.'
+    ],
+    duree: '≈ 45–60 min',
+    itineraireComplet: 'https://www.google.com/maps/dir/?api=1&origin=48.8512,2.3347&destination=48.8530,2.3499&waypoints=48.8562,2.3462&travelmode=walking',
+    stops: [
+      { name: 'Saint-Sulpice (Solar)', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Place+Saint-Sulpice,+75006+Paris', geste: 'Notice the asymmetry. The meridian is here.', nodeId: 'sulpice-solar', coordinates: { lat: 48.8512, lng: 2.3347 } },
+      { name: 'Tour de l\'Horloge / Conciergerie (Civil)', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=2+Boulevard+du+Palais,+75001+Paris', geste: 'Civil time. Charles V, 1370–1371.', nodeId: 'sulpice-horloge', coordinates: { lat: 48.8562, lng: 2.3462 } },
+      { name: 'Point Zéro Notre-Dame (Origin)', googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Parvis+Notre-Dame,+75004+Paris', geste: 'From here, distances begin.', nodeId: 'sulpice-zero', coordinates: { lat: 48.853, lng: 2.3499 } }
+    ],
+    image: luteceImg,
+    reward: { kind: 'card', id: 'ARC-000' },
+    approxKm: 2
   },
 
   // ============================================
@@ -243,10 +208,74 @@ const QUETES_DATA: Record<string, QueteData> = {
  * 
  * La quête existe dans la marche, pas dans l'écran.
  */
+function getActiveRunForQuest(queteId: string): QuestRun | null {
+  const run = getActiveRun();
+  return run?.questId === queteId ? run : null;
+}
+
 export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
   const quete = QUETES_DATA[queteId];
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [activeRun, setActiveRun] = useState<QuestRun | null>(() => getActiveRunForQuest(queteId));
+  const [witnessStopIndex, setWitnessStopIndex] = useState<number | null>(null);
+  const [closeReveal, setCloseReveal] = useState(false);
   const cardId = getStoredCard() || 'unknown';
+
+  const hasThreadSupport = quete?.stops?.some((s) => s.nodeId) ?? false;
+  const allStamped = hasThreadSupport && activeRun && quete && quete.stops.every((s) => s.nodeId && activeRun.visited[s.nodeId]);
+
+  useEffect(() => {
+    setActiveRun(getActiveRunForQuest(queteId));
+    setCloseReveal(false);
+  }, [queteId]);
+
+  const handleBeginThread = () => {
+    if (!queteId) return;
+    const run = startRun(queteId);
+    setActiveRun(run);
+  };
+
+  const handleStampNode = (runId: string, nodeId: string, evidenceLocalIds?: string[]) => {
+    stampNode(runId, nodeId, evidenceLocalIds);
+    setActiveRun(getActiveRun());
+    setWitnessStopIndex(null);
+  };
+
+  const handleCloseWalk = async () => {
+    if (!activeRun || !quete) return;
+    const closedAt = new Date().toISOString();
+    closeRun(activeRun.runId, quete.reward);
+    const approxKm = quete.approxKm;
+    addQuestWalk(getTodayKey(), quete.title, quete.id, approxKm);
+    const stamps: QuestStopStamp[] = quete.stops
+      .filter((s) => s.nodeId && activeRun!.visited[s.nodeId])
+      .map((s) => ({
+        stopId: s.nodeId!,
+        label: s.name,
+        at: activeRun!.visited[s.nodeId!].at,
+        oracleLine: getOracleLine(queteId, 'arrive_stop', s.nodeId!) || undefined
+      }));
+    const v1Trace: QuestThreadTrace = {
+      kind: 'quest_thread',
+      traceId: `thread-${queteId}-${activeRun.runId}`,
+      questId: quete.id,
+      title: quete.title,
+      createdAt: activeRun.startedAt,
+      closedAt,
+      approxKm,
+      stamps
+    };
+    addOrUpdateQuestTraceV1(v1Trace);
+    bump('quest_closed');
+    const line = `${quete.title} — completed (${new Date().toLocaleDateString()})`;
+    try {
+      await appendWalkToJournal(cardId, line);
+    } catch {
+      // journal-sync missing or failed
+    }
+    setActiveRun(null);
+    setCloseReveal(true);
+  };
 
   if (!quete) {
     return (
@@ -590,6 +619,53 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
             Itinéraire
           </h2>
 
+          {/* Quest Run — Begin the thread (only if quest has nodeIds) */}
+          {hasThreadSupport && !activeRun && !closeReveal && (
+            <div style={{ marginBottom: 'var(--space-xl)' }}>
+              <button
+                type="button"
+                onClick={handleBeginThread}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '14px 24px',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '11px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: '#003D2C',
+                  background: 'transparent',
+                  border: '1px solid rgba(0,61,44,0.4)',
+                  cursor: 'pointer'
+                }}
+              >
+                Begin the thread
+              </button>
+            </div>
+          )}
+
+          {/* Close reveal — one-time message */}
+          {closeReveal && (
+            <div
+              style={{
+                marginBottom: 'var(--space-xl)',
+                padding: 'var(--space-lg)',
+                border: '1px solid rgba(0,61,44,0.2)',
+                fontFamily: 'var(--font-serif)',
+                fontSize: '18px',
+                fontStyle: 'italic',
+                color: '#003D2C'
+              }}
+            >
+              From there everything starts. Welcome to ARCHÉ.
+              {quete.reward && (
+                <span style={{ display: 'block', marginTop: 8, fontSize: 13, opacity: 0.8 }}>
+                  {quete.reward.id}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* CTA — Itinéraire complet */}
           <a
             href={quete.itineraireComplet}
@@ -757,6 +833,35 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
                   </a>
                 </div>
 
+                {/* Quest Run — I'm here (gated, per stop) */}
+                {hasThreadSupport && activeRun && stop.nodeId && (
+                  <div style={{ marginLeft: '48px', marginTop: 'var(--space-md)' }}>
+                    {activeRun.visited[stop.nodeId] ? (
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.6 }}>
+                        Stamped
+                      </span>
+                    ) : (index === 0 || (quete.stops[index - 1]?.nodeId && activeRun.visited[quete.stops[index - 1].nodeId!])) ? (
+                      <button
+                        type="button"
+                        onClick={() => setWitnessStopIndex(index)}
+                        style={{
+                          padding: '8px 16px',
+                          fontFamily: 'var(--font-sans)',
+                          fontSize: 10,
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                          color: '#003D2C',
+                          background: 'transparent',
+                          border: '1px solid rgba(0,61,44,0.3)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        I'm here
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+
                 {/* Les Traces — Mémoire des marcheurs précédents */}
                 <Traces
                   cardId={cardId}
@@ -767,7 +872,103 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
               </div>
             ))}
           </div>
+
+          {/* Quest Run — Close the walk (when all stamped) */}
+          {hasThreadSupport && activeRun && allStamped && (
+            <div style={{ marginTop: 'var(--space-xl)' }}>
+              <button
+                type="button"
+                onClick={handleCloseWalk}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '14px 28px',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '11px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: '#FAF8F2',
+                  background: '#003D2C',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Close the walk
+              </button>
+            </div>
+          )}
         </section>
+
+        {/* Witness modal (photo or skip) */}
+        {witnessStopIndex !== null && quete?.stops[witnessStopIndex]?.nodeId && activeRun && (
+          <div
+            role="dialog"
+            aria-label="Add proof"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.2)',
+              padding: 24
+            }}
+            onClick={() => setWitnessStopIndex(null)}
+          >
+            <div
+              style={{
+                background: '#FAF8F2',
+                border: '1px solid rgba(0,61,44,0.15)',
+                padding: 24,
+                maxWidth: 320
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, marginBottom: 16 }}>
+                Add proof (optional)
+              </p>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && quete?.stops[witnessStopIndex]?.nodeId) {
+                        handleStampNode(activeRun!.runId, quete.stops[witnessStopIndex].nodeId!, [`photo-${Date.now()}`]);
+                      }
+                      setWitnessStopIndex(null);
+                    }}
+                    style={{ fontSize: 12 }}
+                  />
+                  <span style={{ marginLeft: 8, fontSize: 11, textTransform: 'uppercase' }}>Photo</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (quete?.stops[witnessStopIndex]?.nodeId) {
+                      handleStampNode(activeRun!.runId, quete.stops[witnessStopIndex].nodeId!);
+                    }
+                    setWitnessStopIndex(null);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    background: 'transparent',
+                    border: '1px solid rgba(0,61,44,0.3)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Micro-règle V1 */}
         <footer style={{ textAlign: 'center', paddingTop: 'var(--space-xxl)', borderTop: '1px solid #DBD4C6' }}>

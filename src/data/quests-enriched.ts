@@ -186,6 +186,27 @@ const GEMINI_ENRICHMENT: Record<string, Omit<EnrichedQuest, keyof Quest>> = {
   },
 
   // ============================================
+  // QUEST RUN — Temporal Meridians
+  // ============================================
+
+  'temporal-meridians': {
+    poeticSubtitle: 'Saint-Sulpice, the clock, the zero.',
+    curatedDescription: 'A short walk along time: the meridian at Saint-Sulpice, civil time at the Conciergerie (Charles V, 1370–1371), and the point from which distances are measured.',
+    quote: {
+      text: 'Walk slowly. The city is precise when you are.',
+      author: 'ARCHÉ'
+    },
+    miniQuest: 'Reach each stop and, if you wish, add a proof.',
+    tags: ['extérieur', 'historique', 'calme', 'gratuit', 'contemplatif', 'quest-run'],
+    badges: {
+      cost: 'GRATUIT',
+      environment: 'EXTÉRIEUR',
+      pace: 'CONTEMPLATIF'
+    },
+    archetype: 'Seuil'
+  },
+
+  // ============================================
   // HUNTER: MONTMARTRE — Chasse aux symboles
   // ============================================
 

@@ -24,6 +24,7 @@ import {
   getLayerLabel,
   getLayerSymbol
 } from '../utils/inscriptions-service';
+import { bump } from '../utils/companion-service';
 
 interface InscriptionsPanelProps {
   lieu: LieuMinimal;
@@ -92,6 +93,7 @@ export function InscriptionsPanel({ lieu, isOpen, onClose }: InscriptionsPanelPr
     setSaving(false);
 
     if (result.success) {
+      bump('inscription_written');
       setFeedback({ type: 'success', message: result.message });
       setInputText('');
       setRitualMode(false);

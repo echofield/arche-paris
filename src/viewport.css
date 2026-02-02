@@ -1,0 +1,14 @@
+/**
+ * ARCHÉ — Mobile viewport: vertical scroll only, no horizontal creep.
+ * Ensures the app is good on phone: no left-to-right scroll, only vertical.
+ */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+#root {
+  overflow-x: hidden;
+  max-width: 100%;
+}

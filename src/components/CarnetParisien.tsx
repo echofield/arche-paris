@@ -4,6 +4,8 @@ import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { formatDateDisplay } from '../utils/codex-helpers';
 import { supabase } from '../utils/supabase/client.ts';
+import { WALK_PLACE_ID } from '../utils/journal-sync';
+import { getReflectiveQuestion } from '../data/oracle';
 
 interface CarnetParisienProps {
   cardId: string;
@@ -275,6 +277,18 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
           >
             Votre archive intime de Paris
           </p>
+          <p
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '13px',
+              fontStyle: 'italic',
+              color: '#003D2C',
+              opacity: 0.5,
+              marginTop: '12px'
+            }}
+          >
+            {getReflectiveQuestion()}
+          </p>
         </header>
 
         {/* Compact add button */}
@@ -478,14 +492,16 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
                   {souvenir.lieu && (
                     <div 
                       style={{
-                        fontFamily: 'var(--font-serif)',
-                        fontSize: '13px',
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '10px',
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
                         color: '#003D2C',
-                        opacity: 0.6,
+                        opacity: 0.5,
                         marginBottom: '12px'
                       }}
                     >
-                      {souvenir.lieu}
+                      {souvenir.lieu === WALK_PLACE_ID ? 'Walk' : souvenir.lieu}
                     </div>
                   )}
                 </div>

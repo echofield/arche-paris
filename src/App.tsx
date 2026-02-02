@@ -8,17 +8,21 @@ import { CarnetParisien } from './components/CarnetParisien';
 import { CollectionMap } from './components/CollectionMap';
 import { PersonalMemoryMap } from './components/PersonalMemoryMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
+import { QuestRun } from './components/QuestRun';
 import { CultureQuiz } from './components/CultureQuiz';
 import { EtudesHub } from './components/EtudesHub';
 import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
+import { CompanionBlock } from './components/CompanionBlock';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
 import { sealingStub } from './utils/sealing-stub';
+import { decayIfNeeded } from './utils/companion-service';
+import { getReflectiveQuestion } from './data/oracle';
 import { LanguageProvider, useTranslation } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'carnet' | 'collection' | 'seuil' | 'etudes';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -36,6 +40,7 @@ export default function App() {
   const [cardStatus, setCardStatus] = useState<CardStatus | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
+  const [questRunId, setQuestRunId] = useState<string | null>(null);
   const [fadePanelOpen, setFadePanelOpen] = useState(false);
 
   // Initialize card on mount
@@ -60,6 +65,16 @@ export default function App() {
 
     init();
   }, []);
+
+  // Companion decay once per session (no timers)
+  useEffect(() => {
+    if (appState !== 'ready') return;
+    try {
+      if (sessionStorage.getItem('arche_companion_decay_done')) return;
+      decayIfNeeded();
+      sessionStorage.setItem('arche_companion_decay_done', '1');
+    } catch {}
+  }, [appState]);
 
   // Handle manual card entry
   const handleManualEntry = async (code: string) => {
@@ -106,6 +121,9 @@ export default function App() {
       } else if (hash.startsWith('quete/')) {
         setSelectedQueteId(hash.split('/')[1]);
         setCurrentScreen('detail');
+      } else if (hash.startsWith('quest-run/')) {
+        setQuestRunId(hash.slice('quest-run/'.length) || null);
+        setCurrentScreen('questRun');
       } else {
         setCurrentScreen('homepage');
       }
@@ -121,6 +139,8 @@ export default function App() {
       window.location.hash = '';
     } else if (screen === 'detail' && queteId) {
       window.location.hash = `quete/${queteId}`;
+    } else if (screen === 'questRun' && queteId) {
+      window.location.hash = `quest-run/${queteId}`;
     } else {
       window.location.hash = screen;
     }
@@ -161,6 +181,19 @@ export default function App() {
           return <HunterMontmartre onBack={() => navigateTo('homepage')} />;
         }
         return <QueteDetail queteId={selectedQueteId} onBack={() => navigateTo('quetes')} />;
+      case 'questRun':
+        if (!questRunId) {
+          navigateTo('quetes');
+          return null;
+        }
+        return (
+          <QuestRun
+            questId={questRunId}
+            cardId={cardStatus?.cardId ?? null}
+            onBack={() => { setQuestRunId(null); navigateTo('quetes'); }}
+            onClose={() => { setQuestRunId(null); window.location.hash = 'quetes'; }}
+          />
+        );
       case 'carnet':
         return <CarnetParisien cardId={cardStatus?.cardId || 'unknown'} onBack={() => navigateTo('homepage')} />;
       case 'collection':
@@ -182,7 +215,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <div style={{ minHeight: '100vh', background: '#FAF8F2', position: 'relative' }}>
+      <div style={{ minHeight: '100vh', width: '100%', maxWidth: '100%', overflowX: 'hidden', background: '#FAF8F2', position: 'relative' }}>
         {appState !== 'ready' ? (
           <CardEntry
             status={appState}
@@ -198,29 +231,40 @@ export default function App() {
           </>
         )}
 
-        {/* Glyph only on homepage — like arch-citizen: disappears when a page opens so BackButton has room. */}
-        {currentScreen === 'homepage' && (
-          <button
-            type="button"
-            onClick={() => setFadePanelOpen((prev) => !prev)}
-            aria-label="Presence"
+        {/* Glyph + Companion (Ember) on all main screens when ready; top-right so BackButton has room. */}
+        {appState === 'ready' && (
+          <div
             style={{
               position: 'fixed',
               top: 20,
-              left: 24,
+              right: 24,
+              left: 'auto',
               zIndex: 10001,
-              padding: 0,
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              opacity: 0.85,
-              transition: 'opacity 0.3s ease'
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '12px'
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
           >
-            <ArcheSymbol size={48} />
-          </button>
+            <button
+              type="button"
+              onClick={() => setFadePanelOpen((prev) => !prev)}
+              aria-label="Presence"
+              style={{
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                opacity: 0.85,
+                transition: 'opacity 0.3s ease'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
+            >
+              <ArcheSymbol size={48} />
+            </button>
+            <CompanionBlock />
+          </div>
         )}
 
         {/* Minimal Fade panel: opens only on glyph click. No lists, counts, or urgency. */}
@@ -269,10 +313,22 @@ export default function App() {
                   color: '#003D2C',
                   opacity: 0.7,
                   lineHeight: 1.5,
-                  marginBottom: 24
+                  marginBottom: 12
                 }}
               >
                 Some moments can be sealed. This is optional.
+              </p>
+              <p
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  color: '#003D2C',
+                  opacity: 0.6,
+                  marginBottom: 24
+                }}
+              >
+                {getReflectiveQuestion()}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                 <button

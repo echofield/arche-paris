@@ -1,5 +1,6 @@
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
+import { getTodaySummary } from '../utils/walk-service';
 
 interface HomepageV1Props {
   onEnterQuetes: () => void;
@@ -198,6 +199,19 @@ export function HomepageV1({
             }}
           />
         </div>
+
+        <p
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            color: '#003D2C',
+            opacity: 0.5,
+            marginBottom: '24px'
+          }}
+        >
+          Today: ~{getTodaySummary().approxKm.toFixed(1)} km
+        </p>
 
         <button
           onClick={onEnterCollection}

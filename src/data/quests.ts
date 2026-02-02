@@ -7,6 +7,8 @@ export interface QuestNode {
   address: string;
   coordinates: { lat: number; lng: number };
   order: number;
+  /** Optional QR key for Quest Run proof (e.g. tm_sulpice). */
+  qrKey?: string;
 }
 
 export interface Quest {
@@ -20,6 +22,8 @@ export interface Quest {
   
   estimatedTime: string;
   distance: string;
+  /** Optional approx km for walk log (no tracking). */
+  approxKm?: number;
 }
 
 export const QUESTS_DATA: Quest[] = [
@@ -374,6 +378,46 @@ export const QUESTS_DATA: Quest[] = [
   // ============================================
   // HUNTER: MONTMARTRE — Chasse aux symboles
   // ============================================
+
+  // ============================================
+  // QUEST RUN — Temporal Meridians (manual steps, optional proof)
+  // ============================================
+
+  {
+    id: 'temporal-meridians',
+    title: 'Temporal Meridians',
+    subtitle: 'Saint-Sulpice, the clock, the zero.',
+    nodes: [
+      {
+        id: 'sulpice',
+        name: 'Saint-Sulpice',
+        address: 'Place Saint-Sulpice, 75006',
+        coordinates: { lat: 48.8512, lng: 2.3347 },
+        order: 1,
+        qrKey: 'tm_sulpice'
+      },
+      {
+        id: 'horloge',
+        name: 'Tour de l\'Horloge / Conciergerie',
+        address: '2 Boulevard du Palais, 75001',
+        coordinates: { lat: 48.8562, lng: 2.3462 },
+        order: 2,
+        qrKey: 'tm_horloge'
+      },
+      {
+        id: 'point-zero',
+        name: 'Point Zéro Notre-Dame',
+        address: 'Parvis Notre-Dame, 75004',
+        coordinates: { lat: 48.8530, lng: 2.3499 },
+        order: 3,
+        qrKey: 'tm_pointzero'
+      }
+    ],
+    gmapsDirectionsUrl: 'https://www.google.com/maps/dir/?api=1&origin=48.8512,2.3347&destination=48.8530,2.3499&waypoints=48.8562,2.3462&travelmode=walking',
+    estimatedTime: '45–60 min',
+    distance: '~2 km',
+    approxKm: 2
+  },
 
   {
     id: 'hunter-montmartre',

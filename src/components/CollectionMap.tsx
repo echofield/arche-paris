@@ -7,8 +7,13 @@ import { GAME_CARDS, type GameCard } from '../data/game-cards';
 import { getCollectionStats, collectSymbol, isSymbolCollected } from '../utils/collection-service';
 import { getStoredCard } from '../utils/card-service';
 import { syncCollectionToJournal } from '../utils/journal-sync';
+import { getRuns } from '../utils/quest-run-service';
+import { project, scaleToViewBox } from '../utils/map-project';
+import { QUETES_DATA } from './QueteDetail';
 import { useTranslation } from '../utils/i18n';
 import type { LieuMinimal } from '../types/inscriptions';
+
+const COLLECTION_MAP_VIEWBOX = { w: 800, h: 600 };
 
 // Get matching game card for a symbol (by location/name matching)
 function getMatchingGameCard(symbol: Symbol): GameCard | undefined {
@@ -385,6 +390,27 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
                   </g>
                 );
               })}
+              {/* Quest threads layer (same logic as PersonalMemoryMap, scaled to 800×600) */}
+              {(() => {
+                const runs = getRuns();
+                return runs.map((run) => {
+                  const quete = QUETES_DATA[run.questId];
+                  const nodes = quete?.stops?.filter((s): s is typeof s & { nodeId: string; coordinates: { lat: number; lng: number } } => !!(s.nodeId && s.coordinates)) ?? [];
+                  const pts = nodes.map((s) => scaleToViewBox(project(s.coordinates.lat, s.coordinates.lng), COLLECTION_MAP_VIEWBOX.w, COLLECTION_MAP_VIEWBOX.h));
+                  const pathD = pts.length > 1 ? `M ${pts.map((p) => `${p.x} ${p.y}`).join(' L ')}` : '';
+                  const stroke = run.closedAt ? '#003D2C' : '#8E8982';
+                  return (
+                    <g key={run.runId} style={{ pointerEvents: 'none' }}>
+                      <path d={pathD} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+                      {nodes.map((stop, i) => {
+                        if (!run.visited[stop.nodeId]) return null;
+                        const p = pts[i];
+                        return <circle key={stop.nodeId} cx={p.x} cy={p.y} r={5} fill="#003D2C" opacity={0.9} />;
+                      })}
+                    </g>
+                  );
+                });
+              })()}
             </svg>
 
             {/* Legend */}

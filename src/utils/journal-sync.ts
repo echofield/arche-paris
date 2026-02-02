@@ -11,6 +11,7 @@ import { supabase } from './supabase/client';
 import { getSymbolById } from '../data/symbols';
 
 export const MY_PARIS_PLACE_ID = '__my_paris__';
+export const WALK_PLACE_ID = '__walk__';
 
 /**
  * Load the My Paris note for this card (for display in My Paris page).
@@ -85,4 +86,23 @@ export async function syncCollectionToJournal(
     created_at: now,
     updated_at: now
   });
+}
+
+/**
+ * Insert one walk line into the journal so it appears in Carnet.
+ * Call after quest close or manual "Add a walk". One entry per walk.
+ */
+export async function appendWalkToJournal(cardId: string, content: string): Promise<void> {
+  const now = new Date().toISOString();
+  try {
+    await supabase.from('journal_entries').insert({
+      content,
+      place_id: WALK_PLACE_ID,
+      card_id: cardId,
+      created_at: now,
+      updated_at: now
+    });
+  } catch (e) {
+    console.warn('appendWalkToJournal:', e);
+  }
 }

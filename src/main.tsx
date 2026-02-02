@@ -2,6 +2,7 @@
   import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./viewport.css";
 
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator) {
