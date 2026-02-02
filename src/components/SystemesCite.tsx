@@ -1,6 +1,7 @@
 /**
  * SYSTÈMES — CARTE CITÉ
  * Flux · Métabolisme · Frontière
+ * Layout aligned with Pouvoir: two columns (principle + exemples | jalons), no image.
  */
 
 import { useState } from 'react';
@@ -67,41 +68,27 @@ const ANECDOTES = [
 ];
 
 const LIVRES = [
-  {
-    auteur: 'Donald Reid',
-    titre: 'Paris Sewers and Sewermen',
-    pourquoi: 'Histoire technique et sociale du réseau souterrain parisien.'
-  },
-  {
-    auteur: 'Annie Fourcaut',
-    titre: 'La Banlieue en morceaux',
-    pourquoi: 'Comprendre la frontière sociale Paris / périphérie.'
-  },
-  {
-    auteur: 'Lewis Mumford',
-    titre: 'La Cité à travers l\'histoire',
-    pourquoi: 'Penser la ville comme organisme vivant.'
-  }
+  { auteur: 'Donald Reid', titre: 'Paris Sewers and Sewermen', pourquoi: 'Histoire technique et sociale du réseau souterrain parisien.' },
+  { auteur: 'Annie Fourcaut', titre: 'La Banlieue en morceaux', pourquoi: 'Comprendre la frontière sociale Paris / périphérie.' },
+  { auteur: 'Lewis Mumford', titre: 'La Cité à travers l\'histoire', pourquoi: 'Penser la ville comme organisme vivant.' }
 ];
 
 export function SystemesCite({ onReturn, onTest }: SystemesCiteProps) {
-  const [openSection, setOpenSection] = useState<string | null>(null);
+  const [openExtra, setOpenExtra] = useState<'anecdotes' | 'livres' | null>(null);
 
   return (
-    <div 
+    <div
       style={{
         minHeight: '100vh',
         background: '#FAF8F2',
-        padding: 'clamp(24px, 5vw, 80px)',
-        position: 'relative'
+        padding: 'clamp(24px, 5vw, 80px)'
       }}
     >
-      {/* Header */}
-      <div 
+      {/* Header — Retour | Passer le test (like Pouvoir) */}
+      <div
         style={{
           maxWidth: '1400px',
-          margin: '0 auto',
-          marginBottom: '64px',
+          margin: '0 auto 64px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
@@ -112,38 +99,50 @@ export function SystemesCite({ onReturn, onTest }: SystemesCiteProps) {
           style={{
             background: 'transparent',
             border: 'none',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '11px',
+            fontFamily: 'var(--font-sans), Inter, sans-serif',
+            fontSize: 11,
             fontWeight: 500,
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
             color: '#1A1A1A',
             opacity: 0.4,
             cursor: 'pointer',
-            transition: 'opacity 400ms cubic-bezier(0.4, 0, 0.2, 1)'
+            transition: 'opacity 400ms ease'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.4')}
         >
           ← Retour
         </button>
 
-        <h1 
+        <button
+          onClick={onTest}
           style={{
-            fontFamily: 'Cormorant Garamond, Georgia, serif',
-            fontSize: 'clamp(28px, 4vw, 48px)',
-            fontWeight: 400,
-            color: '#1A1A1A'
+            background: 'transparent',
+            border: '0.5px solid rgba(0, 61, 44, 0.2)',
+            padding: '12px 24px',
+            fontFamily: 'var(--font-sans), Inter, sans-serif',
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            cursor: 'pointer',
+            transition: 'all 400ms ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.2)';
           }}
         >
-          Cité
-        </h1>
-
-        <div style={{ width: '80px' }} />
+          Passer le test
+        </button>
       </div>
 
-      {/* Layout principal : 2 colonnes */}
-      <div 
+      {/* Two columns — like Pouvoir: left = title + principle + exemples, right = jalons */}
+      <div
         style={{
           maxWidth: '1400px',
           margin: '0 auto',
@@ -152,136 +151,90 @@ export function SystemesCite({ onReturn, onTest }: SystemesCiteProps) {
           gap: 'clamp(40px, 5vw, 80px)',
           alignItems: 'start'
         }}
-        className="systemes-layout"
+        className="systemes-cite-layout"
       >
-        {/* Colonne gauche — Visuel */}
-        <div 
-          style={{
-            position: 'sticky',
-            top: '80px',
-            aspectRatio: '4 / 5',
-            background: '#E7E1D8',
-            border: '1px solid #DBD4C6',
-            overflow: 'hidden'
-          }}
-        >
-        </div>
-
-        {/* Colonne droite — Contenu */}
-        <div style={{ paddingBottom: '120px' }}>
-          {/* Sous-titre */}
-          <div 
+        {/* Left: Title + Principle + Paris exemples */}
+        <div>
+          <h1
             style={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '11px',
+              fontFamily: 'var(--font-serif), Cormorant Garamond, Georgia, serif',
+              fontSize: 'clamp(48px, 6vw, 72px)',
+              fontWeight: 400,
+              lineHeight: 1.1,
+              color: '#1A1A1A',
+              marginBottom: 40
+            }}
+          >
+            Cité
+          </h1>
+
+          <div
+            style={{
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
+              fontSize: 10,
               fontWeight: 500,
               letterSpacing: '0.15em',
               textTransform: 'uppercase',
-              color: '#003D2C',
-              opacity: 0.6,
-              marginBottom: '32px'
+              color: '#1A1A1A',
+              opacity: 0.4,
+              marginBottom: 32
             }}
           >
             Flux · Métabolisme · Frontière
           </div>
 
-          {/* Principe */}
-          <Section
-            title="Principe"
-            isOpen={openSection === 'principe'}
-            onToggle={() => setOpenSection(openSection === 'principe' ? null : 'principe')}
+          <div
+            style={{
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
+              fontSize: 15,
+              fontWeight: 400,
+              lineHeight: 1.8,
+              color: '#1A1A1A',
+              marginBottom: 64
+            }}
           >
-            <p 
+            {PRINCIPE}
+          </div>
+
+          {/* Paris : exemples (like Anatomie du Commandement) */}
+          <div>
+            <div
               style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '15px',
-                lineHeight: 1.7,
+                fontFamily: 'var(--font-sans), Inter, sans-serif',
+                fontSize: 10,
+                fontWeight: 500,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
                 color: '#1A1A1A',
-                opacity: 0.7
+                opacity: 0.4,
+                marginBottom: 24
               }}
             >
-              {PRINCIPE}
-            </p>
-          </Section>
-
-          {/* Jalons */}
-          <Section
-            title="Jalons"
-            isOpen={openSection === 'jalons'}
-            onToggle={() => setOpenSection(openSection === 'jalons' ? null : 'jalons')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {JALONS.map((jalon, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    borderLeft: '1px solid rgba(26, 26, 26, 0.15)',
-                    paddingLeft: '20px'
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '10px',
-                      fontWeight: 500,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      color: '#003D2C',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    {jalon.periode} — {jalon.titre}
-                  </div>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      lineHeight: 1.6,
-                      color: '#1A1A1A',
-                      opacity: 0.7
-                    }}
-                  >
-                    {jalon.texte}
-                  </div>
-                </div>
-              ))}
+              Paris : exemples
             </div>
-          </Section>
-
-          {/* Paris : exemples */}
-          <Section
-            title="Paris : exemples"
-            isOpen={openSection === 'exemples'}
-            onToggle={() => setOpenSection(openSection === 'exemples' ? null : 'exemples')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
               {EXEMPLES.map((ex, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    borderLeft: '2px solid rgba(0, 61, 44, 0.2)',
-                    paddingLeft: '16px'
-                  }}
-                >
-                  <div 
+                <div key={i}>
+                  <div
                     style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      fontWeight: 500,
+                      fontFamily: 'var(--font-serif), Cormorant Garamond, Georgia, serif',
+                      fontSize: 18,
+                      fontWeight: 400,
+                      lineHeight: 1.4,
                       color: '#1A1A1A',
-                      marginBottom: '6px'
+                      marginBottom: 12
                     }}
                   >
                     {ex.nom}
                   </div>
-                  <div 
+                  <div
                     style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '13px',
-                      lineHeight: 1.6,
+                      fontFamily: 'var(--font-sans), Inter, sans-serif',
+                      fontSize: 13,
+                      fontWeight: 400,
+                      lineHeight: 1.8,
                       color: '#1A1A1A',
-                      opacity: 0.6,
-                      fontStyle: 'italic'
+                      opacity: 0.7
                     }}
                   >
                     {ex.description}
@@ -289,200 +242,202 @@ export function SystemesCite({ onReturn, onTest }: SystemesCiteProps) {
                 </div>
               ))}
             </div>
-          </Section>
+          </div>
+        </div>
 
-          {/* Anecdotes */}
-          <Section
-            title="Anecdotes"
-            isOpen={openSection === 'anecdotes'}
-            onToggle={() => setOpenSection(openSection === 'anecdotes' ? null : 'anecdotes')}
+        {/* Right: Jalons (timeline with dots, like Pouvoir) */}
+        <div>
+          <div
+            style={{
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
+              fontSize: 10,
+              fontWeight: 500,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: '#1A1A1A',
+              opacity: 0.4,
+              marginBottom: 32
+            }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {ANECDOTES.map((anecdote, i) => (
-                <div 
-                  key={i}
+            Jalons
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+            {JALONS.map((jalon, i) => (
+              <div
+                key={i}
+                style={{
+                  borderLeft: '0.5px solid rgba(26, 26, 26, 0.15)',
+                  paddingLeft: 32,
+                  position: 'relative'
+                }}
+              >
+                <div
                   style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: 1.7,
+                    position: 'absolute',
+                    left: -4,
+                    top: 6,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: '#1A1A1A'
+                  }}
+                />
+                <div
+                  style={{
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    letterSpacing: '0.1em',
                     color: '#1A1A1A',
-                    opacity: 0.6,
-                    paddingLeft: '16px',
-                    borderLeft: '1px solid rgba(26, 26, 26, 0.1)'
+                    opacity: 0.5,
+                    marginBottom: 8
                   }}
                 >
-                  {anecdote}
+                  {jalon.periode}
                 </div>
-              ))}
-            </div>
-          </Section>
-
-          {/* Livres */}
-          <Section
-            title="Livres"
-            isOpen={openSection === 'livres'}
-            onToggle={() => setOpenSection(openSection === 'livres' ? null : 'livres')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {LIVRES.map((livre, i) => (
-                <div 
-                  key={i}
+                <div
                   style={{
-                    borderLeft: '1px solid rgba(26, 26, 26, 0.15)',
-                    paddingLeft: '20px'
+                    fontFamily: 'var(--font-serif), Cormorant Garamond, Georgia, serif',
+                    fontSize: 20,
+                    fontWeight: 400,
+                    lineHeight: 1.3,
+                    color: '#1A1A1A',
+                    marginBottom: 12
                   }}
                 >
-                  <div 
-                    style={{
-                      fontFamily: 'Cormorant Garamond, Georgia, serif',
-                      fontSize: '16px',
-                      fontWeight: 500,
-                      color: '#1A1A1A',
-                      marginBottom: '4px'
-                    }}
-                  >
-                    {livre.auteur} — <span style={{ fontStyle: 'italic' }}>{livre.titre}</span>
-                  </div>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '13px',
-                      lineHeight: 1.6,
-                      color: '#1A1A1A',
-                      opacity: 0.6
-                    }}
-                  >
-                    {livre.pourquoi}
-                  </div>
+                  {jalon.titre}
                 </div>
-              ))}
-            </div>
-          </Section>
-
-          {/* CTA */}
-          <div style={{ display: 'flex', gap: '16px', marginTop: '80px' }}>
-            <button
-              onClick={onTest}
-              style={{
-                background: 'transparent',
-                border: '0.5px solid rgba(0, 61, 44, 0.25)',
-                padding: '16px 32px',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: '#003D2C',
-                cursor: 'pointer',
-                transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(0, 61, 44, 0.05)';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.25)';
-              }}
-            >
-              Passer le test
-            </button>
-
-            <button
-              onClick={onReturn}
-              style={{
-                background: 'transparent',
-                border: '0.5px solid rgba(26, 26, 26, 0.15)',
-                padding: '16px 32px',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.5,
-                cursor: 'pointer',
-                transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-            >
-              Retour
-            </button>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    fontSize: 14,
+                    fontWeight: 400,
+                    lineHeight: 1.8,
+                    color: '#1A1A1A',
+                    opacity: 0.7
+                  }}
+                >
+                  {jalon.texte}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Responsive */}
+      {/* Optional: Anecdotes + Livres (collapsible) */}
+      <div
+        style={{
+          maxWidth: '1400px',
+          margin: '64px auto 0',
+          paddingTop: 48,
+          borderTop: '0.5px solid rgba(26, 26, 26, 0.1)'
+        }}
+      >
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setOpenExtra(openExtra === 'anecdotes' ? null : 'anecdotes')}
+            style={{
+              background: 'transparent',
+              border: '0.5px solid rgba(26, 26, 26, 0.15)',
+              padding: '12px 20px',
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#1A1A1A',
+              opacity: 0.6,
+              cursor: 'pointer'
+            }}
+          >
+            Anecdotes
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenExtra(openExtra === 'livres' ? null : 'livres')}
+            style={{
+              background: 'transparent',
+              border: '0.5px solid rgba(26, 26, 26, 0.15)',
+              padding: '12px 20px',
+              fontFamily: 'var(--font-sans), Inter, sans-serif',
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: '#1A1A1A',
+              opacity: 0.6,
+              cursor: 'pointer'
+            }}
+          >
+            Livres
+          </button>
+        </div>
+        {openExtra === 'anecdotes' && (
+          <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {ANECDOTES.map((anecdote, i) => (
+              <p
+                key={i}
+                style={{
+                  fontFamily: 'var(--font-sans), Inter, sans-serif',
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                  color: '#1A1A1A',
+                  opacity: 0.6,
+                  paddingLeft: 16,
+                  borderLeft: '1px solid rgba(26, 26, 26, 0.1)'
+                }}
+              >
+                {anecdote}
+              </p>
+            ))}
+          </div>
+        )}
+        {openExtra === 'livres' && (
+          <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {LIVRES.map((livre, i) => (
+              <div
+                key={i}
+                style={{
+                  borderLeft: '1px solid rgba(26, 26, 26, 0.15)',
+                  paddingLeft: 20
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: 'var(--font-serif), Cormorant Garamond, Georgia, serif',
+                    fontSize: 16,
+                    fontWeight: 500,
+                    color: '#1A1A1A',
+                    marginBottom: 4
+                  }}
+                >
+                  {livre.auteur} — <span style={{ fontStyle: 'italic' }}>{livre.titre}</span>
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-sans), Inter, sans-serif',
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: '#1A1A1A',
+                    opacity: 0.6
+                  }}
+                >
+                  {livre.pourquoi}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <style>{`
         @media (max-width: 900px) {
-          .systemes-layout {
+          .systemes-cite-layout {
             grid-template-columns: 1fr !important;
           }
         }
       `}</style>
-    </div>
-  );
-}
-
-// Section pliable
-interface SectionProps {
-  title: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-function Section({ title, isOpen, onToggle, children }: SectionProps) {
-  return (
-    <div style={{ marginBottom: '32px' }}>
-      <button
-        onClick={onToggle}
-        style={{
-          width: '100%',
-          background: 'transparent',
-          border: 'none',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '16px 0',
-          cursor: 'pointer',
-          borderBottom: '0.5px solid rgba(26, 26, 26, 0.1)'
-        }}
-      >
-        <h2 
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '11px',
-            fontWeight: 500,
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            color: '#1A1A1A',
-            opacity: 0.4
-          }}
-        >
-          {title}
-        </h2>
-
-        <div 
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '20px',
-            color: '#1A1A1A',
-            opacity: 0.3,
-            transition: 'transform 400ms cubic-bezier(0.4, 0, 0.2, 1)',
-            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
-          }}
-        >
-          ↓
-        </div>
-      </button>
-
-      {isOpen && (
-        <div style={{ paddingTop: '24px' }}>
-          {children}
-        </div>
-      )}
     </div>
   );
 }

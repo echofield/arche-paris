@@ -15,6 +15,7 @@ export const WALK_PLACE_ID = '__walk__';
 export const ECHO_PLACE_ID_PREFIX = '__echo__';
 export const MILESTONE_PLACE_ID = '__milestone__';
 export const MERIDIEN_PLACE_ID_PREFIX = '__meridien__';
+export const AURA_SEAL_PLACE_ID = '__aura_seal__';
 
 /**
  * Load the My Paris note for this card (for display in My Paris page).
@@ -183,5 +184,23 @@ export async function appendMeridienInscription(
     });
   } catch (e) {
     console.warn('appendMeridienInscription:', e);
+  }
+}
+
+/**
+ * Insert one Aura "Graver un moment" (seal a moment) inscription into the journal (Carnet).
+ */
+export async function appendAuraSealToJournal(cardId: string, content: string): Promise<void> {
+  const now = new Date().toISOString();
+  try {
+    await supabase.from('journal_entries').insert({
+      content,
+      place_id: AURA_SEAL_PLACE_ID,
+      card_id: cardId,
+      created_at: now,
+      updated_at: now
+    });
+  } catch (e) {
+    console.warn('appendAuraSealToJournal:', e);
   }
 }

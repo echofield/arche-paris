@@ -11,6 +11,7 @@ import { loadCompanion } from '../utils/companion-service';
 import { getCompanionWord } from '../data/oracle';
 import { getAuraMemorySentence, getReflectiveQuestion } from '../data/oracle';
 import { sealingStub } from '../utils/sealing-stub';
+import { appendAuraSealToJournal } from '../utils/journal-sync';
 
 interface AuraPageProps {
   onBack: () => void;
@@ -24,6 +25,8 @@ function glyphOpacity(level: 0 | 1 | 2 | 3): number {
 
 export function AuraPage({ onBack, cardId }: AuraPageProps) {
   const [sealOpen, setSealOpen] = useState(false);
+  const [sealContent, setSealContent] = useState('');
+  const [sealSaved, setSealSaved] = useState(false);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
@@ -148,7 +151,11 @@ export function AuraPage({ onBack, cardId }: AuraPageProps) {
             background: 'rgba(0, 0, 0, 0.2)',
             padding: 24
           }}
-          onClick={() => setSealOpen(false)}
+          onClick={() => {
+            setSealOpen(false);
+            setSealContent('');
+            setSealSaved(false);
+          }}
         >
           <div
             style={{
@@ -156,7 +163,8 @@ export function AuraPage({ onBack, cardId }: AuraPageProps) {
               border: '1px solid rgba(0, 61, 44, 0.15)',
               borderRadius: 4,
               padding: 32,
-              maxWidth: 360,
+              maxWidth: 400,
+              width: '100%',
               boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
             }}
             onClick={(e) => e.stopPropagation()}
@@ -191,15 +199,40 @@ export function AuraPage({ onBack, cardId }: AuraPageProps) {
                 fontStyle: 'italic',
                 color: '#003D2C',
                 opacity: 0.6,
-                marginBottom: 24
+                marginBottom: 16
               }}
             >
               {getReflectiveQuestion()}
             </p>
+            <textarea
+              value={sealContent}
+              onChange={(e) => setSealContent(e.target.value)}
+              placeholder="What did you notice?"
+              rows={4}
+              disabled={sealSaved}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: 12,
+                marginBottom: 20,
+                fontFamily: 'var(--font-serif)',
+                fontSize: 14,
+                color: '#1A1A1A',
+                background: 'rgba(255,255,255,0.7)',
+                border: '1px solid rgba(0, 61, 44, 0.2)',
+                borderRadius: 0,
+                resize: 'vertical',
+                minHeight: 80
+              }}
+            />
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button
                 type="button"
-                onClick={() => setSealOpen(false)}
+                onClick={() => {
+                  setSealOpen(false);
+                  setSealContent('');
+                  setSealSaved(false);
+                }}
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: 11,
@@ -217,28 +250,37 @@ export function AuraPage({ onBack, cardId }: AuraPageProps) {
               </button>
               <button
                 type="button"
+                disabled={sealSaved || !sealContent.trim()}
                 onClick={async () => {
+                  if (!cardId || !sealContent.trim()) return;
+                  await appendAuraSealToJournal(cardId, sealContent.trim());
                   await sealingStub.seal({
                     kind: 'card_activated',
                     id: `fade-${Date.now()}`,
                     cardId: cardId ?? undefined,
                     completedAt: new Date().toISOString()
                   });
-                  setSealOpen(false);
+                  setSealSaved(true);
+                  setTimeout(() => {
+                    setSealOpen(false);
+                    setSealContent('');
+                    setSealSaved(false);
+                  }, 1200);
                 }}
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: 11,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  color: '#003D2C',
-                  background: 'transparent',
+                  color: sealSaved ? '#003D2C' : '#003D2C',
+                  background: sealSaved ? 'transparent' : 'transparent',
                   border: '0.5px solid rgba(0, 61, 44, 0.3)',
-                  cursor: 'pointer',
-                  padding: '8px 16px'
+                  cursor: sealSaved || !sealContent.trim() ? 'default' : 'pointer',
+                  padding: '8px 16px',
+                  opacity: sealSaved || sealContent.trim() ? 1 : 0.5
                 }}
               >
-                Seal
+                {sealSaved ? 'Saved to Carnet' : 'Seal'}
               </button>
             </div>
           </div>
