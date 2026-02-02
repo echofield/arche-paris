@@ -136,18 +136,23 @@ export function QuetesV1({ onSelectQuete, onBack }: QuetesV1Props) {
           </p>
         </header>
 
-        {/* Grille des cartes (4 : Lutèce, 1789, Table, Méridiens) */}
-        <div 
-          className="quetes-grid"
+        {/* Grille des cartes (3 : Lutèce, 1789, Table) — centrée */}
+        <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: 'clamp(20px, 2.5vw, 32px)',
-            marginBottom: 'var(--space-lg)',
-            maxWidth: '1400px',
-            margin: '0 auto'
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: 'var(--space-lg)'
           }}
         >
+          <div
+            className="quetes-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(280px, 1fr))',
+              gap: 'clamp(20px, 2.5vw, 32px)',
+              maxWidth: 'min(1200px, 100%)'
+            }}
+          >
           {QUETES.map((quete) => (
             <button
               key={quete.id}
@@ -230,6 +235,7 @@ export function QuetesV1({ onSelectQuete, onBack }: QuetesV1Props) {
               </div>
             </button>
           ))}
+          </div>
         </div>
 
         {/* Note de bas de page */}
