@@ -316,7 +316,7 @@ export function EtudesFormesV2({ onReturn }: EtudesFormesV2Props) {
               textAlign: 'center'
             }}
           >
-            EXERCICE PERCEPTIF
+            Exercice d'attention
           </div>
 
           <button
@@ -353,7 +353,7 @@ export function EtudesFormesV2({ onReturn }: EtudesFormesV2Props) {
                 marginBottom: '12px'
               }}
             >
-              ACCÉLÉRATION
+              Rythme
             </div>
             
             <div 
@@ -368,6 +368,19 @@ export function EtudesFormesV2({ onReturn }: EtudesFormesV2Props) {
             >
               90 secondes d'exposition continue
             </div>
+            <p 
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 13,
+                fontStyle: 'italic',
+                color: '#6B6455',
+                opacity: 0.8,
+                marginTop: 12,
+                lineHeight: 1.5
+              }}
+            >
+              Apprendre à sentir quand la ville accélère — et quand elle demande de ralentir.
+            </p>
           </button>
         </div>
       </div>

@@ -210,7 +210,9 @@ export function HomepageV1({
             marginBottom: '24px'
           }}
         >
-          Today: ~{getTodaySummary().approxKm.toFixed(1)} km
+          {getTodaySummary().approxKm === 0
+            ? `${t('home.walk')} —`
+            : `${t('home.walk')} : ~${getTodaySummary().approxKm.toFixed(1)} km`}
         </p>
 
         <button

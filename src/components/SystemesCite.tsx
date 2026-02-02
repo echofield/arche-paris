@@ -165,30 +165,6 @@ export function SystemesCite({ onReturn, onTest }: SystemesCiteProps) {
             overflow: 'hidden'
           }}
         >
-          <img 
-            src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=800"
-            alt="Paris système cité"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover'
-            }}
-          />
-          <div 
-            style={{
-              position: 'absolute',
-              bottom: '16px',
-              left: '16px',
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '9px',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: '#1A1A1A',
-              opacity: 0.3
-            }}
-          >
-            Visuel généré — ARCHÉ
-          </div>
         </div>
 
         {/* Colonne droite — Contenu */}

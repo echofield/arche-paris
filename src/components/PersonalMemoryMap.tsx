@@ -391,7 +391,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             Today
           </div>
           <p style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', color: '#1A1A1A', marginBottom: '8px' }}>
-            Walking: ~{todaySummary.approxKm.toFixed(1)} km
+            {todaySummary.approxKm === 0
+              ? `${t('home.walk')} —`
+              : `${t('home.walk')} : ~${todaySummary.approxKm.toFixed(1)} km`}
           </p>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {todaySummary.entries.slice(0, 3).map((e, i) => (
@@ -769,6 +771,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               {t('myparis.couldNotCopy')}
             </span>
           )}
+          <span style={{ fontSize: '10px', color: '#6B6455', opacity: 0.6 }}>
+            {t('myparis.staysOnDevice')}
+          </span>
         </div>
 
         {/* Link to notebook (notes) */}

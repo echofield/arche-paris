@@ -197,7 +197,7 @@ export function EtudesLangages({ onReturn }: EtudesLangagesProps) {
                 marginBottom: '20px'
               }}
             >
-              Accélération
+              Rythme
             </div>
             
             <div 

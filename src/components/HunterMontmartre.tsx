@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { collectSymbol, isSymbolCollected } from '../utils/collection-service';
 import { getStoredCard } from '../utils/card-service';
 import { syncCollectionToJournal } from '../utils/journal-sync';
 import { useTranslation } from '../utils/i18n';
+import { ARTIFACTS, type Artifact } from '../data/artifacts';
+import { haversineMeters, bearingDegrees } from '../utils/geo';
+import { getPressureZone, isWithinProofRange } from '../utils/compass-constants';
 
 interface HunterMontmartreProps {
   onBack: () => void;
@@ -56,6 +59,10 @@ const RIDDLE_TIME = 30; // seconds
 const COOLDOWN_TIME = 60; // seconds after wrong answer
 const GPS_RADIUS_METERS = 100; // Must be within 100m of symbol
 
+/** Ritual proof email (no location sent). Configure in one place. */
+const ARCHE_PROOF_EMAIL = 'proof@arche.paris';
+const PROOF_REQUESTS_KEY = 'arche_proof_requests_v1';
+
 // Calculate distance between two coordinates in meters (Haversine formula)
 function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000; // Earth's radius in meters
@@ -70,7 +77,8 @@ function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
-  const { t, tArray } = useTranslation();
+  const { t, tArray, language } = useTranslation();
+  const watchIdRef = useRef<number | null>(null);
 
   // Build symbols from translations + technical data
   const MONTMARTRE_HUNT = useMemo((): HunterSymbol[] => {
@@ -138,8 +146,52 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
   const [gpsStatus, setGpsStatus] = useState<'checking' | 'success' | 'too_far' | 'error' | null>(null);
   const [gpsDistance, setGpsDistance] = useState<number | null>(null);
 
+  // Compass Mode (Trésor Caché — GPS only while active, no location stored)
+  const [compassActive, setCompassActive] = useState(false);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [proofModalArtifact, setProofModalArtifact] = useState<Artifact | null>(null);
+  const [inscribedForArtifact, setInscribedForArtifact] = useState<string | null>(null);
+
   const currentSymbol = MONTMARTRE_HUNT[currentSymbolIndex];
   const collectedCount = MONTMARTRE_HUNT.filter(s => isSymbolCollected(s.id)).length;
+
+  // Compass: nearest artifact, distance, bearing, pressure (no coords stored)
+  const compassState = useMemo(() => {
+    if (!userPos) return { nearest: null as Artifact | null, distanceM: null as number | null, bearing: null as number | null, zone: 'far' as const, inProofRange: false };
+    let minD = Infinity;
+    let nearest: Artifact | null = null;
+    for (const a of ARTIFACTS) {
+      const d = haversineMeters(userPos.lat, userPos.lng, a.lat, a.lng);
+      if (d < minD) {
+        minD = d;
+        nearest = a;
+      }
+    }
+    if (!nearest) return { nearest: null, distanceM: null, bearing: null, zone: 'far' as const, inProofRange: false };
+    const bearing = bearingDegrees(userPos.lat, userPos.lng, nearest.lat, nearest.lng);
+    const zone = getPressureZone(minD);
+    const inProofRange = isWithinProofRange(minD);
+    return { nearest, distanceM: minD, bearing, zone, inProofRange };
+  }, [userPos]);
+
+  // Start/stop geolocation watch when compass is active (foreground only; clear on unmount)
+  useEffect(() => {
+    if (!compassActive) return;
+    const onPos = (pos: GeolocationPosition) => {
+      setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    };
+    const onErr = () => setUserPos(null);
+    navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true });
+    const id = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true, maximumAge: 5000 });
+    watchIdRef.current = id;
+    return () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      setUserPos(null);
+    };
+  }, [compassActive]);
 
   // Timer for riddle phase
   useEffect(() => {
@@ -287,74 +339,6 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
     }
   };
 
-  // Mini-map of Montmartre (18e)
-  const MontmartreMap = () => (
-    <svg viewBox="0 0 300 250" style={{ width: '100%', maxWidth: '300px' }}>
-      {/* 18e arrondissement shape simplified */}
-      <path
-        d="M50,200 L80,180 L100,120 L150,80 L200,60 L250,80 L270,120 L260,180 L220,210 L150,220 L80,210 Z"
-        fill="rgba(0, 61, 44, 0.1)"
-        stroke="#003D2C"
-        strokeWidth="2"
-      />
-
-      {/* Symbol markers */}
-      {MONTMARTRE_HUNT.map((symbol, index) => {
-        const collected = isSymbolCollected(symbol.id);
-        const isCurrent = index === currentSymbolIndex;
-        // Approximate positions within the shape
-        const positions = [
-          { x: 140, y: 130 }, // Passe-Muraille
-          { x: 180, y: 110 }, // Cadran
-          { x: 120, y: 100 }, // Rocher
-          { x: 200, y: 140 }, // Vigne
-        ];
-        const pos = positions[index];
-
-        return (
-          <g key={symbol.id}>
-            <circle
-              cx={pos.x}
-              cy={pos.y}
-              r={isCurrent ? 12 : 8}
-              fill={collected ? '#003D2C' : isCurrent ? 'rgba(0, 61, 44, 0.3)' : 'transparent'}
-              stroke="#003D2C"
-              strokeWidth={isCurrent ? 2 : 1}
-              style={{ transition: 'all 0.3s ease' }}
-            />
-            {collected && (
-              <text
-                x={pos.x}
-                y={pos.y + 4}
-                textAnchor="middle"
-                fill="#FAF8F2"
-                fontSize="10"
-                fontWeight="bold"
-              >
-                ✓
-              </text>
-            )}
-            <text
-              x={pos.x}
-              y={pos.y + 25}
-              textAnchor="middle"
-              fill="#003D2C"
-              fontSize="8"
-              opacity={0.7}
-            >
-              {index + 1}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Title */}
-      <text x="150" y="30" textAnchor="middle" fill="#003D2C" fontSize="14" fontWeight="600">
-        Montmartre
-      </text>
-    </svg>
-  );
-
   return (
     <div
       className="min-h-screen relative"
@@ -412,25 +396,6 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
           </p>
         </header>
 
-        {/* Progress bar */}
-        <div
-          style={{
-            width: '100%',
-            height: '4px',
-            background: 'rgba(0, 61, 44, 0.1)',
-            marginBottom: '32px'
-          }}
-        >
-          <div
-            style={{
-              width: `${(collectedCount / MONTMARTRE_HUNT.length) * 100}%`,
-              height: '100%',
-              background: '#003D2C',
-              transition: 'width 0.5s ease'
-            }}
-          />
-        </div>
-
         {/* Toggle Map */}
         <button
           onClick={() => setShowMap(!showMap)}
@@ -451,8 +416,165 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
         </button>
 
         {showMap && (
-          <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-            <MontmartreMap />
+          <div
+            style={{
+              marginBottom: '32px',
+              textAlign: 'center',
+              width: 'clamp(280px, 50vw, 400px)',
+              height: 'clamp(200px, 35vw, 300px)',
+              marginLeft: 'auto',
+              marginRight: 'auto'
+            }}
+          >
+            <img
+              src="/Parissvg.svg"
+              alt="Paris"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                opacity: 0.15
+              }}
+            />
+          </div>
+        )}
+
+        {/* Compass Mode — GPS only while active; no location stored */}
+        {!compassActive ? (
+          <button
+            type="button"
+            onClick={() => setCompassActive(true)}
+            style={{
+              display: 'block',
+              margin: '0 auto 24px',
+              background: 'transparent',
+              border: '1px dashed rgba(0, 61, 44, 0.4)',
+              padding: '10px 20px',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              letterSpacing: '0.08em',
+              color: '#003D2C',
+              cursor: 'pointer',
+              opacity: 0.8
+            }}
+          >
+            {t('treasure.compass.enable')}
+          </button>
+        ) : (
+          <div
+            style={{
+              position: 'relative',
+              marginBottom: '24px',
+              padding: '20px',
+              background: 'rgba(255,255,255,0.6)',
+              border: '1px solid rgba(0, 61, 44, 0.12)',
+              textAlign: 'center'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setCompassActive(false)}
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: 12,
+                background: 'transparent',
+                border: 'none',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '10px',
+                color: '#003D2C',
+                opacity: 0.5,
+                cursor: 'pointer'
+              }}
+            >
+              ×
+            </button>
+            {compassState.nearest && compassState.distanceM != null && (
+              <>
+                <div style={{ marginBottom: '12px', position: 'relative', height: 48 }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      fontSize: 28,
+                      transform: `rotate(${compassState.bearing ?? 0}deg)`,
+                      transition: 'transform 0.3s ease'
+                    }}
+                  >
+                    ↑
+                  </span>
+                </div>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: '#003D2C', marginBottom: '8px' }}>
+                  {Math.round(compassState.distanceM)} m
+                </p>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: 14,
+                    fontStyle: 'italic',
+                    color: '#1A1A1A',
+                    opacity: 0.8,
+                    marginBottom: '16px'
+                  }}
+                >
+                  {t(`treasure.compass.pressure.${compassState.zone}`)}
+                </p>
+                {compassState.nearest.linkedQuestId && (
+                  <p style={{ marginBottom: '12px' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.7 }}>
+                      {compassState.nearest.areaLabel}
+                    </span>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.hash = `quete/${compassState.nearest!.linkedQuestId}`;
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: 11,
+                        letterSpacing: '0.05em',
+                        color: '#003D2C',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        opacity: 0.9
+                      }}
+                    >
+                      {t('treasure.compass.focus.seeWalk')}
+                    </button>
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={!compassState.inProofRange}
+                  onClick={() => compassState.inProofRange && compassState.nearest && setProofModalArtifact(compassState.nearest)}
+                  style={{
+                    padding: '8px 16px',
+                    background: compassState.inProofRange ? 'rgba(0, 61, 44, 0.12)' : 'transparent',
+                    border: '1px solid rgba(0, 61, 44, 0.25)',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    color: compassState.inProofRange ? '#003D2C' : '#6B6455',
+                    cursor: compassState.inProofRange ? 'pointer' : 'default',
+                    opacity: compassState.inProofRange ? 1 : 0.6
+                  }}
+                >
+                  {compassState.inProofRange ? t('treasure.compass.proof.send') : t('treasure.compass.proof.notYet')}
+                </button>
+              </>
+            )}
+            {userPos && !compassState.nearest && (
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: '#6B6455', fontStyle: 'italic' }}>
+                {t('treasure.compass.pressure.far')}
+              </p>
+            )}
+            {!userPos && compassActive && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#6B6455' }}>
+                {t('treasure.gps.checking')}
+              </p>
+            )}
           </div>
         )}
 
@@ -1090,6 +1212,166 @@ export function HunterMontmartre({ onBack }: HunterMontmartreProps) {
           >
             Les réponses de preuve ne sont trouvables que sur place.
           </p>
+        )}
+
+        {/* Proof ritual modal */}
+        {proofModalArtifact && (
+          <div
+            role="dialog"
+            aria-label={t('treasure.compass.proofModal.title')}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10002,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.2)',
+              padding: 24
+            }}
+            onClick={() => setProofModalArtifact(null)}
+          >
+            <div
+              style={{
+                background: '#FAF8F2',
+                border: '1px solid rgba(0, 61, 44, 0.15)',
+                borderRadius: 4,
+                padding: 28,
+                maxWidth: 360,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 400, color: '#1A1A1A', marginBottom: 12 }}>
+                {t('treasure.compass.proofModal.title')}
+              </h3>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: '#1A1A1A', marginBottom: 8 }}>
+                {proofModalArtifact.title}
+              </p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#003D2C', opacity: 0.8, marginBottom: 16, lineHeight: 1.5 }}>
+                {language === 'fr' ? proofModalArtifact.proofInstructionFR : proofModalArtifact.proofInstructionEN}
+              </p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#6B6455', opacity: 0.7, marginBottom: 20 }}>
+                {t('treasure.compass.proofModal.body')}
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setProofModalArtifact(null)}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.08em',
+                    color: '#003D2C',
+                    opacity: 0.7,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '8px 16px'
+                  }}
+                >
+                  {t('treasure.compass.proofModal.notNow')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const card = getStoredCard();
+                    const cardShort = card ? card.slice(-4) : 'guest';
+                    const subject = `ARCHE PROOF — ${proofModalArtifact.id} — ${cardShort}`;
+                    const body = encodeURIComponent(
+                      (language === 'fr' ? proofModalArtifact.proofInstructionFR : proofModalArtifact.proofInstructionEN) +
+                        '\n\nYour code:\n\nOptional note:\n'
+                    );
+                    const mailto = `mailto:${ARCHE_PROOF_EMAIL}?subject=${encodeURIComponent(subject)}&body=${body}`;
+                    try {
+                      const log = JSON.parse(localStorage.getItem(PROOF_REQUESTS_KEY) || '[]');
+                      log.push({
+                        artifactId: proofModalArtifact.id,
+                        at: new Date().toISOString(),
+                        cardIdShort: cardShort
+                      });
+                      localStorage.setItem(PROOF_REQUESTS_KEY, JSON.stringify(log));
+                    } catch (_) {}
+                    window.location.href = mailto;
+                    setInscribedForArtifact(proofModalArtifact.id);
+                    setProofModalArtifact(null);
+                  }}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 11,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    background: 'transparent',
+                    border: '0.5px solid rgba(0, 61, 44, 0.3)',
+                    cursor: 'pointer',
+                    padding: '8px 16px'
+                  }}
+                >
+                  {t('treasure.compass.proofModal.openEmail')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Inscribed confirmation */}
+        {inscribedForArtifact && (
+          <div
+            role="dialog"
+            aria-label={t('treasure.compass.inscribed.title')}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10003,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.2)',
+              padding: 24
+            }}
+            onClick={() => setInscribedForArtifact(null)}
+          >
+            <div
+              style={{
+                background: '#FAF8F2',
+                border: '1px solid rgba(0, 61, 44, 0.15)',
+                borderRadius: 4,
+                padding: 28,
+                maxWidth: 360,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+                textAlign: 'center'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 400, color: '#1A1A1A', marginBottom: 16 }}>
+                {t('treasure.compass.inscribed.title')}
+              </h3>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: '#003D2C', marginBottom: 8 }}>
+                {t('treasure.compass.inscribed.line1')}
+              </p>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 14, fontStyle: 'italic', color: '#6B6455', marginBottom: 24 }}>
+                {t('treasure.compass.inscribed.line2')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setInscribedForArtifact(null)}
+                style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#003D2C',
+                  background: 'transparent',
+                  border: '0.5px solid rgba(0, 61, 44, 0.3)',
+                  cursor: 'pointer',
+                  padding: '8px 20px'
+                }}
+              >
+                {language === 'fr' ? 'Fermer' : 'Close'}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Spinner animation */}

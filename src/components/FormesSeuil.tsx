@@ -532,15 +532,6 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             overflow: 'hidden'
           }}
         >
-          <img 
-            src="https://images.unsplash.com/photo-1549144511-f099e773c147?w=800"
-            alt="Paris seuil porte"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover'
-            }}
-          />
         </div>
 
         {/* Colonne droite — Contenu */}
@@ -1024,7 +1015,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                 e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.25)';
               }}
             >
-              Accélération 90s
+              Rythme 90s
             </button>
 
             <button

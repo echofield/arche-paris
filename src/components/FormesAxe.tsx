@@ -581,15 +581,6 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
             overflow: 'hidden'
           }}
         >
-          <img 
-            src="https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?w=800"
-            alt="Paris axe perspective"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover'
-            }}
-          />
         </div>
 
         {/* Colonne droite — Contenu */}
@@ -1026,7 +1017,7 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
                 e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.25)';
               }}
             >
-              Accélération 90s
+              Rythme 90s
             </button>
 
             <button

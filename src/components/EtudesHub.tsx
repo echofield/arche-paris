@@ -48,7 +48,7 @@ const SECTORS: Sector[] = [
   {
     id: 'langages',
     name: 'LANGAGES',
-    subtitle: 'Mot · Rythme · Accélération',
+    subtitle: 'Mot · Rythme',
     functions: [
       'Lire autrement',
       'Percevoir la vitesse',
@@ -312,7 +312,7 @@ export function EtudesHub({ onClose }: EtudesHubProps) {
                 marginBottom: '20px'
               }}
             >
-              Accélération
+              Rythme
             </div>
             
             <div 
@@ -326,8 +326,21 @@ export function EtudesHub({ onClose }: EtudesHubProps) {
                 opacity: 0.4
               }}
             >
-              EXERCICE · PERCEPTIF
+              Exercice d'attention
             </div>
+            <p 
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 13,
+                fontStyle: 'italic',
+                color: '#6B6455',
+                opacity: 0.8,
+                marginTop: 12,
+                lineHeight: 1.5
+              }}
+            >
+              Apprendre à sentir quand la ville accélère — et quand elle demande de ralentir.
+            </p>
           </button>
         </div>
       </div>

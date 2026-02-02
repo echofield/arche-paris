@@ -223,42 +223,8 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
           zIndex: 10
         }}
       >
-        {/* Header */}
+        {/* Header — no rank/role for v1 (hidden per spec) */}
         <header style={{ textAlign: 'center', marginBottom: '32px' }}>
-          {/* Role Badge */}
-          <div
-            style={{
-              display: 'inline-block',
-              padding: '8px 20px',
-              background: 'rgba(0, 61, 44, 0.08)',
-              border: '1px solid rgba(0, 61, 44, 0.2)',
-              marginBottom: '16px'
-            }}
-          >
-            <p
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: '10px',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#003D2C',
-                marginBottom: '4px'
-              }}
-            >
-              {t('map.stats.yourRank')}
-            </p>
-            <p
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '18px',
-                fontWeight: '600',
-                color: '#003D2C'
-              }}
-            >
-              {currentRole.name}
-            </p>
-          </div>
-
           <h1
             style={{
               fontFamily: 'var(--font-serif)',
@@ -283,18 +249,6 @@ export function CollectionMap({ onBack }: CollectionMapProps) {
           >
             {stats.collected} / {stats.total} {t('map.stats.collected')}
           </p>
-          {nextRole && (
-            <p
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: '11px',
-                color: '#003D2C',
-                opacity: 0.5
-              }}
-            >
-              {t('map.stats.nextRole', { role: nextRole.role.name, count: nextRole.remaining })}
-            </p>
-          )}
         </header>
 
         {/* Map Container */}
