@@ -15,14 +15,13 @@ import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
+import { AuraPage } from './components/AuraPage';
 import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
-import { sealingStub } from './utils/sealing-stub';
 import { decayIfNeeded } from './utils/companion-service';
-import { getReflectiveQuestion } from './data/oracle';
-import { LanguageProvider, useTranslation } from './utils/i18n';
+import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -41,7 +40,6 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
-  const [fadePanelOpen, setFadePanelOpen] = useState(false);
 
   // Initialize card on mount
   useEffect(() => {
@@ -124,6 +122,8 @@ export default function App() {
       } else if (hash.startsWith('quest-run/')) {
         setQuestRunId(hash.slice('quest-run/'.length) || null);
         setCurrentScreen('questRun');
+      } else if (hash === 'aura') {
+        setCurrentScreen('aura');
       } else {
         setCurrentScreen('homepage');
       }
@@ -208,6 +208,13 @@ export default function App() {
         return <CultureQuiz onBack={() => navigateTo('homepage')} />;
       case 'etudes':
         return <EtudesHub onClose={() => navigateTo('homepage')} />;
+      case 'aura':
+        return (
+          <AuraPage
+            onBack={() => navigateTo('homepage')}
+            cardId={cardStatus?.cardId ?? null}
+          />
+        );
       default:
         return null;
     }
@@ -231,8 +238,8 @@ export default function App() {
           </>
         )}
 
-        {/* Glyph + Companion (Ember) on all main screens when ready; top-right so BackButton has room. */}
-        {appState === 'ready' && (
+        {/* Glyph + Companion: click navigates to /aura (not modal). Hidden on Aura page. */}
+        {appState === 'ready' && currentScreen !== 'aura' && (
           <div
             style={{
               position: 'fixed',
@@ -248,7 +255,7 @@ export default function App() {
           >
             <button
               type="button"
-              onClick={() => setFadePanelOpen((prev) => !prev)}
+              onClick={() => navigateTo('aura')}
               aria-label="Presence"
               style={{
                 padding: 0,
@@ -264,118 +271,6 @@ export default function App() {
               <ArcheSymbol size={48} />
             </button>
             <CompanionBlock />
-          </div>
-        )}
-
-        {/* Minimal Fade panel: opens only on glyph click. No lists, counts, or urgency. */}
-        {fadePanelOpen && (
-          <div
-            role="dialog"
-            aria-label="Seal a moment"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 10000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(0, 0, 0, 0.2)',
-              padding: 24
-            }}
-            onClick={() => setFadePanelOpen(false)}
-          >
-            <div
-              style={{
-                background: '#FAF8F2',
-                border: '1px solid rgba(0, 61, 44, 0.15)',
-                borderRadius: 4,
-                padding: 32,
-                maxWidth: 360,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.08)'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 20,
-                  fontWeight: 400,
-                  color: '#1A1A1A',
-                  marginBottom: 12
-                }}
-              >
-                Seal a moment
-              </h2>
-              <p
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 14,
-                  color: '#003D2C',
-                  opacity: 0.7,
-                  lineHeight: 1.5,
-                  marginBottom: 12
-                }}
-              >
-                Some moments can be sealed. This is optional.
-              </p>
-              <p
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: 13,
-                  fontStyle: 'italic',
-                  color: '#003D2C',
-                  opacity: 0.6,
-                  marginBottom: 24
-                }}
-              >
-                {getReflectiveQuestion()}
-              </p>
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  onClick={() => setFadePanelOpen(false)}
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 11,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: '#003D2C',
-                    opacity: 0.7,
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '8px 16px'
-                  }}
-                >
-                  Not now
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await sealingStub.seal({
-                      kind: 'card_activated',
-                      id: `fade-${Date.now()}`,
-                      cardId: cardStatus?.cardId,
-                      completedAt: new Date().toISOString()
-                    });
-                    setFadePanelOpen(false);
-                  }}
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 11,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: '#003D2C',
-                    background: 'transparent',
-                    border: '0.5px solid rgba(0, 61, 44, 0.3)',
-                    cursor: 'pointer',
-                    padding: '8px 16px'
-                  }}
-                >
-                  Seal
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>

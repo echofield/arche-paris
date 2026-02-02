@@ -64,3 +64,18 @@ export function getReflectiveQuestion(): string {
   const index = daySeed % REFLECTIVE_QUESTIONS.length;
   return REFLECTIVE_QUESTIONS[index] ?? REFLECTIVE_QUESTIONS[0];
 }
+
+/** Aura page — one short sentence (memory/weight). No numbers, dates, counts. Stable per day. */
+const AURA_MEMORY_SENTENCES: string[] = [
+  'Something has settled.',
+  'Your presence has weight.',
+  'Not everything needs to be kept.',
+  'What mattered, remained.'
+];
+
+export function getAuraMemorySentence(): string {
+  const now = new Date();
+  const daySeed = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
+  const index = daySeed % AURA_MEMORY_SENTENCES.length;
+  return AURA_MEMORY_SENTENCES[index] ?? AURA_MEMORY_SENTENCES[0];
+}
