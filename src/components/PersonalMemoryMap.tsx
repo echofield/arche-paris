@@ -26,7 +26,10 @@ import { QUETES_DATA } from './QueteDetail';
 import { CompanionBlock } from './CompanionBlock';
 import { useTranslation } from '../utils/i18n';
 import { getRefusedArrondissements, isRefused, setRefused } from '../utils/refused-arrondissements';
+import { getMapState, postInscription } from '../utils/card-gate-map-client';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
+import type { MapState, MapInscription, EngravedSegment } from '../types/map-engraving';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 
@@ -83,6 +86,15 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [walkLogRefresh, setWalkLogRefresh] = useState(0);
   const [refusedList, setRefusedList] = useState<number[]>(() => getRefusedArrondissements());
   const [unmarkedPromptArr, setUnmarkedPromptArr] = useState<number | null>(null);
+  // Map engraving (Card Gate): 3 layers
+  const [mapState, setMapState] = useState<MapState | null>(null);
+  const [mapStateError, setMapStateError] = useState<string | null>(null);
+  const [showSegments, setShowSegments] = useState(true);
+  const [showInscriptionsLayer, setShowInscriptionsLayer] = useState(true);
+  const [ecrireSheetArr, setEcrireSheetArr] = useState<number | null>(null);
+  const [ecrireDraft, setEcrireDraft] = useState('');
+  const [ecrireSaving, setEcrireSaving] = useState(false);
+  const [ecrireError, setEcrireError] = useState<string | null>(null);
 
   const collection = getCollection();
   const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
@@ -118,9 +130,35 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     loadMyParisNote(cardId).then(setNote);
   }, [cardId]);
 
+  useEffect(() => {
+    setMapStateError(null);
+    getMapState(cardId)
+      .then(setMapState)
+      .catch((err) => {
+        setMapStateError(err instanceof Error ? err.message : 'Failed to load map state');
+        setMapState(null);
+      });
+  }, [cardId]);
+
+  const refreshMapState = useCallback(() => {
+    getMapState(cardId).then(setMapState).catch(() => {});
+  }, [cardId]);
+
   const handleNoteBlur = useCallback(() => {
     saveMyParisNote(cardId, note).catch(console.warn);
   }, [cardId, note]);
+
+  // RUE + HEURE: text must start with "Rue X — HH:MM" (e.g. Rue Réaumur — 18:32)
+  const validateRueHeure = (text: string): boolean =>
+    /^Rue\s+.+?\s+—\s*\d{1,2}:\d{2}/.test(text.trim());
+  const wordCount = (text: string): number =>
+    text.trim().split(/\s+/).filter(Boolean).length;
+  const inscriptionsForArr = useMemo(
+    () => (ecrireSheetArr == null || !mapState?.inscriptions)
+      ? []
+      : mapState.inscriptions.filter((i) => i.arrondissement === ecrireSheetArr),
+    [mapState?.inscriptions, ecrireSheetArr]
+  );
 
   const handleShare = useCallback(() => {
     const url = `${window.location.origin}${window.location.pathname}#collection`;
@@ -171,21 +209,31 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           alignItems: 'center'
         }}
       >
-        {/* Threads / Temporal Meridians toggles */}
-        {(runs.length > 0 || temporalUnlocked) && (
-          <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
-              <input type="checkbox" checked={showThreads} onChange={() => setShowThreads((v) => !v)} />
-              Threads
-            </label>
-            {temporalUnlocked && (
+        {/* Layer toggles: Threads, Temporal, Engraved segments, Inscriptions */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {(runs.length > 0 || temporalUnlocked) && (
+            <>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
-                <input type="checkbox" checked={showTemporalOnly} onChange={() => setShowTemporalOnly((v) => !v)} />
-                Temporal Meridians only
+                <input type="checkbox" checked={showThreads} onChange={() => setShowThreads((v) => !v)} />
+                Threads
               </label>
-            )}
-          </div>
-        )}
+              {temporalUnlocked && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={showTemporalOnly} onChange={() => setShowTemporalOnly((v) => !v)} />
+                  Temporal Meridians only
+                </label>
+              )}
+            </>
+          )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
+            <input type="checkbox" checked={showSegments} onChange={() => setShowSegments((v) => !v)} />
+            {t('myparis.layers.segments')}
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
+            <input type="checkbox" checked={showInscriptionsLayer} onChange={() => setShowInscriptionsLayer((v) => !v)} />
+            {t('myparis.layers.inscriptions')}
+          </label>
+        </div>
 
         {/* Map: homepage size or a bit bigger, then all content below */}
         <div
@@ -210,6 +258,85 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               pointerEvents: 'none'
             }}
           />
+          {/* Layer 2 — Engraved segments (Card Gate) */}
+          {showSegments && mapState?.segments && mapState.segments.length > 0 && (
+            <svg
+              viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+              preserveAspectRatio="xMidYMid meet"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none'
+              }}
+            >
+              {mapState.segments.map((seg: EngravedSegment) => {
+                const fromP = seg.from?.lat != null && seg.from?.lng != null
+                  ? project(seg.from.lat, seg.from.lng)
+                  : seg.from?.arrondissement != null && ARRONDISSEMENT_MAP_POSITION[seg.from.arrondissement]
+                    ? {
+                        x: (ARRONDISSEMENT_MAP_POSITION[seg.from.arrondissement].x / 100) * VIEWBOX_WIDTH,
+                        y: (ARRONDISSEMENT_MAP_POSITION[seg.from.arrondissement].y / 100) * VIEWBOX_HEIGHT
+                      }
+                    : null;
+                const toP = seg.to?.lat != null && seg.to?.lng != null
+                  ? project(seg.to.lat, seg.to.lng)
+                  : seg.to?.arrondissement != null && ARRONDISSEMENT_MAP_POSITION[seg.to.arrondissement]
+                    ? {
+                        x: (ARRONDISSEMENT_MAP_POSITION[seg.to.arrondissement].x / 100) * VIEWBOX_WIDTH,
+                        y: (ARRONDISSEMENT_MAP_POSITION[seg.to.arrondissement].y / 100) * VIEWBOX_HEIGHT
+                      }
+                    : null;
+                if (!fromP || !toP) return null;
+                const isPending = seg.status === 'pending';
+                return (
+                  <line
+                    key={seg.id}
+                    x1={fromP.x}
+                    y1={fromP.y}
+                    x2={toP.x}
+                    y2={toP.y}
+                    stroke="#003D2C"
+                    strokeWidth={isPending ? 1.5 : 2}
+                    strokeDasharray={isPending ? '4 4' : 'none'}
+                    opacity={isPending ? 0.5 : 0.85}
+                  />
+                );
+              })}
+            </svg>
+          )}
+          {/* Layer 3 — Inscription marks (arrondissements with inscriptions) */}
+          {showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
+            const arrsWithInscriptions = new Set(
+              mapState.inscriptions.map((i) => i.arrondissement).filter((a): a is number => a != null)
+            );
+            return (
+              <>
+                {Array.from(arrsWithInscriptions).map((arr) => {
+                  const pos = ARRONDISSEMENT_MAP_POSITION[arr];
+                  if (!pos) return null;
+                  return (
+                    <div
+                      key={arr}
+                      style={{
+                        position: 'absolute',
+                        left: `${pos.x}%`,
+                        top: `${pos.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: '#003D2C',
+                        opacity: 0.6,
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  );
+                })}
+              </>
+            );
+          })()}
           {/* Quest threads overlay — polylines + stamps (from getRuns). TODO: optionally unify with traces_v1 for selected trace highlight. */}
           {showThreads && runs.length > 0 && (
             <svg
@@ -347,6 +474,32 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               )}
             </div>
           ))}
+          {/* Clickable arrondissement zones — open Écrire sheet */}
+          {ARRONDISSEMENTS.map((arr) => {
+            const pos = ARRONDISSEMENT_MAP_POSITION[arr];
+            if (!pos) return null;
+            return (
+              <button
+                key={arr}
+                type="button"
+                aria-label={`${arr}e — Écrire`}
+                style={{
+                  position: 'absolute',
+                  left: `${pos.x}%`,
+                  top: `${pos.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  zIndex: 3
+                }}
+                onClick={() => setEcrireSheetArr(arr)}
+              />
+            );
+          })}
         </div>
 
         {/* Absence (Unmarked) — arrondissements with 0 symbols: tappable → "Is this choice?" → refused */}
@@ -483,6 +636,125 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             </div>
           </div>
         )}
+
+        {/* Écrire sheet — arrondissement inscription (Card Gate) */}
+        <Sheet open={ecrireSheetArr !== null} onOpenChange={(open) => { if (!open) setEcrireSheetArr(null); setEcrireError(null); }}>
+          <SheetContent
+            side="bottom"
+            className="max-h-[85vh] overflow-y-auto"
+            style={{ background: '#FAF8F2', borderColor: 'rgba(0,61,44,0.15)' }}
+          >
+            <SheetHeader>
+              <SheetTitle style={{ fontFamily: 'var(--font-serif)', color: '#1A1A1A' }}>
+                {t('myparis.ecrire.title')}
+                {ecrireSheetArr != null && ` — ${ecrireSheetArr}e`}
+              </SheetTitle>
+            </SheetHeader>
+            <div style={{ padding: '0 1rem 1rem', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                {t('myparis.ecrire.helper')}
+              </p>
+              <textarea
+                value={ecrireDraft}
+                onChange={(e) => { setEcrireDraft(e.target.value); setEcrireError(null); }}
+                placeholder={t('myparis.ecrire.placeholder')}
+                rows={5}
+                style={{
+                  width: '100%',
+                  padding: 14,
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 14,
+                  color: '#1A1A1A',
+                  background: 'transparent',
+                  border: '1px solid rgba(0,61,44,0.2)',
+                  borderRadius: 4,
+                  resize: 'vertical',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                {wordCount(ecrireDraft)} / 80–120
+              </div>
+              {ecrireError && (
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#8B0000' }}>{ecrireError}</p>
+              )}
+              <button
+                type="button"
+                disabled={ecrireSaving}
+                onClick={async () => {
+                  const text = ecrireDraft.trim();
+                  if (!text || ecrireSheetArr == null) return;
+                  const words = wordCount(text);
+                  if (words < 80 || words > 120) {
+                    setEcrireError(t('myparis.ecrire.errorWords'));
+                    return;
+                  }
+                  if (!validateRueHeure(text)) {
+                    setEcrireError(t('myparis.ecrire.errorRueHeure'));
+                    return;
+                  }
+                  setEcrireSaving(true);
+                  setEcrireError(null);
+                  try {
+                    await postInscription(cardId, {
+                      kind: 'arrondissement',
+                      arrondissement: ecrireSheetArr,
+                      text,
+                      idempotency_key: `arr-${ecrireSheetArr}-${Date.now()}`
+                    });
+                    refreshMapState();
+                    setEcrireDraft('');
+                    bump('presence');
+                    emitEngraveEvent('inscription');
+                  } catch (err) {
+                    setEcrireError(err instanceof Error ? err.message : 'Failed to engrave');
+                  } finally {
+                    setEcrireSaving(false);
+                  }
+                }}
+                style={{
+                  padding: '10px 20px',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: '#003D2C',
+                  background: 'rgba(0,61,44,0.1)',
+                  border: '1px solid rgba(0,61,44,0.3)',
+                  borderRadius: 4,
+                  cursor: ecrireSaving ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {ecrireSaving ? '…' : t('myparis.ecrire.graver')}
+              </button>
+              {inscriptionsForArr.length > 0 && (
+                <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid rgba(0,61,44,0.08)' }}>
+                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.6, marginBottom: 8 }}>
+                    {t('myparis.ecrire.inscriptions')}
+                  </div>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {inscriptionsForArr.map((ins: MapInscription) => (
+                      <li
+                        key={ins.id}
+                        style={{
+                          fontFamily: 'var(--font-serif)',
+                          fontSize: 13,
+                          color: '#1A1A1A',
+                          opacity: ins.status === 'pending' ? 0.75 : 1,
+                          marginBottom: 8,
+                          paddingBottom: 8,
+                          borderBottom: '1px solid rgba(0,61,44,0.06)'
+                        }}
+                      >
+                        {ins.text.slice(0, 120)}{ins.text.length > 120 ? '…' : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* Content below the map — full width of container */}
         <div style={{ width: '100%' }}>

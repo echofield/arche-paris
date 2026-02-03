@@ -79,3 +79,18 @@ export function getAuraMemorySentence(): string {
   const index = daySeed % AURA_MEMORY_SENTENCES.length;
   return AURA_MEMORY_SENTENCES[index] ?? AURA_MEMORY_SENTENCES[0];
 }
+
+/** Whisper: one short oracle line on inscription/proof events. Fades 6–12 s. */
+const WHISPER_LINES: string[] = [
+  'The city has noted.',
+  'Something was engraved.',
+  'The line holds.',
+  'Presence, not proof.',
+  'The map remembers.',
+  'Quiet mark.'
+];
+
+export function getWhisperLine(): string {
+  const index = (Date.now() / 1000) % WHISPER_LINES.length;
+  return WHISPER_LINES[Math.floor(index)] ?? WHISPER_LINES[0];
+}

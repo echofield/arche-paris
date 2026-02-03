@@ -1,160 +1,130 @@
 /**
- * ARCHÉ — Card Service
+ * ARCHÉ — Card Service (V1)
  *
- * Handles card validation, activation, and access tracking.
- * Each physical card = one QR code = one unique experience.
- *
- * Philosophy:
- * - Single use: First scan activates the card
- * - Always alive: Activator can always return
- * - Graceful: Others can still access (we track, but don't block)
+ * INVARIANTS:
+ * - Activation requires non-enumerable proof (code+password via activate-card Edge Function).
+ *   activate_card must never succeed with card_id alone. Pairing assumes this.
+ * - After activation/login (CardGate onAuthenticated): pairDevice then validateCardAndGetToken.
+ * - No direct DB for journal/traces; all via Card Gate. No fallback to direct DB.
  */
 
-import { supabase } from './supabase/client';
-
-// Simple browser fingerprint (not for security, just for UX)
-function getDeviceFingerprint(): string {
-  const nav = navigator;
-  const screen = window.screen;
-  const data = [
-    nav.userAgent,
-    nav.language,
-    screen.width,
-    screen.height,
-    screen.colorDepth,
-    new Date().getTimezoneOffset(),
-    nav.hardwareConcurrency || 'unknown',
-    (nav as any).deviceMemory || 'unknown'
-  ].join('|');
-
-  // Simple hash
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return 'fp_' + Math.abs(hash).toString(36);
-}
+import {
+  pairDevice,
+  validateCardAndGetToken,
+  getCardToken,
+  clearCardGateStorage,
+} from './card-gate-client';
 
 export interface CardStatus {
   valid: boolean;
-  status: 'ACTIVATED' | 'WELCOME_BACK' | 'ALREADY_ACTIVATED' | 'NOT_FOUND' | 'ERROR' | 'DEMO';
+  status: 'ACTIVATED' | 'WELCOME_BACK' | 'ALREADY_ACTIVATED' | 'NOT_FOUND' | 'ERROR' | 'DEMO' | 'NEEDS_GATE';
   message: string;
   cardId: string;
+  cardCode?: string;
   accessCount?: number;
 }
 
 const STORAGE_KEY = 'arche_card_id';
-const FINGERPRINT_KEY = 'arche_device_fp';
 
 /**
- * Validate and activate a card
- */
-export async function activateCard(cardId: string): Promise<CardStatus> {
-  // Demo mode for development
-  if (cardId.startsWith('DEMO')) {
-    localStorage.setItem(STORAGE_KEY, cardId);
-    return {
-      valid: true,
-      status: 'DEMO',
-      message: 'Mode démonstration.',
-      cardId
-    };
-  }
-
-  try {
-    const fingerprint = getDeviceFingerprint();
-    localStorage.setItem(FINGERPRINT_KEY, fingerprint);
-
-    // Call the Supabase function
-    const { data, error } = await supabase.rpc('activate_card', {
-      card_id: cardId,
-      fingerprint: fingerprint
-    });
-
-    if (error) {
-      console.error('Card activation error:', error);
-
-      // Fallback: allow access but note the error
-      localStorage.setItem(STORAGE_KEY, cardId);
-      return {
-        valid: true,
-        status: 'ERROR',
-        message: 'Connexion limitée. Accès autorisé.',
-        cardId
-      };
-    }
-
-    if (data.success) {
-      localStorage.setItem(STORAGE_KEY, cardId);
-      return {
-        valid: true,
-        status: data.status,
-        message: data.message,
-        cardId,
-        accessCount: data.access_count
-      };
-    } else {
-      return {
-        valid: false,
-        status: 'NOT_FOUND',
-        message: data.message || 'Carte invalide.',
-        cardId
-      };
-    }
-  } catch (err) {
-    console.error('Card service error:', err);
-
-    // Graceful fallback: allow access
-    localStorage.setItem(STORAGE_KEY, cardId);
-    return {
-      valid: true,
-      status: 'ERROR',
-      message: 'Hors ligne. Accès autorisé.',
-      cardId
-    };
-  }
-}
-
-/**
- * Get stored card ID
+ * Get stored card ID (set after CardGate onAuthenticated).
  */
 export function getStoredCard(): string | null {
   return localStorage.getItem(STORAGE_KEY);
 }
 
 /**
- * Check if user has a valid card (from URL or storage)
+ * Set stored card ID. Call after successful CardGate flow (pair + validate).
  */
-export async function initializeCard(): Promise<CardStatus | null> {
-  // Check URL params first
-  const urlParams = new URLSearchParams(window.location.search);
-  const cardFromUrl = urlParams.get('card');
-
-  if (cardFromUrl) {
-    // New card scanned
-    console.log('🎫 Carte scannée:', cardFromUrl);
-    return activateCard(cardFromUrl);
-  }
-
-  // Check localStorage
-  const storedCard = getStoredCard();
-  if (storedCard) {
-    console.log('🎫 Carte en mémoire:', storedCard);
-
-    // Re-validate and track access
-    return activateCard(storedCard);
-  }
-
-  // No card found
-  return null;
+export function setStoredCard(cardId: string): void {
+  localStorage.setItem(STORAGE_KEY, cardId);
 }
 
 /**
- * Clear card (for testing)
+ * Clear stored card and Card Gate storage (device_secret, token) for this card.
  */
 export function clearCard(): void {
+  const cardId = getStoredCard();
+  if (cardId) clearCardGateStorage(cardId);
   localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(FINGERPRINT_KEY);
+}
+
+/**
+ * Initialize: if URL has ?card=CODE, return needsGate so App shows CardGate(CODE).
+ * If we have stored card, try getCardToken; if success return valid, else no_card.
+ * Demo mode: cardId starting with DEMO is allowed without gate.
+ */
+export async function initializeCard(): Promise<CardStatus | null> {
+  const urlParams = new URLSearchParams(window.location.search);
+  const codeFromUrl = urlParams.get('card');
+
+  if (codeFromUrl?.startsWith('DEMO')) {
+    setStoredCard(codeFromUrl);
+    return {
+      valid: true,
+      status: 'DEMO',
+      message: 'Mode démonstration.',
+      cardId: codeFromUrl,
+    };
+  }
+
+  if (codeFromUrl) {
+    return {
+      valid: false,
+      status: 'NEEDS_GATE',
+      message: 'Vérifiez la carte.',
+      cardId: '',
+      cardCode: codeFromUrl,
+    };
+  }
+
+  const storedCard = getStoredCard();
+  if (!storedCard) return null;
+
+  if (storedCard.startsWith('DEMO')) {
+    return {
+      valid: true,
+      status: 'DEMO',
+      message: 'Mode démonstration.',
+      cardId: storedCard,
+    };
+  }
+
+  try {
+    await getCardToken(storedCard);
+    return {
+      valid: true,
+      status: 'WELCOME_BACK',
+      message: 'Bon retour.',
+      cardId: storedCard,
+    };
+  } catch {
+    clearCard();
+    return null;
+  }
+}
+
+/**
+ * After CardGate onAuthenticated(cardData): pair device, get token, store card.
+ * Call this from the component that handles onAuthenticated (e.g. App).
+ * cardData.id is the card id to use for all Gate operations.
+ */
+export async function afterCardGateAuthenticated(cardData: {
+  id: string;
+  code: string;
+  activated_at: string;
+}): Promise<void> {
+  const cardId = cardData.id;
+  try {
+    await pairDevice(cardId);
+  } catch (e: unknown) {
+    const err = e as { code?: string };
+    if (err?.code === 'ALREADY_PAIRED') {
+      // Same device returning: we already have device_secret, just validate
+    } else {
+      throw e;
+    }
+  }
+  await validateCardAndGetToken(cardId);
+  setStoredCard(cardId);
 }

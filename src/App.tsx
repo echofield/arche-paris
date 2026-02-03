@@ -17,12 +17,14 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
-import { initializeCard, activateCard, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, type CardStatus } from './utils/card-service';
+import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
 import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-runner';
 import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
+import { SyncStateProvider } from './contexts/SyncStateContext';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
@@ -60,6 +62,8 @@ export default function App() {
       if (status.valid) {
         setAppState('welcome');
         setTimeout(() => setAppState('ready'), 1500);
+      } else if (status.status === 'NEEDS_GATE' && status.cardCode) {
+        setAppState('validating');
       } else {
         setAppState('invalid');
       }
@@ -90,21 +94,41 @@ export default function App() {
     } catch {}
   }, [appState]);
 
-  // Handle manual card entry
-  const handleManualEntry = async (code: string) => {
-    setAppState('validating');
-
+  // Manual card entry: show CardGate (check-card → activation or login)
+  const handleManualEntry = (code: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set('card', code);
     window.history.replaceState({}, '', url.toString());
+    setCardStatus({
+      valid: false,
+      status: 'NEEDS_GATE',
+      message: 'Vérifiez la carte.',
+      cardId: '',
+      cardCode: code,
+    });
+    setAppState('validating');
+  };
 
-    const status = await activateCard(code);
-    setCardStatus(status);
-
-    if (status.valid) {
+  // After CardGate activation/login: pair, validate, store card, then ready
+  const handleCardGateAuthenticated = async (cardData: { id: string; code: string; activated_at: string }) => {
+    try {
+      await afterCardGateAuthenticated(cardData);
+      setCardStatus({
+        valid: true,
+        status: 'WELCOME_BACK',
+        message: 'Bon retour.',
+        cardId: cardData.id,
+      });
       setAppState('welcome');
       setTimeout(() => setAppState('ready'), 1500);
-    } else {
+    } catch (err) {
+      console.error('Card Gate after auth:', err);
+      setCardStatus({
+        valid: false,
+        status: 'ERROR',
+        message: 'Connexion limitée. Réessayez.',
+        cardId: cardData.id,
+      });
       setAppState('invalid');
     }
   };
@@ -253,14 +277,29 @@ export default function App() {
 
   return (
     <LanguageProvider>
+      <SyncStateProvider>
       <div style={{ minHeight: '100vh', width: '100%', maxWidth: '100%', overflowX: 'hidden', background: '#FAF8F2', position: 'relative' }}>
         {appState !== 'ready' ? (
-          <CardEntry
-            status={appState}
-            cardStatus={cardStatus || undefined}
-            onManualEntry={handleManualEntry}
-            onContinue={() => setAppState('ready')}
-          />
+          cardStatus?.status === 'NEEDS_GATE' && cardStatus?.cardCode ? (
+            <CardGate
+              cardCode={cardStatus.cardCode}
+              onAuthenticated={handleCardGateAuthenticated}
+              onBack={() => {
+                setCardStatus(null);
+                setAppState('no_card');
+                const url = new URL(window.location.href);
+                url.searchParams.delete('card');
+                window.history.replaceState({}, '', url.toString());
+              }}
+            />
+          ) : (
+            <CardEntry
+              status={appState}
+              cardStatus={cardStatus || undefined}
+              onManualEntry={handleManualEntry}
+              onContinue={() => setAppState('ready')}
+            />
+          )
         ) : (
           <>
             <LanguageSelector />
@@ -305,6 +344,7 @@ export default function App() {
           </div>
         )}
       </div>
+      </SyncStateProvider>
     </LanguageProvider>
   );
 }

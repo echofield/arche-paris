@@ -1,78 +1,50 @@
 /**
  * ARCHÉ — Journal sync: My Paris ↔ Carnet (notes)
  *
- * - My Paris note: one journal_entry per card with place_id = MY_PARIS_PLACE_ID
- *   → appears in Carnet Parisien
- * - Pins (collected symbols): each collect → insert a journal_entry
- *   → "Collected: [name]" appears in notes
+ * All access via Card Gate only. No direct DB. If Card Gate fails: queue locally / show offline.
  */
 
-import { supabase } from './supabase/client';
 import { getSymbolById } from '../data/symbols';
+import {
+  MY_PARIS_PLACE_ID,
+  WALK_PLACE_ID,
+  ECHO_PLACE_ID_PREFIX,
+  MILESTONE_PLACE_ID,
+  MERIDIEN_PLACE_ID_PREFIX,
+  AURA_SEAL_PLACE_ID,
+  loadMyParisNote as gateLoadMyParisNote,
+  saveMyParisNote as gateSaveMyParisNote,
+  appendJournalEntry,
+} from './card-gate-client';
 
-export const MY_PARIS_PLACE_ID = '__my_paris__';
-export const WALK_PLACE_ID = '__walk__';
-export const ECHO_PLACE_ID_PREFIX = '__echo__';
-export const MILESTONE_PLACE_ID = '__milestone__';
-export const MERIDIEN_PLACE_ID_PREFIX = '__meridien__';
-export const AURA_SEAL_PLACE_ID = '__aura_seal__';
+export { MY_PARIS_PLACE_ID, WALK_PLACE_ID, ECHO_PLACE_ID_PREFIX, MILESTONE_PLACE_ID, MERIDIEN_PLACE_ID_PREFIX, AURA_SEAL_PLACE_ID };
 
 /**
  * Load the My Paris note for this card (for display in My Paris page).
- * Same content appears in Carnet when we save it here.
  */
 export async function loadMyParisNote(cardId: string): Promise<string> {
-  const { data, error } = await supabase
-    .from('journal_entries')
-    .select('content, updated_at')
-    .eq('card_id', cardId)
-    .eq('place_id', MY_PARIS_PLACE_ID)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.warn('loadMyParisNote:', error);
+  try {
+    return await gateLoadMyParisNote(cardId);
+  } catch (e) {
+    console.warn('loadMyParisNote (Card Gate):', e);
     return '';
   }
-  return data?.content ?? '';
 }
 
 /**
- * Save the My Paris note. Writes to journal_entries so it appears in Carnet (notes).
- * Upsert: update if exists, else insert.
+ * Save the My Paris note. Writes via Card Gate so it appears in Carnet (notes).
  */
 export async function saveMyParisNote(cardId: string, content: string): Promise<void> {
-  const now = new Date().toISOString();
-
-  const { data: existing } = await supabase
-    .from('journal_entries')
-    .select('id')
-    .eq('card_id', cardId)
-    .eq('place_id', MY_PARIS_PLACE_ID)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing?.id) {
-    await supabase
-      .from('journal_entries')
-      .update({ content, updated_at: now })
-      .eq('id', existing.id);
-  } else {
-    await supabase.from('journal_entries').insert({
-      content,
-      place_id: MY_PARIS_PLACE_ID,
-      card_id: cardId,
-      created_at: now,
-      updated_at: now
-    });
+  try {
+    await gateSaveMyParisNote(cardId, content);
+  } catch (e) {
+    console.warn('saveMyParisNote (Card Gate):', e);
+    throw e;
   }
 }
 
 /**
  * When a symbol is collected, add a line to the journal so it appears in Notes (Carnet).
- * Call this after collectSymbol() when the symbol was actually added.
  */
 export async function syncCollectionToJournal(
   cardId: string,
@@ -81,39 +53,26 @@ export async function syncCollectionToJournal(
 ): Promise<void> {
   const name = symbolName ?? getSymbolById(symbolId)?.name ?? symbolId;
   const content = `Collected: ${name}`;
-  const now = new Date().toISOString();
-
-  await supabase.from('journal_entries').insert({
-    content,
-    place_id: symbolId,
-    card_id: cardId,
-    created_at: now,
-    updated_at: now
-  });
+  try {
+    await appendJournalEntry(cardId, symbolId, content);
+  } catch (e) {
+    console.warn('syncCollectionToJournal (Card Gate):', e);
+  }
 }
 
 /**
  * Insert one walk line into the journal so it appears in Carnet.
- * Call after quest close or manual "Add a walk". One entry per walk.
  */
 export async function appendWalkToJournal(cardId: string, content: string): Promise<void> {
-  const now = new Date().toISOString();
   try {
-    await supabase.from('journal_entries').insert({
-      content,
-      place_id: WALK_PLACE_ID,
-      card_id: cardId,
-      created_at: now,
-      updated_at: now
-    });
+    await appendJournalEntry(cardId, WALK_PLACE_ID, content);
   } catch (e) {
-    console.warn('appendWalkToJournal:', e);
+    console.warn('appendWalkToJournal (Card Gate):', e);
   }
 }
 
 /**
  * Insert one "Witnessed" line for Delayed Resonance (24–48h after proof).
- * Idempotent: call only once per proof (track via arche_proof_echoed_v1).
  */
 export async function appendEchoToJournal(
   cardId: string,
@@ -124,66 +83,43 @@ export async function appendEchoToJournal(
   const dateStr = new Date(proofAt).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
   const content = `${dateStr} — ${artifactTitle}. Witnessed.`;
-  const now = new Date().toISOString();
   try {
-    await supabase.from('journal_entries').insert({
-      content,
-      place_id: `${ECHO_PLACE_ID_PREFIX}${artifactId}`,
-      card_id: cardId,
-      created_at: now,
-      updated_at: now
-    });
+    await appendJournalEntry(cardId, `${ECHO_PLACE_ID_PREFIX}${artifactId}`, content);
   } catch (e) {
-    console.warn('appendEchoToJournal:', e);
+    console.warn('appendEchoToJournal (Card Gate):', e);
   }
 }
 
 /**
  * Insert one silent milestone line (10/50/100/500 km).
- * Idempotent: call only once per threshold (track via arche_milestones_seen_v1).
  */
 export async function appendMilestoneToJournal(
   cardId: string,
   km: number,
   contentLine: string
 ): Promise<void> {
-  const now = new Date().toISOString();
   try {
-    await supabase.from('journal_entries').insert({
-      content: contentLine,
-      place_id: `${MILESTONE_PLACE_ID}_${km}`,
-      card_id: cardId,
-      created_at: now,
-      updated_at: now
-    });
+    await appendJournalEntry(cardId, `${MILESTONE_PLACE_ID}_${km}`, contentLine);
   } catch (e) {
-    console.warn('appendMilestoneToJournal:', e);
+    console.warn('appendMilestoneToJournal (Card Gate):', e);
   }
 }
 
 /**
  * Insert one Méridiens threshold inscription into the journal (Carnet).
- * Tagged with __meridien__{thresholdId} so it appears as a Méridiens note.
  */
 export async function appendMeridienInscription(
   cardId: string,
   thresholdId: string,
   content: string
 ): Promise<void> {
-  const now = new Date().toISOString();
   try {
-    await supabase.from('journal_entries').insert({
-      content,
-      place_id: `${MERIDIEN_PLACE_ID_PREFIX}${thresholdId}`,
-      card_id: cardId,
-      created_at: now,
-      updated_at: now
-    });
+    await appendJournalEntry(cardId, `${MERIDIEN_PLACE_ID_PREFIX}${thresholdId}`, content);
   } catch (e) {
-    console.warn('appendMeridienInscription:', e);
+    console.warn('appendMeridienInscription (Card Gate):', e);
   }
 }
 
@@ -191,16 +127,9 @@ export async function appendMeridienInscription(
  * Insert one Aura "Graver un moment" (seal a moment) inscription into the journal (Carnet).
  */
 export async function appendAuraSealToJournal(cardId: string, content: string): Promise<void> {
-  const now = new Date().toISOString();
   try {
-    await supabase.from('journal_entries').insert({
-      content,
-      place_id: AURA_SEAL_PLACE_ID,
-      card_id: cardId,
-      created_at: now,
-      updated_at: now
-    });
+    await appendJournalEntry(cardId, AURA_SEAL_PLACE_ID, content);
   } catch (e) {
-    console.warn('appendAuraSealToJournal:', e);
+    console.warn('appendAuraSealToJournal (Card Gate):', e);
   }
 }

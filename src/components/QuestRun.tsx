@@ -12,6 +12,7 @@ import { getTodayKey, addQuestWalk, getTodaySummary, parseApproxKmFromDistance }
 import { bump } from '../utils/companion-service';
 import { appendWalkToJournal } from '../utils/journal-sync';
 import { getStoredCard } from '../utils/card-service';
+import { postMarcheProof } from '../utils/card-gate-map-client';
 import type { QuestThreadTrace, QuestStopStamp } from '../types/traces';
 
 const RUNS_KEY = 'arche_quest_runs';
@@ -191,6 +192,21 @@ export function QuestRun({ questId, cardId, onBack, onClose }: QuestRunProps) {
         await appendWalkToJournal(cid, line);
       } catch {
         // journal-sync missing or failed: local trace only
+      }
+      // Card Gate: marche proof + engraved segment (pending) for map
+      if (!isMeridiens && quest.nodes.length >= 2) {
+        const first = quest.nodes[0].coordinates;
+        const last = quest.nodes[quest.nodes.length - 1].coordinates;
+        try {
+          await postMarcheProof(cid, {
+            link_or_text: quest.title,
+            from: { lat: first.lat, lng: first.lng },
+            to: { lat: last.lat, lng: last.lng }
+          });
+          emitEngraveEvent('proof_marche');
+        } catch {
+          // Card Gate optional: segment will not appear on map
+        }
       }
     }
 

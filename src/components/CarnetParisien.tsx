@@ -3,7 +3,8 @@ import { BookOpen, Feather, Download } from 'lucide-react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { formatDateDisplay } from '../utils/codex-helpers';
-import { supabase } from '../utils/supabase/client.ts';
+import { loadJournalEntries, appendJournalEntry, getOfflineMessage, CardGateOfflineError } from '../utils/card-gate-client';
+import { useSyncState, COMPRESSED_MESSAGE } from '../contexts/SyncStateContext';
 import { WALK_PLACE_ID } from '../utils/journal-sync';
 import { getReflectiveQuestion } from '../data/oracle';
 
@@ -25,48 +26,50 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
   const [currentLieu, setCurrentLieu] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const { pendingCount, isSyncing, showCompressedMessage, flushNow } = useSyncState();
 
   // Charger les souvenirs depuis vault API au montage
   useEffect(() => {
     loadSouvenirs();
   }, [cardId]);
 
+  // Quand la page redevient visible, tenter de vider la file des écritures en attente
+  useEffect(() => {
+    const onFocus = () => {
+      if (pendingCount === 0) return;
+      flushNow(cardId).then((sent) => {
+        if (sent > 0) loadSouvenirs();
+      });
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [cardId, pendingCount, flushNow]);
+
+  // Retry pending writes every 60s while there are pending items (resilience)
+  useEffect(() => {
+    if (pendingCount === 0) return;
+    const t = setInterval(() => {
+      flushNow(cardId).then((sent) => {
+        if (sent > 0) loadSouvenirs();
+      });
+    }, 60000);
+    return () => clearInterval(t);
+  }, [cardId, pendingCount, flushNow]);
+
   const loadSouvenirs = async () => {
     setIsLoading(true);
     setLoadError(false);
-    
     try {
-      // 🔒 ISOLATION PAR CARD_ID
-      // Chaque carte voit uniquement SES souvenirs
-      console.log('🔍 Chargement entries pour carte:', cardId);
-
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .eq('card_id', cardId)  // ← FILTRE CRUCIAL
-        .order('created_at', { ascending: false });
-
-      console.log('📦 Data:', data);
-      console.log('❌ Error:', error);
-
-      if (error) {
-        console.error('❌ Erreur Supabase:', error);
-        throw new Error(error.message || 'Erreur lors du chargement');
-      }
-
-      console.log(`✅ ${data?.length || 0} souvenir(s) chargé(s) pour ${cardId}`);
-      
-      // Convertir entries en Souvenir
-      const converted: Souvenir[] = (data || []).map((entry: any) => ({
+      const entries = await loadJournalEntries(cardId);
+      const converted: Souvenir[] = entries.map((entry) => ({
         id: entry.id,
         text: entry.content,
         timestamp: new Date(entry.created_at),
-        lieu: entry.place_id || undefined
+        lieu: entry.place_id || undefined,
       }));
-      
       setSouvenirs(converted);
     } catch (error) {
-      console.error('Erreur lors du chargement du carnet:', error);
+      console.error('Erreur lors du chargement du carnet (Card Gate):', error);
       setLoadError(true);
     } finally {
       setIsLoading(false);
@@ -90,48 +93,20 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
     setCurrentText('');
     setCurrentLieu('');
 
-    console.log('💾 Sauvegarde entry...');
-
-    const { data, error } = await supabase
-      .from('journal_entries')
-      .insert({
-        content: textToSave,
-        place_id: lieuToSave || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        card_id: cardId  // ← AJOUT CRUCIAL
-      })
-      .select()
-      .single();
-
-    console.log('📦 Saved data:', data);
-    console.log('❌ Error:', error);
-
-    if (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
-      // Si échec, recharger depuis Supabase
-      loadSouvenirs();
-      return;
-    }
-
-    const savedEntry = data;
-    
-    if (savedEntry) {
-      // Remplacer l'entrée temporaire par la vraie
-      setSouvenirs(prev => 
-        prev.map(s => 
-          s.id === tempSouvenir.id 
-            ? {
-                id: savedEntry.id,
-                text: savedEntry.content,
-                timestamp: new Date(savedEntry.created_at),
-                lieu: savedEntry.place_id || undefined
-              }
-            : s
+    try {
+      await appendJournalEntry(cardId, lieuToSave || '', textToSave);
+      setSouvenirs(prev =>
+        prev.map(s =>
+          s.id === tempSouvenir.id ? { ...tempSouvenir, id: `local-${Date.now()}` } : s
         )
       );
-
-      console.log('✅ Entry sauvegardée:', savedEntry.id);
+      loadSouvenirs();
+    } catch (error) {
+      if (error instanceof CardGateOfflineError || (error as { code?: string })?.code === 'CARD_GATE_OFFLINE') {
+        // pendingCount updates via SyncState subscription
+      }
+      console.error('Erreur lors de la sauvegarde (Card Gate):', error);
+      loadSouvenirs();
     }
   };
 
@@ -190,6 +165,62 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
       <div className="no-print">
         <BackButton onClick={onBack} />
       </div>
+
+      {/* Offline: traces gardées, graveront au retour du réseau */}
+      {pendingCount > 0 && (
+        <div
+          className="no-print"
+          style={{
+            position: 'fixed',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            maxWidth: '90vw',
+            padding: '12px 20px',
+            background: 'rgba(0, 61, 44, 0.95)',
+            color: '#F5F3ED',
+            borderRadius: '4px',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '14px',
+            textAlign: 'center',
+            zIndex: 90,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+          }}
+        >
+          {getOfflineMessage()}
+          <span style={{ display: 'block', marginTop: '4px', opacity: 0.9 }}>
+            {pendingCount} en attente
+          </span>
+          {showCompressedMessage && (
+            <span style={{ display: 'block', marginTop: '4px', fontSize: '12px', opacity: 0.9 }}>
+              {COMPRESSED_MESSAGE}
+            </span>
+          )}
+          <button
+            type="button"
+            disabled={isSyncing}
+            onClick={() => {
+              flushNow(cardId).then((sent) => {
+                if (sent > 0) loadSouvenirs();
+              });
+            }}
+            style={{
+              marginTop: '8px',
+              padding: '6px 14px',
+              border: '1px solid #F5F3ED',
+              borderRadius: '4px',
+              background: 'transparent',
+              color: '#F5F3ED',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '13px',
+              cursor: isSyncing ? 'wait' : 'pointer',
+              opacity: isSyncing ? 0.7 : 1,
+            }}
+          >
+            {isSyncing ? '…' : 'Réessayer'}
+          </button>
+        </div>
+      )}
 
       {/* Export PDF button */}
       <button

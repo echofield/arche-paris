@@ -1,15 +1,16 @@
 /**
  * ARCHÉ — Traces Service
  *
- * Les Traces: The sediment of memory.
- * Each walker can leave one trace at each location.
- * Future walkers see traces from those who came before.
- *
- * Not reviews. Not comments. Traces.
- * Like finding a note tucked in a library book.
+ * All access via Card Gate only. No direct DB. If Card Gate fails: queue locally / show offline.
  */
 
-import { supabase } from './supabase/client';
+import {
+  getTraces as gateGetTraces,
+  leaveTrace as gateLeaveTrace,
+  hasLeftTrace as gateHasLeftTrace,
+  type GateTrace,
+  type LeaveTraceResult,
+} from './card-gate-client';
 
 export interface Trace {
   content: string;
@@ -24,36 +25,25 @@ export interface TraceResult {
 }
 
 /**
- * Get traces left by previous walkers at a location
+ * Get traces left by previous walkers at a location (via Card Gate).
  */
 export async function getTraces(
+  cardId: string,
   questId: string,
   etapeId: string,
   limit: number = 3
 ): Promise<Trace[]> {
   try {
-    const { data, error } = await supabase
-      .from('traces')
-      .select('content, card_id, created_at')
-      .eq('quest_id', questId)
-      .eq('etape_id', etapeId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('Error fetching traces:', error);
-      return [];
-    }
-
-    return data || [];
+    const traces = await gateGetTraces(cardId, questId, etapeId, limit);
+    return traces as Trace[];
   } catch (err) {
-    console.error('Traces service error:', err);
+    console.error('Traces service (Card Gate):', err);
     return [];
   }
 }
 
 /**
- * Leave a trace at a location
+ * Leave a trace at a location (via Card Gate).
  */
 export async function leaveTrace(
   cardId: string,
@@ -61,75 +51,16 @@ export async function leaveTrace(
   etapeId: string,
   content: string
 ): Promise<TraceResult> {
-  // Client-side validation
-  const trimmed = content.trim();
-  if (trimmed.length < 3) {
-    return {
-      success: false,
-      message: 'Trop court. Au moins 3 caractères.',
-      error: 'TOO_SHORT'
-    };
-  }
-  if (trimmed.length > 140) {
-    return {
-      success: false,
-      message: 'Trop long. Maximum 140 caractères.',
-      error: 'TOO_LONG'
-    };
-  }
-
-  try {
-    // Check if already left a trace
-    const { count } = await supabase
-      .from('traces')
-      .select('*', { count: 'exact', head: true })
-      .eq('card_id', cardId)
-      .eq('quest_id', questId)
-      .eq('etape_id', etapeId);
-
-    if (count && count > 0) {
-      return {
-        success: false,
-        message: 'Vous avez déjà laissé une trace ici.',
-        error: 'ALREADY_LEFT_TRACE'
-      };
-    }
-
-    // Insert the trace
-    const { error } = await supabase
-      .from('traces')
-      .insert({
-        card_id: cardId,
-        quest_id: questId,
-        etape_id: etapeId,
-        content: trimmed
-      });
-
-    if (error) {
-      console.error('Error leaving trace:', error);
-      return {
-        success: false,
-        message: 'Impossible de laisser une trace. Réessayez.',
-        error: 'DB_ERROR'
-      };
-    }
-
-    return {
-      success: true,
-      message: 'Trace laissée.'
-    };
-  } catch (err) {
-    console.error('Traces service error:', err);
-    return {
-      success: false,
-      message: 'Connexion perdue. Réessayez.',
-      error: 'NETWORK_ERROR'
-    };
-  }
+  const result: LeaveTraceResult = await gateLeaveTrace(cardId, questId, etapeId, content);
+  return {
+    success: result.success,
+    message: result.message,
+    error: result.error,
+  };
 }
 
 /**
- * Check if a card has already left a trace at a location
+ * Check if a card has already left a trace at a location (via Card Gate).
  */
 export async function hasLeftTrace(
   cardId: string,
@@ -137,21 +68,9 @@ export async function hasLeftTrace(
   etapeId: string
 ): Promise<boolean> {
   try {
-    const { count, error } = await supabase
-      .from('traces')
-      .select('*', { count: 'exact', head: true })
-      .eq('card_id', cardId)
-      .eq('quest_id', questId)
-      .eq('etape_id', etapeId);
-
-    if (error) {
-      console.error('Error checking trace:', error);
-      return false;
-    }
-
-    return (count || 0) > 0;
+    return await gateHasLeftTrace(cardId, questId, etapeId);
   } catch (err) {
-    console.error('Traces service error:', err);
+    console.error('Traces service (Card Gate):', err);
     return false;
   }
 }

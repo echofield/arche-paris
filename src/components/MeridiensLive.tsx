@@ -23,6 +23,7 @@ import {
   addCrossing
 } from '../utils/meridien-storage';
 import { appendMeridienInscription } from '../utils/journal-sync';
+import { postMeridianProof } from '../utils/card-gate-map-client';
 import { useTranslation } from '../utils/i18n';
 
 interface MeridiensLiveProps {
@@ -41,6 +42,9 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const [activeThreshold, setActiveThreshold] = useState<Threshold | null>(null);
   const [inscriptionPrompt, setInscriptionPrompt] = useState<string>('');
   const [inscriptionContent, setInscriptionContent] = useState('');
+  const [proofAnswer, setProofAnswer] = useState('');
+  const [proofPersonalSentence, setProofPersonalSentence] = useState('');
+  const [proofSaving, setProofSaving] = useState(false);
   const [inscriptionThresholdId, setInscriptionThresholdId] = useState<ThresholdId | null>(null);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
@@ -107,6 +111,8 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       language === 'fr' ? threshold.inscriptionPromptFR : threshold.inscriptionPromptEN;
     setInscriptionPrompt(prompt);
     setInscriptionContent('');
+    setProofAnswer('');
+    setProofPersonalSentence('');
     setInscriptionThresholdId(threshold.id);
     setViewMode('inscription');
     setSavedFeedback(false);
@@ -121,6 +127,32 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       setActiveThreshold(thresholds.find((t) => t.id === inscriptionThresholdId) ?? null);
       setInscriptionThresholdId(null);
     }, 1200);
+  };
+
+  const saveMeridianProof = async () => {
+    if (!cardId || !inscriptionThresholdId || !proofAnswer.trim() || !proofPersonalSentence.trim()) return;
+    const threshold = getThresholdById(inscriptionThresholdId);
+    const lat = userPos?.lat ?? threshold?.lat ?? 48.8566;
+    const lng = userPos?.lng ?? threshold?.lng ?? 2.3522;
+    const radius_m = Math.min(Math.max(80, (userPos ? 120 : 200)), 250);
+    setProofSaving(true);
+    try {
+      await postMeridianProof(cardId, {
+        meridian_id: inscriptionThresholdId,
+        approx: { lat, lng, radius_m },
+        answer: proofAnswer.trim(),
+        personal_sentence: proofPersonalSentence.trim()
+      });
+      emitEngraveEvent('proof_meridien');
+      setSavedFeedback(true);
+      setTimeout(() => {
+        setViewMode('threshold');
+        setActiveThreshold(thresholds.find((t) => t.id === inscriptionThresholdId) ?? null);
+        setInscriptionThresholdId(null);
+      }, 1200);
+    } finally {
+      setProofSaving(false);
+    }
   };
 
   const backToGeometric = () => {
@@ -175,11 +207,35 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
           >
             {inscriptionPrompt}
           </p>
+          <label style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.6, marginBottom: 6, display: 'block' }}>
+            {t('meridiens.proof.answer')}
+          </label>
+          <input
+            type="text"
+            value={proofAnswer}
+            onChange={(e) => setProofAnswer(e.target.value)}
+            placeholder=""
+            style={{
+              width: '100%',
+              padding: 14,
+              fontFamily: 'var(--font-serif)',
+              fontSize: 14,
+              color: '#1A1A1A',
+              background: 'rgba(255,255,255,0.7)',
+              border: '1px solid rgba(0,61,44,0.2)',
+              borderRadius: 0,
+              marginBottom: 16,
+              boxSizing: 'border-box'
+            }}
+          />
+          <label style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.6, marginBottom: 6, display: 'block' }}>
+            {t('meridiens.proof.personalSentence')}
+          </label>
           <textarea
-            value={inscriptionContent}
-            onChange={(e) => setInscriptionContent(e.target.value)}
+            value={proofPersonalSentence}
+            onChange={(e) => setProofPersonalSentence(e.target.value)}
             placeholder={t('meridiens.inscribe.placeholder')}
-            rows={6}
+            rows={4}
             style={{
               width: '100%',
               padding: 16,
@@ -190,18 +246,19 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
               border: '1px solid rgba(0,61,44,0.2)',
               borderRadius: 0,
               resize: 'vertical',
-              marginBottom: 24
+              marginBottom: 24,
+              boxSizing: 'border-box'
             }}
           />
           {savedFeedback ? (
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#003D2C', opacity: 0.8 }}>
-              {t('meridiens.inscribe.saved')}
+              {t('meridiens.proof.saved')}
             </p>
           ) : (
             <button
               type="button"
-              onClick={saveInscription}
-              disabled={!inscriptionContent.trim()}
+              onClick={saveMeridianProof}
+              disabled={!proofAnswer.trim() || !proofPersonalSentence.trim() || proofSaving || !cardId}
               style={{
                 padding: '12px 24px',
                 fontFamily: 'var(--font-sans)',
@@ -209,13 +266,13 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: '#003D2C',
-                background: inscriptionContent.trim() ? 'rgba(0,61,44,0.08)' : 'transparent',
+                background: proofAnswer.trim() && proofPersonalSentence.trim() ? 'rgba(0,61,44,0.08)' : 'transparent',
                 border: '1px solid rgba(0,61,44,0.3)',
-                cursor: inscriptionContent.trim() ? 'pointer' : 'default',
-                opacity: inscriptionContent.trim() ? 1 : 0.5
+                cursor: proofAnswer.trim() && proofPersonalSentence.trim() && !proofSaving ? 'pointer' : 'default',
+                opacity: proofAnswer.trim() && proofPersonalSentence.trim() ? 1 : 0.5
               }}
             >
-              {t('meridiens.inscribe.button')}
+              {proofSaving ? '…' : t('meridiens.proof.graver')}
             </button>
           )}
         </div>

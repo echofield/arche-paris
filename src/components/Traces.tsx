@@ -17,6 +17,8 @@ import {
   formatTraceDate,
   type Trace
 } from '../utils/traces-service';
+import { getOfflineMessage } from '../utils/card-gate-client';
+import { useSyncState, COMPRESSED_MESSAGE } from '../contexts/SyncStateContext';
 
 interface TracesProps {
   cardId: string;
@@ -33,13 +35,14 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const { pendingCount, isSyncing, showCompressedMessage, flushNow } = useSyncState();
 
   // Load traces on mount
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       const [fetchedTraces, alreadyLeft] = await Promise.all([
-        getTraces(questId, etapeId, 3),
+        getTraces(cardId, questId, etapeId, 3),
         hasLeftTrace(cardId, questId, etapeId)
       ]);
       setTraces(fetchedTraces);
@@ -70,6 +73,7 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
       }]);
     } else {
       setSubmitMessage(result.message);
+      // pendingCount updates via SyncState when CARD_GATE_OFFLINE
     }
 
     setIsSubmitting(false);
@@ -106,6 +110,54 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
       >
         Traces
       </p>
+
+      {/* Offline: traces gardées, graveront au retour du réseau */}
+      {pendingCount > 0 && (
+        <div
+          style={{
+            marginBottom: 'var(--space-lg)',
+            padding: '12px 16px',
+            background: 'rgba(0, 61, 44, 0.06)',
+            border: '1px solid rgba(0, 61, 44, 0.15)',
+            borderRadius: '4px',
+            fontSize: '13px',
+            color: '#003D2C',
+          }}
+        >
+          <p style={{ margin: 0, marginBottom: '6px' }}>{getOfflineMessage()}</p>
+          <p style={{ margin: 0, opacity: 0.8, fontSize: '12px' }}>{pendingCount} en attente</p>
+          {showCompressedMessage && (
+            <p style={{ margin: 0, marginTop: '4px', fontSize: '11px', opacity: 0.8 }}>{COMPRESSED_MESSAGE}</p>
+          )}
+          <button
+            type="button"
+            disabled={isSyncing}
+            onClick={() => {
+              flushNow(cardId).then((sent) => {
+                if (sent > 0) {
+                  setHasLeft(true);
+                  setShowInput(false);
+                  getTraces(cardId, questId, etapeId, 3).then(setTraces);
+                }
+              });
+            }}
+            style={{
+              marginTop: '8px',
+              padding: '6px 12px',
+              border: '1px solid rgba(0, 61, 44, 0.3)',
+              borderRadius: '4px',
+              background: 'transparent',
+              color: '#003D2C',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              cursor: isSyncing ? 'wait' : 'pointer',
+              opacity: isSyncing ? 0.7 : 1,
+            }}
+          >
+            {isSyncing ? '…' : 'Réessayer'}
+          </button>
+        </div>
+      )}
 
       {/* Display existing traces */}
       {traces.length > 0 && (
