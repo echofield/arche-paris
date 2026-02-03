@@ -3,3 +3,6 @@
 
 [functions.card-gate]
 entrypoint = "functions/card-gate/index.tsx"
+
+[functions.make-server-9060b10a]
+entrypoint = "functions/make-server-9060b10a/index.tsx"
