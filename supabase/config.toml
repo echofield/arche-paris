@@ -1,0 +1,5 @@
+# ARCHÉ — Supabase project config (used by CLI for deploy)
+# See https://supabase.com/docs/guides/cli/config
+
+[functions.card-gate]
+entrypoint = "functions/card-gate/index.tsx"
