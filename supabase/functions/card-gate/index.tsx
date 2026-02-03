@@ -14,7 +14,7 @@
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { cors } from "npm:hono/cors@4.6.14";
+import { cors } from "npm:hono@4.6.14/cors";
 import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 
