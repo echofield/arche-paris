@@ -1,6 +1,8 @@
 /**
  * ARCHE - Combined Auth Server (make-server-9060b10a)
  * Routes: /check-card, /activate-card, /login-card
+ *
+ * NOTE: cards table uses `id` as the card code (e.g. "PS-0001")
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -8,7 +10,7 @@ import { Hono } from "npm:hono@4.6.14";
 import { cors } from "npm:hono@4.6.14/cors";
 import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
-const app = new Hono();
+const app = new Hono().basePath("/make-server-9060b10a");
 
 // Strict origin allowlist
 const ALLOWED_ORIGINS = [
@@ -61,6 +63,7 @@ const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 15;
 
 // ============ /check-card ============
+// The "code" from frontend is actually the card's `id` in the database
 app.post("/check-card", async (c) => {
   try {
     const { code } = await c.req.json();
@@ -71,11 +74,11 @@ app.post("/check-card", async (c) => {
 
     const supabase = getSupabase();
 
-    // Check if card exists
+    // Check if card exists - use `id` column (not `code`)
     const { data: card, error } = await supabase
       .from("cards")
-      .select("id, code, activated_at")
-      .eq("code", code)
+      .select("id, activated_at")
+      .eq("id", code)
       .single();
 
     if (error || !card) {
@@ -125,11 +128,11 @@ app.post("/activate-card", async (c) => {
       return c.json({ error: "Trop de tentatives. Reessayez plus tard." }, 429);
     }
 
-    // Check card exists and not activated
+    // Check card exists and not activated - use `id` column
     const { data: existingCard, error: fetchError } = await supabase
       .from("cards")
-      .select("id, code, password_hash, activated_at")
-      .eq("code", code)
+      .select("id, password_hash, activated_at")
+      .eq("id", code)
       .single();
 
     if (fetchError || !existingCard) {
@@ -153,10 +156,11 @@ app.post("/activate-card", async (c) => {
         locked_until: null
       })
       .eq("id", existingCard.id)
-      .select("id, code, activated_at")
+      .select("id, activated_at")
       .single();
 
     if (updateError) {
+      console.error("[activate-card] Update error:", updateError);
       return c.json({ error: "Erreur lors de l'activation" }, 500);
     }
 
@@ -166,7 +170,7 @@ app.post("/activate-card", async (c) => {
       success: true,
       card: {
         id: updatedCard.id,
-        code: updatedCard.code,
+        code: updatedCard.id,
         activated_at: updatedCard.activated_at
       }
     });
@@ -192,11 +196,11 @@ app.post("/login-card", async (c) => {
 
     const supabase = getSupabase();
 
-    // Get card
+    // Get card - use `id` column
     const { data: card, error: fetchError } = await supabase
       .from("cards")
-      .select("id, code, password_hash, activated_at, failed_attempts, locked_until")
-      .eq("code", code)
+      .select("id, password_hash, activated_at, failed_attempts, locked_until")
+      .eq("id", code)
       .single();
 
     if (fetchError || !card) {
@@ -277,7 +281,7 @@ app.post("/login-card", async (c) => {
       success: true,
       card: {
         id: card.id,
-        code: card.code,
+        code: card.id,
         activated_at: card.activated_at
       },
       session: {
