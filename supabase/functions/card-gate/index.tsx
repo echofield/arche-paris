@@ -24,6 +24,8 @@ const app = new Hono().basePath("/card-gate");
 const ALLOWED_ORIGINS = [
   "https://arche-paris.com",
   "https://www.arche-paris.com",
+  "https://xn--arch-paris-e7a.com",
+  "https://www.xn--arch-paris-e7a.com",
 ];
 function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return false;
