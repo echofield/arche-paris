@@ -464,49 +464,23 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
         position: 'relative'
       }}
     >
-      {/* Header */}
-      <div 
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          marginBottom: '64px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
-      >
-        <BackButton fallbackHref="#etudes" label="← Retour" />
+      <BackButton fallbackHref="#etudes" label="← Retour" />
 
-        <h1 
-          style={{
-            fontFamily: 'Cormorant Garamond, Georgia, serif',
-            fontSize: 'clamp(28px, 4vw, 48px)',
-            fontWeight: 400,
-            color: '#1A1A1A'
-          }}
-        >
-          Seuil
-        </h1>
-
-        <div style={{ width: '80px' }} />
-      </div>
-
-      {/* Layout principal : 2 colonnes */}
       <div 
         style={{
           maxWidth: '1400px',
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: '1fr',
+          gridTemplateColumns: '1fr 1.2fr',
           gap: 'clamp(40px, 5vw, 80px)',
-          alignItems: 'start'
+          alignItems: 'start',
+          paddingTop: 'clamp(24px, 4vw, 48px)',
+          paddingBottom: '120px'
         }}
-        className="formes-layout"
+        className="formes-seuil-layout"
       >
-
-        {/* Colonne droite — Contenu */}
-        <div style={{ paddingBottom: '120px' }}>
-          {/* Sous-titre */}
+        {/* Left: principle, definition, typologies, anecdotes, exercices, livres, CTA */}
+        <div style={{ order: 1 }}>
           <div 
             style={{
               fontFamily: 'Inter, sans-serif',
@@ -516,22 +490,34 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
               textTransform: 'uppercase',
               color: '#003D2C',
               opacity: 0.6,
-              marginBottom: '32px'
+              marginBottom: '16px'
             }}
           >
             Espace de transition, filtre social, épaisseur symbolique
           </div>
 
-          {/* Introduction */}
+          <h1 
+            style={{
+              fontFamily: 'Cormorant Garamond, Georgia, serif',
+              fontSize: 'clamp(36px, 5vw, 56px)',
+              fontWeight: 400,
+              lineHeight: 1.1,
+              color: '#1A1A1A',
+              marginBottom: '24px'
+            }}
+          >
+            Seuil
+          </h1>
+
           <div 
             style={{
               fontFamily: 'Cormorant Garamond, Georgia, serif',
-              fontSize: 'clamp(20px, 2.5vw, 28px)',
+              fontSize: 'clamp(18px, 2.2vw, 24px)',
               fontWeight: 400,
               lineHeight: 1.5,
               fontStyle: 'italic',
               color: '#1A1A1A',
-              marginBottom: '80px',
+              marginBottom: '48px',
               opacity: 0.7,
               whiteSpace: 'pre-line'
             }}
@@ -541,8 +527,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             Toute ville est faite de seuils plus que de murs.
           </div>
 
-          {/* Définition */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -621,8 +606,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             </div>
           </div>
 
-          {/* Typologies */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -748,62 +732,8 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             </div>
           </div>
 
-          {/* Exemples Paris */}
-          <div style={{ marginBottom: '80px' }}>
-            <h2 
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.4,
-                marginBottom: '32px'
-              }}
-            >
-              Exemples à Paris
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {EXEMPLES.map((exemple, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    borderLeft: '2px solid rgba(0, 61, 44, 0.2)',
-                    paddingLeft: '16px'
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: '#1A1A1A',
-                      marginBottom: '6px'
-                    }}
-                  >
-                    {exemple.nom}
-                  </div>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '13px',
-                      lineHeight: 1.6,
-                      color: '#1A1A1A',
-                      opacity: 0.6,
-                      fontStyle: 'italic'
-                    }}
-                  >
-                    {exemple.description}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Anecdotes */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -1038,14 +968,81 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             </button>
           </div>
         </div>
+
+        {/* Right: Repères (Exemples à Paris as timeline) */}
+        <div style={{ order: 2 }}>
+          <div 
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '10px',
+              fontWeight: 500,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: '#1A1A1A',
+              opacity: 0.4,
+              marginBottom: '32px'
+            }}
+          >
+            Repères
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+            {EXEMPLES.map((exemple, i) => (
+              <div 
+                key={i}
+                style={{
+                  borderLeft: '0.5px solid rgba(26, 26, 26, 0.15)',
+                  paddingLeft: '32px',
+                  position: 'relative'
+                }}
+              >
+                <div 
+                  style={{
+                    position: 'absolute',
+                    left: '-4px',
+                    top: '6px',
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#1A1A1A'
+                  }}
+                />
+                <div 
+                  style={{
+                    fontFamily: 'Cormorant Garamond, Georgia, serif',
+                    fontSize: '20px',
+                    fontWeight: 400,
+                    lineHeight: 1.3,
+                    color: '#1A1A1A',
+                    marginBottom: '12px'
+                  }}
+                >
+                  {exemple.nom}
+                </div>
+                <div 
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    lineHeight: 1.8,
+                    color: '#1A1A1A',
+                    opacity: 0.7
+                  }}
+                >
+                  {exemple.description}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Responsive */}
       <style>{`
-        @media (max-width: 900px) {
-          .formes-layout {
+        @media (max-width: 1024px) {
+          .formes-seuil-layout {
             grid-template-columns: 1fr !important;
           }
+          .formes-seuil-layout > div:first-of-type { order: 1 !important; }
+          .formes-seuil-layout > div:last-of-type { order: 2 !important; }
         }
       `}</style>
     </div>

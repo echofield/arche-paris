@@ -383,47 +383,24 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
         position: 'relative'
       }}
     >
-      {/* Header */}
-      <div 
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto 64px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
-      >
-        <BackButton fallbackHref="#etudes" label="← Retour" />
+      <BackButton fallbackHref="#etudes" label="← Retour" />
 
-        <h1 
-          style={{
-            fontFamily: 'Cormorant Garamond, Georgia, serif',
-            fontSize: 'clamp(28px, 4vw, 48px)',
-            fontWeight: 400,
-            color: '#1A1A1A'
-          }}
-        >
-          La Coupole
-        </h1>
-
-        <div style={{ width: '80px' }} />
-      </div>
-
-      {/* Layout principal : single column (no image) */}
+      {/* 2-col layout: left = principle + definition + typologies, right = timeline (Repères) */}
       <div 
         style={{
           maxWidth: '1400px',
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: '1fr',
+          gridTemplateColumns: '1fr 1.2fr',
           gap: 'clamp(40px, 5vw, 80px)',
-          alignItems: 'start'
+          alignItems: 'start',
+          paddingTop: 'clamp(24px, 4vw, 48px)',
+          paddingBottom: '120px'
         }}
-        className="formes-layout"
+        className="formes-coupole-layout"
       >
-        {/* Contenu */}
-        <div style={{ paddingBottom: '120px' }}>
-          {/* Overline */}
+        {/* Left: Title, principle, definition, typologies */}
+        <div style={{ order: 1 }}>
           <div 
             style={{
               fontFamily: 'Inter, sans-serif',
@@ -439,16 +416,28 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
             ARCHITECTURE DE LA SPHÈRE, CENTRE, COURONNEMENT
           </div>
 
-          {/* Hero italic */}
+          <h1 
+            style={{
+              fontFamily: 'Cormorant Garamond, Georgia, serif',
+              fontSize: 'clamp(36px, 5vw, 56px)',
+              fontWeight: 400,
+              lineHeight: 1.1,
+              color: '#1A1A1A',
+              marginBottom: '24px'
+            }}
+          >
+            La Coupole
+          </h1>
+
           <div 
             style={{
               fontFamily: 'Cormorant Garamond, Georgia, serif',
-              fontSize: 'clamp(20px, 2.5vw, 28px)',
+              fontSize: 'clamp(18px, 2.2vw, 24px)',
               fontWeight: 400,
               lineHeight: 1.5,
               fontStyle: 'italic',
               color: '#1A1A1A',
-              marginBottom: '80px',
+              marginBottom: '48px',
               opacity: 0.7,
               whiteSpace: 'pre-line'
             }}
@@ -460,8 +449,7 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
             Même profane, elle produit un ciel construit.
           </div>
 
-          {/* Définition */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -481,8 +469,8 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
               style={{
                 background: 'rgba(0, 61, 44, 0.02)',
                 border: '1px solid rgba(0, 61, 44, 0.1)',
-                padding: '32px',
-                marginBottom: '24px'
+                padding: '24px',
+                marginBottom: '20px'
               }}
             >
               <div 
@@ -493,7 +481,7 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
                   letterSpacing: '0.12em',
                   textTransform: 'uppercase',
                   color: '#003D2C',
-                  marginBottom: '12px',
+                  marginBottom: '8px',
                   opacity: 0.6
                 }}
               >
@@ -520,7 +508,7 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
                   letterSpacing: '0.12em',
                   textTransform: 'uppercase',
                   color: '#1A1A1A',
-                  marginBottom: '12px',
+                  marginBottom: '8px',
                   opacity: 0.4
                 }}
               >
@@ -540,8 +528,7 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
             </div>
           </div>
 
-          {/* Typologies */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -551,34 +538,34 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
                 textTransform: 'uppercase',
                 color: '#1A1A1A',
                 opacity: 0.4,
-                marginBottom: '32px'
+                marginBottom: '24px'
               }}
             >
               Typologies principales
             </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {TYPOLOGIES.map((type, i) => (
                 <div 
                   key={i}
                   style={{
                     background: 'rgba(0, 61, 44, 0.02)',
                     border: '1px solid rgba(0, 61, 44, 0.1)',
-                    padding: '24px'
+                    padding: '20px'
                   }}
                 >
                   <div 
                     style={{
                       fontFamily: 'Cormorant Garamond, Georgia, serif',
-                      fontSize: '18px',
+                      fontSize: '17px',
                       fontWeight: 500,
                       color: '#1A1A1A',
-                      marginBottom: '16px'
+                      marginBottom: '12px'
                     }}
                   >
                     {i + 1}) {type.titre}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div>
                       <span 
                         style={{
@@ -605,7 +592,6 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
                         {type.fonction}
                       </span>
                     </div>
-
                     <div>
                       <span 
                         style={{
@@ -632,7 +618,6 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
                         {type.formes}
                       </span>
                     </div>
-
                     <div>
                       <span 
                         style={{
@@ -660,60 +645,6 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
                         {type.effet}
                       </span>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Exemples à Paris */}
-          <div style={{ marginBottom: '80px' }}>
-            <h2 
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.4,
-                marginBottom: '32px'
-              }}
-            >
-              Exemples à Paris
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {EXEMPLES.map((exemple, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    borderLeft: '2px solid rgba(0, 61, 44, 0.2)',
-                    paddingLeft: '16px'
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: '#1A1A1A',
-                      marginBottom: '6px'
-                    }}
-                  >
-                    {exemple.nom}
-                  </div>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '13px',
-                      lineHeight: 1.6,
-                      color: '#1A1A1A',
-                      opacity: 0.6,
-                      fontStyle: 'italic'
-                    }}
-                  >
-                    — {exemple.description}
                   </div>
                 </div>
               ))}
@@ -799,14 +730,82 @@ export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
             </button>
           </div>
         </div>
+
+        {/* Right: Timeline (Repères / Exemples à Paris) */}
+        <div style={{ order: 2 }}>
+          <div 
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '10px',
+              fontWeight: 500,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: '#1A1A1A',
+              opacity: 0.4,
+              marginBottom: '32px'
+            }}
+          >
+            Repères
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+            {EXEMPLES.map((exemple, i) => (
+              <div 
+                key={i}
+                style={{
+                  borderLeft: '0.5px solid rgba(26, 26, 26, 0.15)',
+                  paddingLeft: '32px',
+                  position: 'relative'
+                }}
+              >
+                <div 
+                  style={{
+                    position: 'absolute',
+                    left: '-4px',
+                    top: '6px',
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#1A1A1A'
+                  }}
+                />
+                <div 
+                  style={{
+                    fontFamily: 'Cormorant Garamond, Georgia, serif',
+                    fontSize: '20px',
+                    fontWeight: 400,
+                    lineHeight: 1.3,
+                    color: '#1A1A1A',
+                    marginBottom: '12px'
+                  }}
+                >
+                  {exemple.nom}
+                </div>
+                <div 
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    lineHeight: 1.8,
+                    color: '#1A1A1A',
+                    opacity: 0.7
+                  }}
+                >
+                  {exemple.description}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Responsive */}
       <style>{`
-        @media (max-width: 900px) {
-          .formes-layout {
+        @media (max-width: 1024px) {
+          .formes-coupole-layout {
             grid-template-columns: 1fr !important;
           }
+          .formes-coupole-layout > div:first-of-type { order: 1 !important; }
+          .formes-coupole-layout > div:last-of-type { order: 2 !important; }
         }
       `}</style>
     </div>

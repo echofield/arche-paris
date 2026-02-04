@@ -514,48 +514,23 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
         position: 'relative'
       }}
     >
-      {/* Header */}
-      <div 
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto 64px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
-      >
-        <BackButton fallbackHref="#etudes" label="← Retour" />
+      <BackButton fallbackHref="#etudes" label="← Retour" />
 
-        <h1 
-          style={{
-            fontFamily: 'Cormorant Garamond, Georgia, serif',
-            fontSize: 'clamp(28px, 4vw, 48px)',
-            fontWeight: 400,
-            color: '#1A1A1A'
-          }}
-        >
-          Axe
-        </h1>
-
-        <div style={{ width: '80px' }} />
-      </div>
-
-      {/* Layout principal : 2 colonnes */}
       <div 
         style={{
           maxWidth: '1400px',
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: '1fr',
+          gridTemplateColumns: '1fr 1.2fr',
           gap: 'clamp(40px, 5vw, 80px)',
-          alignItems: 'start'
+          alignItems: 'start',
+          paddingTop: 'clamp(24px, 4vw, 48px)',
+          paddingBottom: '120px'
         }}
-        className="formes-layout"
+        className="formes-axe-layout"
       >
-
-        {/* Colonne droite — Contenu */}
-        <div style={{ paddingBottom: '120px' }}>
-          {/* Sous-titre */}
+        {/* Left: principle, definition, types, exemples, anecdotes, exercices, livres, CTA */}
+        <div style={{ order: 1 }}>
           <div 
             style={{
               fontFamily: 'Inter, sans-serif',
@@ -565,30 +540,41 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
               textTransform: 'uppercase',
               color: '#003D2C',
               opacity: 0.6,
-              marginBottom: '32px'
+              marginBottom: '16px'
             }}
           >
             Architecture de la ligne, outil de regard, outil d'État
           </div>
 
-          {/* Intro */}
+          <h1 
+            style={{
+              fontFamily: 'Cormorant Garamond, Georgia, serif',
+              fontSize: 'clamp(36px, 5vw, 56px)',
+              fontWeight: 400,
+              lineHeight: 1.1,
+              color: '#1A1A1A',
+              marginBottom: '24px'
+            }}
+          >
+            Axe
+          </h1>
+
           <div 
             style={{
               fontFamily: 'Cormorant Garamond, Georgia, serif',
-              fontSize: 'clamp(20px, 2.5vw, 28px)',
+              fontSize: 'clamp(18px, 2.2vw, 24px)',
               fontWeight: 400,
               lineHeight: 1.5,
               fontStyle: 'italic',
               color: '#1A1A1A',
-              marginBottom: '80px',
+              marginBottom: '48px',
               opacity: 0.7
             }}
           >
             L'axe n'est pas une rue. C'est une intention devenue pierre. Une ligne qui organise le regard, hiérarchise l'espace, et met la ville en mouvement.
           </div>
 
-          {/* Définition */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -629,63 +615,7 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
             </div>
           </div>
 
-          {/* Repères */}
-          <div style={{ marginBottom: '80px' }}>
-            <h2 
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.4,
-                marginBottom: '32px'
-              }}
-            >
-              Repères
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {REPERES.map((repere, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    borderLeft: '1px solid rgba(26, 26, 26, 0.15)',
-                    paddingLeft: '20px'
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '10px',
-                      fontWeight: 500,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      color: '#003D2C',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    {repere.periode} — {repere.titre}
-                  </div>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      lineHeight: 1.6,
-                      color: '#1A1A1A',
-                      opacity: 0.7
-                    }}
-                  >
-                    {repere.texte}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Types */}
-          <div style={{ marginBottom: '80px' }}>
+          <div style={{ marginBottom: '48px' }}>
             <h2 
               style={{
                 fontFamily: 'Inter, sans-serif',
@@ -1040,14 +970,94 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
             </button>
           </div>
         </div>
+
+        {/* Right: Repères (timeline) */}
+        <div style={{ order: 2 }}>
+          <div 
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '10px',
+              fontWeight: 500,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: '#1A1A1A',
+              opacity: 0.4,
+              marginBottom: '32px'
+            }}
+          >
+            Repères
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+            {REPERES.map((repere, i) => (
+              <div 
+                key={i}
+                style={{
+                  borderLeft: '0.5px solid rgba(26, 26, 26, 0.15)',
+                  paddingLeft: '32px',
+                  position: 'relative'
+                }}
+              >
+                <div 
+                  style={{
+                    position: 'absolute',
+                    left: '-4px',
+                    top: '6px',
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#1A1A1A'
+                  }}
+                />
+                <div 
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    letterSpacing: '0.1em',
+                    color: '#1A1A1A',
+                    opacity: 0.5,
+                    marginBottom: '8px'
+                  }}
+                >
+                  {repere.periode}
+                </div>
+                <div 
+                  style={{
+                    fontFamily: 'Cormorant Garamond, Georgia, serif',
+                    fontSize: '20px',
+                    fontWeight: 400,
+                    lineHeight: 1.3,
+                    color: '#1A1A1A',
+                    marginBottom: '12px'
+                  }}
+                >
+                  {repere.titre}
+                </div>
+                <div 
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    lineHeight: 1.8,
+                    color: '#1A1A1A',
+                    opacity: 0.7
+                  }}
+                >
+                  {repere.texte}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Responsive */}
       <style>{`
-        @media (max-width: 900px) {
-          .formes-layout {
+        @media (max-width: 1024px) {
+          .formes-axe-layout {
             grid-template-columns: 1fr !important;
           }
+          .formes-axe-layout > div:first-of-type { order: 1 !important; }
+          .formes-axe-layout > div:last-of-type { order: 2 !important; }
         }
       `}</style>
     </div>

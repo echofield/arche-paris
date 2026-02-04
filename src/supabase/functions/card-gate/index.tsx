@@ -633,8 +633,8 @@ app.post("/proofs/meridiens", async (c) => {
   if (!meridian_id || typeof meridian_id !== "string" || !approx || typeof approx.lat !== "number" || typeof approx.lng !== "number" || typeof approx.radius_m !== "number") {
     return c.json({ error: "meridian_id and approx (lat, lng, radius_m) required" }, 400);
   }
-  if (approx.radius_m < 80 || approx.radius_m > 250) {
-    return c.json({ error: "radius_m must be between 80 and 250" }, 400);
+  if (approx.radius_m < 80 || approx.radius_m > 200) {
+    return c.json({ error: "radius_m must be between 80 and 200" }, 400);
   }
   const answer = (body?.answer ?? "").trim();
   const personal_sentence = (body?.personal_sentence ?? "").trim();
