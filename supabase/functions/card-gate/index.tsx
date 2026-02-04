@@ -18,7 +18,7 @@ import { cors } from "npm:hono@4.6.14/cors";
 import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 
-const app = new Hono();
+const app = new Hono().basePath("/card-gate");
 
 // Allowed origins only (no random site can use visitor's browser as relay)
 const ALLOWED_ORIGINS = [
