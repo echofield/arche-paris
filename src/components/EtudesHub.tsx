@@ -38,7 +38,7 @@ const SECTORS: Sector[] = [
   {
     id: 'formes',
     name: 'FORMES',
-    subtitle: 'Colonne · Axe · Seuil',
+    subtitle: 'Coupole · Axe · Seuil',
     functions: [
       'Voir avant de nommer',
       'Lire l\'espace',

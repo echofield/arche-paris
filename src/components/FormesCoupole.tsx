@@ -1,12 +1,12 @@
 /**
- * FORMES — CARTE SEUIL
- * Espace de transition, filtre social, épaisseur symbolique
+ * FORMES — CARTE COUPOLE
+ * Architecture de la sphère, centre, couronnement
  */
 
 import { useState } from 'react';
 import { BackButton } from './BackButton';
 
-interface FormesSeuilProps {
+interface FormesCoupoleProps {
   onReturn: () => void;
 }
 
@@ -22,198 +22,117 @@ interface Exemple {
   description: string;
 }
 
-interface Exercice {
-  titre: string;
-  consigne: string;
-  duree: string;
-  materiel: string;
-}
-
 interface Question {
   question: string;
   options: string[];
   reponse: string;
-  explication?: string;
-}
-
-interface Livre {
-  auteur: string;
-  titre: string;
-  pourquoi: string;
 }
 
 const TYPOLOGIES: Typologie[] = [
   {
-    titre: 'Seuil monumental / sacré',
-    fonction: 'Transformer l\'état du corps et de l\'attention.',
-    formes: 'Portail sculpté, porche, pronaos, narthex.',
-    effet: 'Ralentissement, élévation, mise à distance du monde ordinaire.'
+    titre: 'Coupole sacrée',
+    fonction: 'Mettre en relation le corps et le ciel.',
+    formes: 'Basilique, église, sanctuaire.',
+    effet: 'Élévation, recentrage, suspension du temps.'
   },
   {
-    titre: 'Seuil urbain / hybride',
-    fonction: 'Transition entre rue et intérieur collectif.',
-    formes: 'Passage couvert, galerie, arcade, perron, grille.',
-    effet: 'Brouillage des limites, circulation protégée, observation.'
+    titre: 'Coupole civique',
+    fonction: 'Instituer une mémoire commune.',
+    formes: 'Panthéon, institutions.',
+    effet: 'Gravité, solennité, permanence.'
   },
   {
-    titre: 'Seuil domestique',
-    fonction: 'Filtrer l\'accès au privé.',
-    formes: 'Porte cochère, vestibule, cour intérieure, escalier.',
-    effet: 'Hiérarchisation sociale, contrôle discret, intimité graduée.'
+    titre: 'Coupole commerciale',
+    fonction: 'Produire un espace spectaculaire.',
+    formes: 'Grands magasins.',
+    effet: 'Fascination, circulation ralentie, consommation ritualisée.'
+  },
+  {
+    titre: 'Coupole urbaine / signal',
+    fonction: 'Marquer la ville depuis loin.',
+    formes: 'Dômes visibles dans le paysage.',
+    effet: 'Repère, domination visuelle, centralité symbolique.'
   }
 ];
 
 const EXEMPLES: Exemple[] = [
   {
-    nom: 'Portails de Notre-Dame — 4e',
-    description: 'Le seuil comme pédagogie morale sculptée.'
+    nom: 'Les Invalides',
+    description: 'Coupole comme couronnement d\'autorité et de mémoire.'
   },
   {
-    nom: 'Panthéon (portique) — 5e',
-    description: 'Seuil civique inspiré de l\'Antiquité.'
+    nom: 'Le Panthéon',
+    description: 'Coupole civique : gravité, permanence, monument.'
   },
   {
-    nom: 'La Madeleine — 8e',
-    description: 'Seuil monumental isolant du boulevard.'
+    nom: 'Sacré-Cœur',
+    description: 'Coupole dominante : présence, visibilité, surplomb.'
   },
   {
-    nom: 'Passage des Panoramas — 2e',
-    description: 'Seuil marchand, intérieur de ville.'
+    nom: 'Galeries Lafayette',
+    description: 'Coupole marchande : ciel du commerce, fascination.'
   },
   {
-    nom: 'Galerie Vivienne — 2e',
-    description: 'Seuil bourgeois, rue devenue salon.'
-  },
-  {
-    nom: 'Porte cochère haussmannienne — multiples arrondissements',
-    description: 'Seuil social et fonctionnel.'
-  },
-  {
-    nom: 'Cour d\'immeuble du Marais — 3e / 4e',
-    description: 'Transition silencieuse entre ville et intimité.'
-  },
-  {
-    nom: 'Grilles des Tuileries — 1er',
-    description: 'Transparence visuelle, fermeture physique.'
-  }
-];
-
-const ANECDOTES = [
-  'Le portail Sainte-Anne de Notre-Dame réemploie des sculptures d\'une église antérieure : seuil temporel intégré.',
-  'Les passages couverts furent parmi les premiers espaces publics éclairés au gaz à Paris (XIXe siècle).',
-  'Les portes cochères possèdent souvent des chasse-roues pour protéger les jambages des carrosses.',
-  'Le concierge était historiquement le gardien du seuil, plus que de l\'immeuble.',
-  'Certaines grilles parisiennes sont plus coûteuses que les bâtiments qu\'elles protègent.',
-  'Le perron impose une micro-élévation du corps avant l\'entrée.'
-];
-
-const EXERCICES: Exercice[] = [
-  {
-    titre: 'Observer',
-    consigne: 'Repérer 5 seuils différents en 10 minutes de marche.',
-    duree: '10 min',
-    materiel: 'aucun'
-  },
-  {
-    titre: 'Dessiner',
-    consigne: 'Dessiner un seuil vu de face en 5 lignes maximum.',
-    duree: '5 min',
-    materiel: 'crayon / papier'
-  },
-  {
-    titre: 'Traverser',
-    consigne: 'Noter comment ton corps change en passant un seuil (vitesse, posture).',
-    duree: '5 min',
-    materiel: 'notes'
+    nom: 'Bourse de Commerce',
+    description: 'Espace circulaire : centre, contrôle, stabilité.'
   }
 ];
 
 const QUESTIONS: Question[] = [
   {
-    question: 'Un seuil sert surtout à :',
-    options: ['Décorer', 'Séparer', 'Transformer'],
-    reponse: 'Transformer',
-    explication: 'Le seuil change l\'état de celui qui le traverse'
+    question: 'En entrant sous une coupole, ton regard :',
+    options: ['cherche la sortie', 'monte vers le sommet', 'reste au niveau du corps'],
+    reponse: 'monte vers le sommet'
   },
   {
-    question: 'Une porte cochère sert d\'abord à :',
-    options: ['Impressionner', 'Laisser passer un véhicule', 'Bloquer l\'entrée'],
-    reponse: 'Laisser passer un véhicule',
-    explication: 'Elle est conçue pour les carrosses'
+    question: 'La coupole agit surtout comme :',
+    options: ['une protection', 'une enveloppe', 'une contrainte'],
+    reponse: 'une enveloppe'
   },
   {
-    question: 'Un passage couvert est :',
-    options: ['Privé', 'Public', 'Hybride'],
-    reponse: 'Hybride',
-    explication: 'Entre rue et intérieur'
+    question: 'Comparée à un axe, la coupole :',
+    options: ['met en mouvement', 'fixe un centre', 'ouvre un parcours'],
+    reponse: 'fixe un centre'
   },
   {
-    question: 'Le narthex appartient à :',
-    options: ['L\'architecture gothique religieuse', 'L\'architecture industrielle', 'L\'architecture domestique'],
-    reponse: 'L\'architecture gothique religieuse',
-    explication: 'Espace d\'entrée des églises'
+    question: 'Sous une coupole, le corps se sent :',
+    options: ['dispersé', 'aligné', 'recentré'],
+    reponse: 'recentré'
   },
   {
-    question: 'Une grille est un seuil car :',
-    options: ['Elle ferme', 'Elle cache', 'Elle montre sans laisser passer'],
-    reponse: 'Elle montre sans laisser passer',
-    explication: 'Transparence visuelle, fermeture physique'
+    question: 'Une coupole marchande fonctionne surtout par :',
+    options: ['orientation', 'fascination', 'rapidité'],
+    reponse: 'fascination'
   },
   {
-    question: 'Le seuil est toujours :',
-    options: ['Fin', 'Invisible', 'Épais'],
-    reponse: 'Épais',
-    explication: 'Le seuil possède une profondeur'
+    question: 'La coupole transforme un lieu en :',
+    options: ['décor', 'passage', 'monde autonome'],
+    reponse: 'monde autonome'
   }
 ];
 
-const LIVRES: Livre[] = [
-  {
-    auteur: 'Georg Simmel',
-    titre: 'Pont et Porte',
-    pourquoi: 'Texte fondamental sur la notion de seuil et de relation spatiale.'
-  },
-  {
-    auteur: 'Walter Benjamin',
-    titre: 'Paris, capitale du XIXe siècle',
-    pourquoi: 'Analyse des passages couverts comme seuils modernes.'
-  },
-  {
-    auteur: 'Françoise Choay',
-    titre: 'La règle et le modèle',
-    pourquoi: 'Comprendre les dispositifs architecturaux et leurs fonctions sociales.'
-  }
-];
+const TEXTE_RYTHME_90S = `La coupole n'est jamais décorative.
+Elle rassemble l'espace sous une même courbe.
+Là où l'axe trace une ligne, elle fixe un centre.
+Entrer sous une coupole, c'est accepter d'être contenu.
+Même profane, elle produit un ciel construit.
 
-const TEXTE_ACCELERATION = `Un seuil n'est jamais neutre.
-Il ralentit le corps, oriente le regard, modifie le comportement.
-Entrer n'est pas un geste automatique : c'est un passage réglé.
+La coupole transforme un lieu en monde autonome.
+Elle remplace le ciel par une forme construite.
+Elle crée un espace hiérarchisé, centré, lisible.
 
-Dans la ville ancienne, le seuil est épais.
-On passe de la rue au porche, du porche à la cour, de la cour à l'escalier.
-Chaque étape filtre, observe, protège.
+Sous une coupole, le corps se sent recentré.
+Le regard monte vers le sommet.
+L'espace devient totalité.`;
 
-Le seuil organise la coexistence.
-Il permet la proximité sans confusion, la séparation sans rupture.
-C'est là que s'inscrivent les règles sociales, visibles ou implicites.
-
-À Paris, le seuil est partout :
-dans la porte cochère, dans le passage couvert, dans la grille d'un jardin.
-Même lorsqu'il devient invisible, il persiste sous forme de codes, d'interphones, de contrôles.
-
-Lire une ville, c'est apprendre à reconnaître ses seuils.
-Ils disent qui peut entrer, comment, à quel rythme, et sous quelles conditions.
-La ville ne commence jamais d'un coup.
-Elle commence toujours par un seuil.`;
-
-export function FormesSeuil({ onReturn }: FormesSeuilProps) {
+export function FormesCoupole({ onReturn }: FormesCoupoleProps) {
   const [showAcceleration, setShowAcceleration] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [quizFinished, setQuizFinished] = useState(false);
 
-  // Acceleration
+  // Acceleration (Rythme 90s)
   if (showAcceleration) {
     return (
       <div 
@@ -238,7 +157,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
               marginBottom: '64px'
             }}
           >
-            {TEXTE_ACCELERATION}
+            {TEXTE_RYTHME_90S}
           </div>
 
           <button
@@ -294,8 +213,8 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                 opacity: 0.7
               }}
             >
-              Le seuil n'est plus invisible.{'\n'}
-              Tu peux maintenant le reconnaître.
+              La coupole rassemble.{'\n'}
+              Tu peux maintenant la reconnaître.
             </div>
 
             <button
@@ -327,7 +246,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                 e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.25)';
               }}
             >
-              Retour à Seuil
+              Retour à Coupole
             </button>
           </div>
         </div>
@@ -468,8 +387,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
       <div 
         style={{
           maxWidth: '1400px',
-          margin: '0 auto',
-          marginBottom: '64px',
+          margin: '0 auto 64px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
@@ -485,13 +403,13 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             color: '#1A1A1A'
           }}
         >
-          Seuil
+          La Coupole
         </h1>
 
         <div style={{ width: '80px' }} />
       </div>
 
-      {/* Layout principal : 2 colonnes */}
+      {/* Layout principal : single column (no image) */}
       <div 
         style={{
           maxWidth: '1400px',
@@ -503,10 +421,9 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
         }}
         className="formes-layout"
       >
-
-        {/* Colonne droite — Contenu */}
+        {/* Contenu */}
         <div style={{ paddingBottom: '120px' }}>
-          {/* Sous-titre */}
+          {/* Overline */}
           <div 
             style={{
               fontFamily: 'Inter, sans-serif',
@@ -516,13 +433,13 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
               textTransform: 'uppercase',
               color: '#003D2C',
               opacity: 0.6,
-              marginBottom: '32px'
+              marginBottom: '16px'
             }}
           >
-            Espace de transition, filtre social, épaisseur symbolique
+            ARCHITECTURE DE LA SPHÈRE, CENTRE, COURONNEMENT
           </div>
 
-          {/* Introduction */}
+          {/* Hero italic */}
           <div 
             style={{
               fontFamily: 'Cormorant Garamond, Georgia, serif',
@@ -536,9 +453,11 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
               whiteSpace: 'pre-line'
             }}
           >
-            Le seuil n'est pas une ligne.{'\n'}
-            C'est une zone où l'on change d'état : entrer, sortir, attendre, être vu, être autorisé.{'\n'}
-            Toute ville est faite de seuils plus que de murs.
+            La coupole n'est jamais décorative.{'\n'}
+            Elle rassemble l'espace sous une même courbe.{'\n'}
+            Là où l'axe trace une ligne, elle fixe un centre.{'\n'}
+            Entrer sous une coupole, c'est accepter d'être contenu.{'\n'}
+            Même profane, elle produit un ciel construit.
           </div>
 
           {/* Définition */}
@@ -588,7 +507,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                   color: '#1A1A1A'
                 }}
               >
-                Le seuil est l'espace de transition entre deux régimes : public / privé, profane / sacré, dehors / dedans.
+                La coupole est une structure sphérique qui rassemble l'espace autour d'un centre et produit un effet de totalité.
               </p>
             </div>
 
@@ -616,7 +535,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                   opacity: 0.7
                 }}
               >
-                Contrairement au mur qui sépare, le seuil articule. Il ralentit, filtre, prépare, autorise ou refuse. En architecture, le seuil possède une épaisseur : porte, porche, cour, galerie, sas. À Paris, il structure les rapports sociaux autant que les circulations.
+                Architecturalement, la coupole est la réponse à la ligne : là où l'axe organise le déplacement, la coupole organise la présence. Elle crée un espace hiérarchisé, centré, lisible. Symboliquement, elle remplace le ciel par une forme construite et transforme un lieu en monde autonome.
               </p>
             </div>
           </div>
@@ -659,7 +578,6 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                   >
                     {i + 1}) {type.titre}
                   </div>
-                  
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div>
                       <span 
@@ -748,7 +666,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
             </div>
           </div>
 
-          {/* Exemples Paris */}
+          {/* Exemples à Paris */}
           <div style={{ marginBottom: '80px' }}>
             <h2 
               style={{
@@ -795,164 +713,7 @@ export function FormesSeuil({ onReturn }: FormesSeuilProps) {
                       fontStyle: 'italic'
                     }}
                   >
-                    {exemple.description}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Anecdotes */}
-          <div style={{ marginBottom: '80px' }}>
-            <h2 
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.4,
-                marginBottom: '32px'
-              }}
-            >
-              Anecdotes
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {ANECDOTES.map((anecdote, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: '14px',
-                    lineHeight: 1.7,
-                    color: '#1A1A1A',
-                    opacity: 0.6,
-                    paddingLeft: '16px',
-                    borderLeft: '1px solid rgba(26, 26, 26, 0.1)'
-                  }}
-                >
-                  {anecdote}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Exercices */}
-          <div style={{ marginBottom: '80px' }}>
-            <h2 
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.4,
-                marginBottom: '32px'
-              }}
-            >
-              Exercices pratiques
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {EXERCICES.map((exercice, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    background: 'rgba(0, 61, 44, 0.03)',
-                    border: '1px solid rgba(0, 61, 44, 0.15)',
-                    padding: '24px'
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      letterSpacing: '0.12em',
-                      textTransform: 'uppercase',
-                      color: '#003D2C',
-                      marginBottom: '12px'
-                    }}
-                  >
-                    Exercice {i + 1} — {exercice.titre}
-                  </div>
-                  <p 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '14px',
-                      lineHeight: 1.7,
-                      color: '#1A1A1A',
-                      opacity: 0.7,
-                      marginBottom: '12px'
-                    }}
-                  >
-                    {exercice.consigne}
-                  </p>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '11px',
-                      color: '#1A1A1A',
-                      opacity: 0.4
-                    }}
-                  >
-                    Durée : {exercice.duree} · Matériel : {exercice.materiel}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Livres */}
-          <div style={{ marginBottom: '80px' }}>
-            <h2 
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '11px',
-                fontWeight: 500,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#1A1A1A',
-                opacity: 0.4,
-                marginBottom: '32px'
-              }}
-            >
-              Livres recommandés
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {LIVRES.map((livre, i) => (
-                <div 
-                  key={i}
-                  style={{
-                    borderLeft: '1px solid rgba(26, 26, 26, 0.15)',
-                    paddingLeft: '20px'
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: 'Cormorant Garamond, Georgia, serif',
-                      fontSize: '16px',
-                      fontWeight: 500,
-                      color: '#1A1A1A',
-                      marginBottom: '4px'
-                    }}
-                  >
-                    {livre.auteur} — <span style={{ fontStyle: 'italic' }}>{livre.titre}</span>
-                  </div>
-                  <div 
-                    style={{
-                      fontFamily: 'Inter, sans-serif',
-                      fontSize: '13px',
-                      lineHeight: 1.6,
-                      color: '#1A1A1A',
-                      opacity: 0.6
-                    }}
-                  >
-                    {livre.pourquoi}
+                    — {exemple.description}
                   </div>
                 </div>
               ))}

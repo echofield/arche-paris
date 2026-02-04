@@ -13,6 +13,12 @@ interface HistoricalMoment {
   date: string;
   word: string;
   sentence: string;
+  sources?: Array<{
+    title: string;
+    author?: string;
+    type: 'book' | 'museum' | 'archive';
+    year?: number;
+  }>;
 }
 
 // Audio URLs mapped by moment ID (keep separate from translations)
@@ -328,6 +334,29 @@ export function HistoireArchives({ onBack }: HistoireProps) {
           >
             {currentMoment.sentence}
           </div>
+
+          {/* Sources (if present) */}
+          {currentMoment.sources && currentMoment.sources.length > 0 && (
+            <div
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: '10px',
+                letterSpacing: '0.05em',
+                color: '#003D2C',
+                opacity: 0.25,
+                marginTop: 'var(--space-lg)',
+                lineHeight: '1.4'
+              }}
+            >
+              Sources: {currentMoment.sources.map((s, i) => {
+                const parts: string[] = [];
+                if (s.author) parts.push(s.author);
+                parts.push(s.title);
+                if (s.year) parts.push(`(${s.year})`);
+                return parts.join(', ');
+              }).join('; ')}
+            </div>
+          )}
         </div>
 
         {/* Next moment (fading in) */}
@@ -387,6 +416,29 @@ export function HistoireArchives({ onBack }: HistoireProps) {
             >
               {nextMoment.sentence}
             </div>
+
+            {/* Sources (if present) */}
+            {nextMoment.sources && nextMoment.sources.length > 0 && (
+              <div
+                style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '10px',
+                  letterSpacing: '0.05em',
+                  color: '#003D2C',
+                  opacity: 0.25,
+                  marginTop: 'var(--space-lg)',
+                  lineHeight: '1.4'
+                }}
+              >
+                Sources: {nextMoment.sources.map((s, i) => {
+                  const parts: string[] = [];
+                  if (s.author) parts.push(s.author);
+                  parts.push(s.title);
+                  if (s.year) parts.push(`(${s.year})`);
+                  return parts.join(', ');
+                }).join('; ')}
+              </div>
+            )}
           </div>
         )}
       </div>

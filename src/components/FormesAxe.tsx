@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { BackButton } from './BackButton';
 
 interface FormesAxeProps {
   onReturn: () => void;
@@ -523,26 +524,7 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
           alignItems: 'center'
         }}
       >
-        <button
-          onClick={onReturn}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: '11px',
-            fontWeight: 500,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: '#1A1A1A',
-            opacity: 0.4,
-            cursor: 'pointer',
-            transition: 'opacity 400ms cubic-bezier(0.4, 0, 0.2, 1)'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
-        >
-          ← Retour
-        </button>
+        <BackButton fallbackHref="#etudes" label="← Retour" />
 
         <h1 
           style={{
@@ -564,24 +546,12 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
           maxWidth: '1400px',
           margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: '1fr 1.2fr',
+          gridTemplateColumns: '1fr',
           gap: 'clamp(40px, 5vw, 80px)',
           alignItems: 'start'
         }}
         className="formes-layout"
       >
-        {/* Colonne gauche — Visuel */}
-        <div 
-          style={{
-            position: 'sticky',
-            top: '80px',
-            aspectRatio: '4 / 5',
-            background: '#E7E1D8',
-            border: '1px solid #DBD4C6',
-            overflow: 'hidden'
-          }}
-        >
-        </div>
 
         {/* Colonne droite — Contenu */}
         <div style={{ paddingBottom: '120px' }}>
@@ -1044,7 +1014,7 @@ export function FormesAxe({ onReturn }: FormesAxeProps) {
                 e.currentTarget.style.borderColor = 'rgba(0, 61, 44, 0.25)';
               }}
             >
-              Micro-quiz (6 questions)
+              QUESTIONS D'ATTENTION (6)
             </button>
 
             <button

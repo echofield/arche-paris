@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { FormesAcceleration } from './FormesAcceleration';
-import { LessonColonneV2 } from './LessonColonneV2';
+import { FormesCoupole } from './FormesCoupole';
 import { FormesAxe } from './FormesAxe';
 import { FormesSeuil } from './FormesSeuil';
 
@@ -18,8 +18,8 @@ interface EtudesFormesV2Props {
   onReturn: () => void;
 }
 
-type LessonId = 'colonne' | 'axe' | 'seuil';
-type Stage = 'hub' | 'lesson' | 'acceleration' | 'colonne_v2' | 'axe_complet' | 'seuil_complet';
+type LessonId = 'coupole' | 'axe' | 'seuil';
+type Stage = 'hub' | 'lesson' | 'acceleration' | 'coupole_complet' | 'axe_complet' | 'seuil_complet';
 
 interface Lesson {
   id: LessonId;
@@ -36,41 +36,41 @@ interface Lesson {
 
 const LESSONS: Lesson[] = [
   {
-    id: 'colonne',
-    title: 'COLONNE',
-    statement: `La colonne élève la charge en la rendant lisible.`,
+    id: 'coupole',
+    title: 'LA COUPOLE',
+    statement: `La coupole rassemble l'espace sous une même courbe.`,
     structuralFunction: [
-      `La colonne est un support vertical à section circulaire.`,
-      `Elle concentre les forces et les transmet directement au sol.`,
-      `Sa forme limite les points de rupture sous compression.`,
-      `Sans colonne, la structure doit s'épaissir ou se fragmenter.`
+      `La coupole est une structure sphérique qui rassemble l'espace autour d'un centre.`,
+      `Elle produit un effet de totalité et de hiérarchisation.`,
+      `Elle remplace le ciel par une forme construite.`,
+      `Elle transforme un lieu en monde autonome.`
     ],
     historicalNecessity: [
-      `La colonne apparaît avec la pierre taillée.`,
-      `Elle permet la hauteur sans élargissement massif.`,
-      `Sa géométrie répond à la compression continue.`
+      `La coupole apparaît comme réponse à la ligne.`,
+      `Là où l'axe organise le déplacement, la coupole organise la présence.`,
+      `Elle crée un espace centré et lisible.`
     ],
     abstractSchema: [
-      `Un axe vertical.`,
-      `Une section circulaire constante.`,
-      `Une base stabilisatrice.`,
-      `Une charge descendante continue.`
+      `Une courbe fermée.`,
+      `Un centre fixe.`,
+      `Une enveloppe continue.`,
+      `Un effet de totalité.`
     ],
     cityEmbodiment: [
-      `Des colonnades organisent les portiques.`,
-      `La distance entre colonnes détermine la portée.`,
-      `La répétition structure l'espace avant toute décoration.`
+      `Les coupoles marquent la ville depuis loin.`,
+      `Elles produisent des espaces spectaculaires.`,
+      `Elles instituent une mémoire commune.`
     ],
     practiceDraw: [
-      `Imagine un plafond lourd.`,
-      `Place une colonne dessous.`,
-      `Ajuste son diamètre jusqu'à sentir l'équilibre.`
+      `Imagine un espace ouvert.`,
+      `Ajoute une courbe qui rassemble.`,
+      `Observe l'effet de recentrage.`
     ],
     practiceRecognise: [
-      `Observe un espace ouvert.`,
-      `Repère ce qui joue le rôle de colonne, même sans cylindre.`
+      `Observe un espace urbain.`,
+      `Repère ce qui joue le rôle de coupole, même sans dôme visible.`
     ],
-    closure: `Ce qui soutient n'a pas besoin de s'imposer.`
+    closure: `Ce qui rassemble produit un monde.`
   },
   {
     id: 'axe',
@@ -149,11 +149,16 @@ export function EtudesFormesV2({ onReturn }: EtudesFormesV2Props) {
   const [stage, setStage] = useState<Stage>('hub');
   const [currentLesson, setCurrentLesson] = useState<LessonId | null>(null);
 
-  const handleSelectLesson = (lessonId: LessonId) => {
+  const handleSelectLesson = (lessonId: LessonId | 'colonne') => {
+    // Stability alias: redirect old 'colonne' to 'coupole' to avoid breaking bookmarks
+    if (lessonId === 'colonne') {
+      lessonId = 'coupole';
+    }
+    
     if (lessonId === 'acceleration') {
       setStage('acceleration');
-    } else if (lessonId === 'colonne') {
-      setStage('colonne_v2');
+    } else if (lessonId === 'coupole') {
+      setStage('coupole_complet');
     } else if (lessonId === 'axe') {
       setStage('axe_complet');
     } else if (lessonId === 'seuil') {
@@ -180,8 +185,8 @@ export function EtudesFormesV2({ onReturn }: EtudesFormesV2Props) {
     return <FormesAcceleration onReturn={handleReturnToHub} />;
   }
 
-  if (stage === 'colonne_v2') {
-    return <LessonColonneV2 onReturn={handleReturnToHub} />;
+  if (stage === 'coupole_complet') {
+    return <FormesCoupole onReturn={handleReturnToHub} />;
   }
 
   if (stage === 'axe_complet') {
@@ -276,10 +281,26 @@ export function EtudesFormesV2({ onReturn }: EtudesFormesV2Props) {
               color: '#1A1A1A',
               opacity: 0.6,
               maxWidth: '500px',
-              margin: '0 auto'
+              margin: '0 auto',
+              marginBottom: '16px'
             }}
           >
             Une grammaire, pas un catalogue.
+          </p>
+          <p 
+            style={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '14px',
+              fontWeight: 400,
+              lineHeight: 1.5,
+              color: '#1A1A1A',
+              opacity: 0.4,
+              maxWidth: '500px',
+              margin: '0 auto',
+              fontStyle: 'italic'
+            }}
+          >
+            Photographie ce que tu vois. Les formes parlent à ceux qui ralentissent.
           </p>
         </div>
 
@@ -398,14 +419,16 @@ function LessonCard({ lesson, onClick }: LessonCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   // Visuels générés simples pour chaque leçon
-  const getVisual = (id: LessonId): JSX.Element => {
-    if (id === 'colonne') {
+  const getVisual = (id: LessonId | 'colonne'): JSX.Element => {
+    // Stability alias: handle old 'colonne' id
+    if (id === 'colonne' || id === 'coupole') {
       return (
         <svg width="100%" height="100%" viewBox="0 0 120 120" style={{ display: 'block' }}>
-          <line x1="60" y1="20" x2="60" y2="100" stroke="#1A1A1A" strokeWidth="1.5" opacity="0.3" />
-          <rect x="50" y="20" width="20" height="80" fill="none" stroke="#1A1A1A" strokeWidth="0.5" opacity="0.4" />
-          <circle cx="60" cy="20" r="8" fill="none" stroke="#1A1A1A" strokeWidth="0.5" opacity="0.3" />
-          <line x1="45" y1="100" x2="75" y2="100" stroke="#1A1A1A" strokeWidth="1" opacity="0.4" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#1A1A1A" strokeWidth="1.5" opacity="0.3" />
+          <circle cx="60" cy="60" r="25" fill="none" stroke="#1A1A1A" strokeWidth="0.5" opacity="0.4" />
+          <circle cx="60" cy="60" r="10" fill="none" stroke="#1A1A1A" strokeWidth="0.5" opacity="0.3" />
+          <line x1="60" y1="20" x2="60" y2="100" stroke="#1A1A1A" strokeWidth="0.5" opacity="0.2" />
+          <line x1="20" y1="60" x2="100" y2="60" stroke="#1A1A1A" strokeWidth="0.5" opacity="0.2" />
         </svg>
       );
     }

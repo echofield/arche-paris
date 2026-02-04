@@ -10,7 +10,7 @@
  * When user pins (collects) or writes here, it gets printed into notes (Carnet).
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
 import { getCollection } from '../utils/collection-service';
@@ -30,6 +30,7 @@ import { getMapState, postInscription } from '../utils/card-gate-map-client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, EngravedSegment } from '../types/map-engraving';
+import { emitEngraveEvent } from '../utils/engrave-events';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 
@@ -89,6 +90,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   // Map engraving (Card Gate): 3 layers
   const [mapState, setMapState] = useState<MapState | null>(null);
   const [mapStateError, setMapStateError] = useState<string | null>(null);
+  const previousMapStateRef = useRef<MapState | null>(null);
   const [showSegments, setShowSegments] = useState(true);
   const [showInscriptionsLayer, setShowInscriptionsLayer] = useState(true);
   const [ecrireSheetArr, setEcrireSheetArr] = useState<number | null>(null);
@@ -133,15 +135,67 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   useEffect(() => {
     setMapStateError(null);
     getMapState(cardId)
-      .then(setMapState)
+      .then((state) => {
+        previousMapStateRef.current = state;
+        setMapState(state);
+      })
       .catch((err) => {
         setMapStateError(err instanceof Error ? err.message : 'Failed to load map state');
         setMapState(null);
+        previousMapStateRef.current = null;
       });
   }, [cardId]);
 
   const refreshMapState = useCallback(() => {
-    getMapState(cardId).then(setMapState).catch(() => {});
+    getMapState(cardId)
+      .then((newState) => {
+        const prevState = previousMapStateRef.current;
+        
+        // Detect verified status changes (pending → verified)
+        if (prevState) {
+          let hasNewlyVerified = false;
+          
+          // Check inscriptions
+          for (const newInscription of newState.inscriptions) {
+            const prevInscription = prevState.inscriptions.find((i) => i.id === newInscription.id);
+            if (prevInscription && prevInscription.status === 'pending' && newInscription.status === 'verified') {
+              hasNewlyVerified = true;
+              break;
+            }
+          }
+          
+          // Check segments
+          if (!hasNewlyVerified) {
+            for (const newSegment of newState.segments) {
+              const prevSegment = prevState.segments.find((s) => s.id === newSegment.id);
+              if (prevSegment && prevSegment.status === 'pending' && newSegment.status === 'verified') {
+                hasNewlyVerified = true;
+                break;
+              }
+            }
+          }
+          
+          // Check meridian proofs
+          if (!hasNewlyVerified) {
+            for (const newProof of newState.meridian_proofs) {
+              const prevProof = prevState.meridian_proofs.find((p) => p.id === newProof.id);
+              if (prevProof && prevProof.status === 'pending' && newProof.status === 'verified') {
+                hasNewlyVerified = true;
+                break;
+              }
+            }
+          }
+          
+          // Emit verified event once per refresh if any newly verified items found
+          if (hasNewlyVerified) {
+            emitEngraveEvent('verified');
+          }
+        }
+        
+        previousMapStateRef.current = newState;
+        setMapState(newState);
+      })
+      .catch(() => {});
   }, [cardId]);
 
   const handleNoteBlur = useCallback(() => {

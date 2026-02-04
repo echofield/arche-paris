@@ -87,7 +87,16 @@ const WHISPER_LINES: string[] = [
   'The line holds.',
   'Presence, not proof.',
   'The map remembers.',
-  'Quiet mark.'
+  'Quiet mark.',
+  // Verified recognition (pending → verified)
+  'Recognized.',
+  'The city confirms.',
+  'Marked as seen.',
+  'Acknowledged.',
+  'Witnessed.',
+  'Seen and held.',
+  'The record stands.',
+  'Noted and kept.'
 ];
 
 export function getWhisperLine(): string {

@@ -1,9 +1,10 @@
 /**
  * ARCHÉ — Engrave events for Aura whisper.
  * When inscription or proof is submitted (Card Gate), fire event so Companion/Aura can show one short line (6–12 s).
+ * 'verified' fires when any pending item becomes verified (recognition moment).
  */
 
-export type EngraveEventType = 'inscription' | 'proof_meridien' | 'proof_marche';
+export type EngraveEventType = 'inscription' | 'proof_meridien' | 'proof_marche' | 'verified';
 
 export interface EngraveEvent {
   type: EngraveEventType;

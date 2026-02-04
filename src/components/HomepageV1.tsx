@@ -16,6 +16,8 @@ interface HomepageV1Props {
   onEnterMeridiens?: () => void;
 }
 
+const MAP_STROKE_OPACITY = 0.165;
+
 export function HomepageV1({
   showSilencePrompt,
   onSilencePromptShown,
@@ -242,7 +244,7 @@ export function HomepageV1({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              opacity: 0.15
+              opacity: MAP_STROKE_OPACITY
             }}
           />
         </div>

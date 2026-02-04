@@ -1,16 +1,45 @@
 interface BackButtonProps {
-  onClick: () => void;
+  onClick?: () => void;
   onBack?: () => void;
   label?: string;
+  fallbackHref?: string;
 }
 
 /**
  * BACK BUTTON — Aligned with arch-citizen
  * Glyph is hidden on sub-pages (App.tsx) so BackButton has top-left to itself.
  * Label "Retour à la cité" by default; clear spacing from icon.
+ * Uses browser history.back() when same-origin referrer exists, else falls back to fallbackHref.
  */
-export function BackButton({ onClick, onBack, label = 'Retour à la cité' }: BackButtonProps) {
-  const handleClick = onBack ?? onClick;
+export function BackButton({ onClick, onBack, label = 'Retour à la cité', fallbackHref = '#etudes' }: BackButtonProps) {
+  const handleClick = () => {
+    try {
+      const ref = document.referrer || '';
+      const sameOrigin = ref && ref.startsWith(window.location.origin);
+      
+      if (sameOrigin) {
+        window.history.back();
+      } else if (onBack) {
+        onBack();
+      } else if (fallbackHref) {
+        window.location.hash = fallbackHref.startsWith('#') ? fallbackHref : `#${fallbackHref}`;
+      } else if (onClick) {
+        onClick();
+      } else {
+        window.location.hash = '#etudes';
+      }
+    } catch {
+      if (onBack) {
+        onBack();
+      } else if (fallbackHref) {
+        window.location.hash = fallbackHref.startsWith('#') ? fallbackHref : `#${fallbackHref}`;
+      } else if (onClick) {
+        onClick();
+      } else {
+        window.location.hash = '#etudes';
+      }
+    }
+  };
 
   return (
     <button
