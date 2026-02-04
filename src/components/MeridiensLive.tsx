@@ -633,17 +633,17 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
 
             {/* Threshold list (clickable → hint drawer; one expanded at a time) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
-              {thresholds.map((t) => {
-                const visitedThis = visited.includes(t.id);
-                const recognized = isAlignedWithLatitude(t);
-                const name = language === 'fr' ? t.subtitleFR : t.subtitleEN;
-                const hintKey = `meridiens.hint.${t.id}` as 'meridiens.hint.saint-sulpice' | 'meridiens.hint.horloge' | 'meridiens.hint.point-zero';
-                const isExpanded = expandedThresholdId === t.id;
-                const isReadExpanded = expandedReadId === t.id;
-                const arrival = language === 'fr' ? t.arrivalContentFR : t.arrivalContentEN;
+              {thresholds.map((th) => {
+                const visitedThis = visited.includes(th.id);
+                const recognized = isAlignedWithLatitude(th);
+                const name = language === 'fr' ? th.subtitleFR : th.subtitleEN;
+                const hintKey = `meridiens.hint.${th.id}` as 'meridiens.hint.saint-sulpice' | 'meridiens.hint.horloge' | 'meridiens.hint.point-zero';
+                const isExpanded = expandedThresholdId === th.id;
+                const isReadExpanded = expandedReadId === th.id;
+                const arrival = language === 'fr' ? th.arrivalContentFR : th.arrivalContentEN;
                 return (
                   <div
-                    key={t.id}
+                    key={th.id}
                     style={{
                       border: '1px solid transparent',
                       borderColor: recognized ? 'rgba(0,61,44,0.15)' : undefined,
@@ -654,11 +654,11 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        if (expandedThresholdId === t.id) {
+                        if (expandedThresholdId === th.id) {
                           setExpandedThresholdId(null);
                           setExpandedReadId(null);
                         } else {
-                          setExpandedThresholdId(t.id);
+                          setExpandedThresholdId(th.id);
                           setExpandedReadId(null);
                         }
                       }}
@@ -731,7 +731,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setExpandedReadId(t.id);
+                              setExpandedReadId(th.id);
                             }}
                             style={{
                               fontFamily: 'var(--font-sans)',
