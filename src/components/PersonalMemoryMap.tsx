@@ -10,7 +10,7 @@
  * When user pins (collects) or writes here, it gets printed into notes (Carnet).
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
 import { getCollection } from '../utils/collection-service';
@@ -263,31 +263,125 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           alignItems: 'center'
         }}
       >
-        {/* Layer toggles: Threads, Temporal, Engraved segments, Inscriptions */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {(runs.length > 0 || temporalUnlocked) && (
-            <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
-                <input type="checkbox" checked={showThreads} onChange={() => setShowThreads((v) => !v)} />
-                Threads
-              </label>
-              {temporalUnlocked && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={showTemporalOnly} onChange={() => setShowTemporalOnly((v) => !v)} />
-                  Temporal Meridians only
-                </label>
+        {/* Layer toggles: ARCHÉ pill toggles (no blue checkboxes) */}
+        {(() => {
+          const visuallyHidden: CSSProperties = {
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0
+          };
+          const pillBase: CSSProperties = {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            height: 32,
+            padding: '0 12px',
+            border: '1px solid #DBD4C6',
+            background: '#FAF8F3',
+            color: '#1F3B2E',
+            borderRadius: 999,
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, border-color 0.2s ease'
+          };
+          const pillChecked: CSSProperties = {
+            background: 'rgba(31,59,46,0.06)',
+            borderColor: 'rgba(31,59,46,0.35)'
+          };
+          const dotBase: CSSProperties = {
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            flexShrink: 0
+          };
+          const PillToggle = ({
+            checked,
+            onChange,
+            label,
+            ariaLabel
+          }: { checked: boolean; onChange: () => void; label: string; ariaLabel: string }) => (
+            <label
+              style={{
+                ...pillBase,
+                ...(checked ? pillChecked : {}),
+                outline: 'none'
+              }}
+              onMouseEnter={(e) => {
+                if (!checked) e.currentTarget.style.background = 'rgba(31,59,46,0.04)';
+              }}
+              onMouseLeave={(e) => {
+                if (!checked) e.currentTarget.style.background = '#FAF8F3';
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={onChange}
+                style={visuallyHidden}
+                aria-label={ariaLabel}
+                onFocus={(e) => {
+                  e.currentTarget.parentElement!.style.outline = '2px solid rgba(31,59,46,0.25)';
+                  e.currentTarget.parentElement!.style.outlineOffset = '2px';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.parentElement!.style.outline = 'none';
+                  e.currentTarget.parentElement!.style.outlineOffset = '0';
+                }}
+              />
+              <span
+                style={{
+                  ...dotBase,
+                  background: checked ? 'rgba(31,59,46,0.55)' : 'transparent',
+                  border: `1px solid ${checked ? 'rgba(31,59,46,0.55)' : '#DBD4C6'}`
+                }}
+              />
+              <span>{label}</span>
+            </label>
+          );
+          return (
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {(runs.length > 0 || temporalUnlocked) && (
+                <>
+                  <PillToggle
+                    checked={showThreads}
+                    onChange={() => setShowThreads((v) => !v)}
+                    label="Threads"
+                    ariaLabel="Threads"
+                  />
+                  {temporalUnlocked && (
+                    <PillToggle
+                      checked={showTemporalOnly}
+                      onChange={() => setShowTemporalOnly((v) => !v)}
+                      label="Temporal Meridians only"
+                      ariaLabel="Temporal Meridians only"
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
-            <input type="checkbox" checked={showSegments} onChange={() => setShowSegments((v) => !v)} />
-            {t('myparis.layers.segments')}
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)', fontSize: 11, cursor: 'pointer' }}>
-            <input type="checkbox" checked={showInscriptionsLayer} onChange={() => setShowInscriptionsLayer((v) => !v)} />
-            {t('myparis.layers.inscriptions')}
-          </label>
-        </div>
+              <PillToggle
+                checked={showSegments}
+                onChange={() => setShowSegments((v) => !v)}
+                label={t('myparis.layers.segments')}
+                ariaLabel={t('myparis.layers.segments')}
+              />
+              <PillToggle
+                checked={showInscriptionsLayer}
+                onChange={() => setShowInscriptionsLayer((v) => !v)}
+                label={t('myparis.layers.inscriptions')}
+                ariaLabel={t('myparis.layers.inscriptions')}
+              />
+            </div>
+          );
+        })()}
 
         {/* Map: homepage size or a bit bigger, then all content below */}
         <div
