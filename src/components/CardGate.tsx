@@ -20,21 +20,45 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
 
   const checkCardStatus = async () => {
     try {
-      const response = await fetch(
-        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'your-project'}.supabase.co/functions/v1/make-server-9060b10a/check-card`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`
-          },
-          body: JSON.stringify({ code: cardCode })
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!projectId || !anonKey) {
+        console.error('[CardGate] Missing environment variables:', { projectId: !!projectId, anonKey: !!anonKey });
+        setError('Configuration manquante. Vérifiez les variables d\'environnement.');
+        setCardState('not_found');
+        return;
+      }
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a/check-card`;
+      console.log('[CardGate] Checking card:', cardCode, 'URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`
+        },
+        body: JSON.stringify({ code: cardCode })
+      });
+
+      console.log('[CardGate] Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[CardGate] Response error:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || `Erreur serveur (${response.status})`);
+        } catch {
+          throw new Error(`Erreur réseau (${response.status}): ${errorText.slice(0, 100)}`);
         }
-      );
+      }
 
       const data = await response.json();
+      console.log('[CardGate] Response data:', data);
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Erreur lors de la vérification de la carte');
       }
 

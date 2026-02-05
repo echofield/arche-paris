@@ -1,0 +1,244 @@
+================================================================================
+  ARCHÉ — PRÉSENTATION, GAMEPLAY, FEATURES, AMÉLIORATIONS ET ÉVOLUTIONS
+================================================================================
+
+--- 1. PRÉSENTATION ---
+
+ARCHÉ est une expérience de découverte parisienne haut de gamme, pensée comme
+un objet éditorial numérique lié à une carte physique (QR code). Ce n'est pas
+une app de gamification classique : pas de points, pas de classements. Le
+principe est la présence, la trace et la reconnaissance — "la ville te note",
+sans en faire un jeu à score.
+
+Identité visuelle
+  • Luxe éditorial : Cormorant Garamond (serif), fond parchemin #FAF8F2, vert
+    profond #003D2C, gris #6B6455.
+  • Grilles géométriques (Mamluk), esthétique gravure / letterpress.
+  • Chaque écran vise à être imprimable comme une page de magazine.
+
+Entrée
+  • Carte physique avec QR (ex. ?card=PS-0001) ou saisie manuelle du code.
+  • Card Gate : activation (carte vierge → mot de passe) ou login (carte déjà
+    activée). Session stockée en local ; pas de compte email/password.
+  • Première activation = usage unique du code ; même appareil peut revenir.
+
+
+--- 2. GAMEPLAY — FLOWS PRINCIPAUX ---
+
+2.1 Porte d'entrée
+  Scan ou code → Card Gate (activation ou login) → Homepage.
+
+2.2 Homepage (monument d'entrée)
+  Navigation vers : Quêtes | Méridiens | Études | Carnet | Carte (Ma Carte) |
+  Seuil | Aura. Pas de menu "Histoire" ou "Origine" en premier plan dans la
+  nav actuelle ; l'accès peut passer par des liens ou focus (ex. Trésor Caché).
+
+2.3 Quêtes
+  • Liste de quêtes (Passages, Flâneur, Méridiens temporels, etc.) avec titre,
+    sous-titre, durée, distance.
+  • Détail : étapes (nodes), itinéraire Google Maps, option "Lancer la quête"
+    → Quest Run (marche manuelle, pas de GPS obligatoire).
+  • Quest Run : étapes à valider manuellement ; preuve optionnelle (QR ou
+    photo) par étape ; à la fin, envoi d'une preuve "marche" à la Card Gate
+    (segment gravé, statut pending). Récompense optionnelle (ex. carte ARC-000
+    pour Méridiens temporels).
+
+2.4 Méridiens (live)
+  • Vue géométrique : carte schématique de Paris, ligne du méridien, 3 seuils
+    (Saint-Sulpice, Tour de l'Horloge, Point Zéro). État en temps réel :
+    Égaré / Proche / Sur la ligne / Aligné (selon distance au méridien et
+    cap).
+  • Quand l'utilisateur entre dans le rayon d'un seuil (GPS) : passage en vue
+    seuil (texte d'arrivée, invites d'observation "J'ai vu" / "Plus tard"),
+    inscription possible au carnet, ou formulaire de preuve (réponse + phrase
+    personnelle) → postMeridianProof (Card Gate, statut pending).
+  • "Reconnu" / "Non reconnu" = êtes-vous actuellement aligné sur la ligne à
+    ce seuil (temps réel), pas une récompense de quête.
+  • Après visite des 3 seuils : message "Vous avez franchi…" (crossing en
+    local). Aucun système de points.
+
+2.5 Trésor Caché (Hunter Montmartre / Compass)
+  • Chasse aux symboles (énigmes, réponses à taper). Collection locale de
+    symboles "trouvés".
+  • Boussole : "Activer la boussole" → géoloc active ; affichage de l'artifact
+    le plus proche, distance, cap (aiguille vers la cible en direction
+    cardinale), zones de pression (far / warm / hot / near). Pas d'orientation
+    appareil : cap en monde, pas "pointe ton téléphone".
+  • À portée : "Envoyer une preuve" (photo, pas de localisation stockée) par
+    email (rituel). Delayed Resonance : 24–48 h après la preuve, une ligne
+    "Witnessed" peut être insérée dans le journal (echo).
+  • Artifacts : Saint-Sulpice méridien, Passe-Muraille (Montmartre), Point
+    Zéro Nocturne (22h–5h). Symboles par arrondissement (data/symbols) pour la
+    collection / Carte.
+
+2.6 Carnet Parisien
+  • Journal privé lié à la carte : lignes de souvenir (journal_entries via
+    Card Gate ou sync). Entrées par lieu (place_id), date.
+  • Inscriptions Méridiens, walks, proof echo, milestones (km) peuvent
+    alimenter le carnet.
+
+2.7 Carte personnelle (Ma Carte / Personal Memory Map)
+  • Pins = symboles collectés (Trésor Caché / collection par arrondissement).
+  • Note "My Paris" sauvegardée (Card Gate) ; partage lien #collection.
+  • Couche inscriptions : inscriptions par arrondissement (Card Gate), statut
+    pending/verified. Écrire une inscription (arrondissement, texte) → POST
+    inscription.
+  • Segments gravés (marche, méridien, trésor) et preuves méridien affichés
+    depuis map-state. Refresh détecte pending→verified → événement "verified"
+    (oracle whisper).
+  • Traces (quest_walk), runs (Quest Run), résumé du jour (marche). Pas de
+    tracking GPS continu ; marches manuelles ou synthèse.
+
+2.8 Études (Hub)
+  • "ARCHÉ n'enseigne pas. ARCHÉ rend visible."
+  • 3 secteurs : Formes (Coupole, Axe, Seuil), Langages (Mot, Rythme),
+    Systèmes (Flux, Organisation, Conséquences) + Accélération.
+  • Contenu : cartes, questions d'attention, lectures courtes — pas de quiz
+    noté, traversée plutôt que cours.
+
+2.9 Seuil
+  • Écran dédié (Seuil) : contenu éditorial / symbolique du seuil.
+
+2.10 Aura
+  • Espace calme, miroir phénoménologique. Pas de métriques ni scores.
+  • Compagnon "Ember" : un mot (Quiet / Awake / Warm / Bright) selon niveau
+    0–3. Niveau augmenté par quête fermée, inscription, présence ; décroît
+    après 7 jours sans interaction.
+  • Une phrase mémoire (stable par jour), une question réflexive. Option
+    "Sceller" (stub) → ligne dans le journal.
+
+2.11 Oracle / Whisper
+  • Lors d'une inscription ou preuve (meridien, marche) : événement engrave
+    (proof_meridien, proof_marche, inscription) → courte phrase oracle (6–12 s).
+  • Quand un item passe de pending à verified (côté serveur) : événement
+    "verified" → phrase type "Recognized.", "The city confirms."
+
+
+--- 3. TOUTES LES FEATURES (LISTE) ---
+
+Entrée et compte
+  • Activation carte (code + mot de passe, unique).
+  • Login carte (code + mot de passe).
+  • Card Gate (Supabase Edge ou direct) : check-card, activate-card, login-card,
+    map-state, inscriptions, proofs (meridiens, marches), segments.
+
+Contenu et navigation
+  • Homepage, Quêtes (liste + détail), Quest Run (marche manuelle, preuves
+    optionnelles).
+  • Méridiens (vue géométrique, seuils, GPS, preuve méridien, crossing).
+  • Trésor Caché : énigmes, collection symboles, boussole (GPS + cap), preuve
+    par email, echo 24–48 h.
+  • Carnet Parisien (journal, lignes par lieu/date).
+  • Carte personnelle (Ma Carte) : pins symboles, note My Paris, inscriptions
+    par arrondissement, segments gravés, preuves méridien, traces, runs.
+  • Études (Formes, Langages, Systèmes, Accélération).
+  • Seuil, Aura (compagnon, phrase mémoire, scellé).
+
+Données et persistance
+  • Local : collection symboles, visited/seuils méridiens, observations,
+    crossings, runs, companion, refus arrondissements, proof echoed.
+  • Card Gate / Supabase : journal_entries, inscriptions, meridian_proofs,
+    engraved_segments, map-state, activation.
+
+Internationalisation
+  • FR / EN (LanguageProvider, clés home, map, meridiens, treasure, etc.).
+
+Technique
+  • React, hash routing (#collection, #meridiens, etc.), Tailwind, grilles
+    Mamluk, SVG (Compass, Paris outline). Pas de stockage GPS continu ; géoloc
+    à la demande (Méridiens, Boussole).
+
+
+--- 4. CE QUE J'AMÉLIORERAIS ---
+
+UX / clarté
+  • Méridiens : distinguer clairement "visité" (vous êtes déjà venu dans le
+    rayon) de "reconnu" (vous êtes actuellement sur la ligne). Afficher
+    éventuellement un récap "3/3 visités" pour éviter la confusion avec "Non
+    reconnu".
+  • Boussole Trésor Caché : option "mode boussole physique" (DeviceOrientation)
+    pour que le cadran tourne avec le téléphone et que l'aiguille indique
+    "dans cette direction" en tenant le téléphone.
+  • Card Gate 401 : quand l'utilisateur n'a pas de session valide (expirée ou
+    non connecté), afficher un message clair et une réorientation vers
+    activation/login au lieu de laisser des erreurs silencieuses ou écrans
+    vides.
+
+Cohérence contenu
+  • Unifier l'accès à Origine et Histoire depuis la homepage ou un menu, si
+    ces écrans restent dans le produit.
+  • Documenter côté rédac la différence quête "marche" (Quest Run) vs
+    Méridiens "live" vs Trésor Caché (énigmes + boussole + preuve email).
+
+Performance et robustesse
+  • Éviter les appels map-state ou note en boucle quand cardId est absent ou
+    invalide ; désactiver ou masquer les blocs Carte/Écrire si non authentifié.
+  • Réduire les re-renders (mémos, callbacks stables) sur la carte personnelle
+    quand la liste d'inscriptions/segments est longue.
+
+Accessibilité
+  • Labels et rôles ARIA sur les boutons de nav et les zones interactives
+    (Carte, Boussole, liste Méridiens).
+  • Contraste et taille de police conformes aux recommandations (déjà proche
+    du parchemin/vert).
+
+
+--- 5. CE QU'ON RAJOUTERAIT — GRAVURE COLLECTIVE, FULL DESKTOP ---
+
+Gravure collective (idée produit)
+  • Une "carte collective" ou "mur de la ville" : agrégat anonymisé ou
+    pseudonyme des traces (segments, inscriptions, preuves méridien) de tous
+    les détenteurs de cartes.
+  • Affichage : par exemple une même carte de Paris où les segments gravés
+    (marche, méridien) de tous apparaissent en filigrane (lignes fines, sans
+    texte personnel). Option : compteurs du type "X personnes ont franchi le
+    méridien cette semaine" sans identifier qui.
+  • Contraintes : pas d’exposition de données personnelles ; consentement
+    explicite "partager ma trace à la gravure collective" ; modération
+    possible des inscriptions si affichées (extraits, sans lieu précis).
+  • Technique : table ou vue Supabase (segments_public, inscriptions_public)
+    alimentée par un job après vérification / anonymisation ; API dédiée ou
+    champs "opt_in_collective" sur les segments/inscriptions.
+
+Full desktop
+  • Layout : navigation latérale ou barre supérieure fixe ; zone centrale
+    scrollable ; cartes (Origine, Ma Carte, gravure collective) en grand
+    format.
+  • Carte personnelle : vue SVG/Canvas plus grande, tooltips au survol,
+    filtres par type (inscriptions, segments, preuves méridien, symboles).
+  • Méridiens sur desktop : conserver la vue géométrique et la liste des
+    seuils ; désactiver ou adapter le "Reconnu" (pas de GPS) avec un message
+    du type "Sur place, activez sur téléphone pour la reconnaissance".
+  • Trésor Caché / Boussole : sur desktop, proposer le lien vers l’itinéraire
+    et les énigmes sans boussole GPS ; ou message "Pour la boussole, ouvrez
+    sur téléphone".
+  • Études : mise en page 2 colonnes déjà partiellement en place ; sur grand
+    écran, garder le rythme lent et la lisibilité.
+  • Aura : même contenu, mise en page centrée avec plus d’air ; éventuellement
+    fond avec motif géométrique discret.
+  • Responsive : breakpoints cohérents (mobile first), menu hamburger ou
+    barre selon largeur.
+
+Autres évolutions possibles
+  • Export PDF du carnet ou de "Ma trace" (déjà des utils pdf-export).
+  • Notifications douces (nouvelles quêtes, "La ville a reconnu votre
+    preuve") uniquement si l’utilisateur a opté in.
+  • Nouvelles quêtes / nouveaux artifacts (données) sans changer l’architecture.
+  • Tableau de bord opérateur : liste des inscriptions/preuves en pending,
+    bouton "Marquer verified" pour déclencher côté client l’événement
+    "verified" et le whisper.
+
+
+--- RÉSUMÉ ---
+
+ARCHÉ = carte physique + expérience éditoriale (quêtes, méridiens, trésor
+caché, carnet, carte personnelle, études, aura). Pas de points ; présence,
+trace, reconnaissance. Les améliorations portent sur la clarté des statuts
+(Méridiens), la boussole physique, la gestion 401 et l’UX desktop. La gravure
+collective serait une couche "ville" anonyme ou pseudonyme au-dessus des
+traces individuelles ; le full desktop une adaptation layout et interactions
+pour grand écran en gardant la même identité et les mêmes flows.
+
+================================================================================
+  Fin du document — ARCHÉ
+================================================================================

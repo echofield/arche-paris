@@ -25,24 +25,54 @@ export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
     setError(null);
 
     try {
-      const response = await fetch(
-        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'your-project'}.supabase.co/functions/v1/make-server-9060b10a/login-card`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`
-          },
-          body: JSON.stringify({
-            code: cardCode,
-            password
-          })
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!projectId || !anonKey) {
+        throw new Error('Configuration manquante. Vérifiez les variables d\'environnement.');
+      }
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a/login-card`;
+      console.log('[CardLogin] Logging in card:', cardCode, 'URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`
+        },
+        body: JSON.stringify({
+          code: cardCode,
+          password
+        })
+      });
+
+      console.log('[CardLogin] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[CardLogin] Response error:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.locked) {
+            setIsLocked(true);
+            setMinutesRemaining(errorData.minutes_remaining || 15);
+            throw new Error(errorData.error || 'Carte verrouillée');
+          }
+          if (errorData.remaining_attempts !== undefined) {
+            setRemainingAttempts(errorData.remaining_attempts);
+          }
+          throw new Error(errorData.error || `Erreur serveur (${response.status})`);
+        } catch (parseErr: any) {
+          if (parseErr.message && parseErr.message.includes('verrouillée')) throw parseErr;
+          throw new Error(`Erreur réseau (${response.status}): ${errorText.slice(0, 100)}`);
         }
-      );
+      }
 
       const data = await response.json();
+      console.log('[CardLogin] Response data:', data);
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         // Gérer les erreurs spécifiques
         if (data.locked) {
           setIsLocked(true);

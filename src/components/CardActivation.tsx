@@ -29,24 +29,45 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
     setError(null);
 
     try {
-      const response = await fetch(
-        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'your-project'}.supabase.co/functions/v1/make-server-9060b10a/activate-card`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`
-          },
-          body: JSON.stringify({
-            code: cardCode,
-            password
-          })
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!projectId || !anonKey) {
+        throw new Error('Configuration manquante. Vérifiez les variables d\'environnement.');
+      }
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a/activate-card`;
+      console.log('[CardActivation] Activating card:', cardCode, 'URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`
+        },
+        body: JSON.stringify({
+          code: cardCode,
+          password
+        })
+      });
+
+      console.log('[CardActivation] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[CardActivation] Response error:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || `Erreur serveur (${response.status})`);
+        } catch {
+          throw new Error(`Erreur réseau (${response.status}): ${errorText.slice(0, 100)}`);
         }
-      );
+      }
 
       const data = await response.json();
+      console.log('[CardActivation] Response data:', data);
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Erreur lors de l\'activation');
       }
 
