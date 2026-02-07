@@ -17,6 +17,9 @@ const CARD_GATE_BASE = (() => {
   return projectId ? `https://${projectId}.supabase.co/functions/v1/card-gate` : '';
 })();
 
+/** Anon key for Supabase Edge invocation (avoids 401 before request reaches card-gate). */
+const ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY ?? '';
+
 const STORAGE_PENDING_WRITES = 'arche_cg_pending_writes';
 const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000; // refresh 2 min before expiry
 
@@ -157,19 +160,37 @@ export function getCardGateBaseUrl(): string {
  */
 export async function pairDevice(cardId: string): Promise<{ access_token: string; expires_at: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
-  const res = await fetch(`${CARD_GATE_BASE}/pair`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include', // Important: send/receive cookies
-    body: JSON.stringify({ card_id: cardId }),
-  });
+  const url = `${CARD_GATE_BASE}/pair`;
+  let res: Response;
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (ANON_KEY) headers['Authorization'] = `Bearer ${ANON_KEY}`;
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      credentials: 'include', // Important: send/receive cookies
+      body: JSON.stringify({ card_id: cardId }),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+      throw new Error('Connexion impossible (réseau ou CORS). Vérifiez l’origine de la page.');
+    }
+    throw e;
+  }
   const data = await res.json().catch(() => ({}));
   if (res.status === 409) {
     const err = new Error(data?.error ?? 'Already paired') as Error & { code?: string };
     err.code = 'ALREADY_PAIRED';
     throw err;
   }
-  if (!res.ok) throw new Error(data?.error ?? `Pair failed: ${res.status}`);
+  if (!res.ok) {
+    const serverMsg = data?.error ?? `Pair failed: ${res.status}`;
+    if (res.status === 403 && data?.error === 'Origin not allowed') {
+      throw new Error('Origine non autorisée. Vérifiez l’URL du site.');
+    }
+    throw new Error(serverMsg);
+  }
   if (!data?.access_token) throw new Error('No access_token in response');
 
   // Store in memory only
@@ -183,9 +204,11 @@ export async function pairDevice(cardId: string): Promise<{ access_token: string
  */
 export async function refreshAccessToken(): Promise<{ access_token: string; expires_at: string; card_id: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (ANON_KEY) headers['Authorization'] = `Bearer ${ANON_KEY}`;
   const res = await fetch(`${CARD_GATE_BASE}/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include', // Send cookie
   });
   const data = await res.json().catch(() => ({}));
@@ -231,9 +254,11 @@ export async function checkSession(): Promise<{ valid: boolean; cardId?: string 
  */
 export async function validateCardAndGetToken(cardId: string, deviceSecret: string): Promise<{ access_token: string; expires_at: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (ANON_KEY) headers['Authorization'] = `Bearer ${ANON_KEY}`;
   const res = await fetch(`${CARD_GATE_BASE}/validate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include',
     body: JSON.stringify({ card_id: cardId, device_secret: deviceSecret }),
   });
@@ -506,9 +531,11 @@ export function clearCardGateStorage(_cardId: string): void {
 export async function unpairDevice(cardId: string): Promise<{ ok: boolean; message?: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (ANON_KEY) headers['Authorization'] = `Bearer ${ANON_KEY}`;
     const res = await fetch(`${CARD_GATE_BASE}/unpair-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: 'include',
     });
     const data = await res.json().catch(() => ({}));
@@ -536,9 +563,11 @@ export function hasLocalSecret(_cardId: string): boolean {
 export async function forceUnpairDevice(cardId: string, password: string): Promise<{ ok: boolean; message?: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (ANON_KEY) headers['Authorization'] = `Bearer ${ANON_KEY}`;
     const res = await fetch(`${CARD_GATE_BASE}/force-unpair`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: 'include',
       body: JSON.stringify({ card_id: cardId, password }),
     });

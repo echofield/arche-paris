@@ -14,13 +14,13 @@
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { cors } from "npm:hono@4.6.14/cors";
 import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 
 const app = new Hono().basePath("/card-gate");
 
-// Allowed origins only (no random site can use visitor's browser as relay)
+// Allowed origins only (no random site can use visitor's browser as relay).
+// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.arché-paris.com).
 const ALLOWED_ORIGINS = [
   "https://arche-paris.com",
   "https://www.arche-paris.com",
@@ -32,26 +32,60 @@ function isOriginAllowed(origin: string | undefined): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   if (origin === "http://localhost:5173" || origin === "http://localhost:3000" || origin.startsWith("http://127.0.0.1:")) return true;
   if (origin.endsWith(".vercel.app") && (origin.startsWith("https://") || origin.startsWith("http://"))) return true;
+  if (origin.endsWith(".netlify.app") && (origin.startsWith("https://") || origin.startsWith("http://"))) return true;
   return false;
 }
+
+/** CORS headers: always echo allowed origin (never '*') so credentials: 'include' works. */
+function getCorsHeaders(c: { req: { header: (n: string) => string | undefined } }): Record<string, string> {
+  const origin = c.req.header("Origin");
+  const h: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true",
+  };
+  if (origin && isOriginAllowed(origin)) {
+    h["Access-Control-Allow-Origin"] = origin;
+  }
+  return h;
+}
+
+app.use("*", async (c, next) => {
+  console.log("[card-gate]", c.req.method, c.req.path, "Origin:", c.req.header("Origin") ?? "(none)");
+  await next();
+  const origin = c.req.header("Origin");
+  if (origin && isOriginAllowed(origin)) {
+    const res = c.res;
+    const nh = new Headers(res.headers);
+    nh.set("Access-Control-Allow-Origin", origin);
+    nh.set("Access-Control-Allow-Credentials", "true");
+    nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    c.res = new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
+  }
+});
 
 app.use("*", async (c, next) => {
   const origin = c.req.header("Origin");
   if (origin && !isOriginAllowed(origin)) {
-    return c.json({ error: "Origin not allowed" }, 403);
+    console.log("[card-gate] Origin not allowed:", origin);
+    return new Response(JSON.stringify({ error: "Origin not allowed" }), {
+      status: 403,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
   }
   await next();
 });
 
-app.use(
-  "*",
-  cors({
-    origin: (o) => (o && isOriginAllowed(o) ? o : null),
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // Allow cookies
-  })
-);
+app.options("*", (c) => {
+  return new Response(null, { status: 204, headers: getCorsHeaders(c) });
+});
 
 const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
@@ -253,6 +287,7 @@ app.post("/pair", async (c) => {
   }), {
     status: 200,
     headers: {
+      ...getCorsHeaders(c),
       "Content-Type": "application/json",
       "Set-Cookie": `arche_refresh=${cookieValue}; ${getRefreshCookieOptions(origin)}`,
     },
@@ -316,11 +351,13 @@ app.post("/validate", async (c) => {
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRY_MINUTES * 60 * 1000).toISOString();
 
   return new Response(JSON.stringify({
+    ok: true,
     access_token: accessToken,
     expires_at: expiresAt
   }), {
     status: 200,
     headers: {
+      ...getCorsHeaders(c),
       "Content-Type": "application/json",
       "Set-Cookie": `arche_refresh=${cookieValue}; ${getRefreshCookieOptions(origin)}`,
     },
@@ -402,6 +439,7 @@ app.post("/unpair-session", async (c) => {
     return new Response(JSON.stringify({ ok: true, message: "No session" }), {
       status: 200,
       headers: {
+        ...getCorsHeaders(c),
         "Content-Type": "application/json",
         "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
       },
@@ -440,6 +478,7 @@ app.post("/unpair-session", async (c) => {
     return new Response(JSON.stringify({ ok: true, message: "Not paired" }), {
       status: 200,
       headers: {
+        ...getCorsHeaders(c),
         "Content-Type": "application/json",
         "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
       },
@@ -467,6 +506,7 @@ app.post("/unpair-session", async (c) => {
   return new Response(JSON.stringify({ ok: true, message: "Device unpaired successfully" }), {
     status: 200,
     headers: {
+      ...getCorsHeaders(c),
       "Content-Type": "application/json",
       "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
     },
@@ -544,6 +584,7 @@ app.post("/unpair", async (c) => {
   return new Response(JSON.stringify({ ok: true, message: "Device unpaired successfully" }), {
     status: 200,
     headers: {
+      ...getCorsHeaders(c),
       "Content-Type": "application/json",
       "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
     },
@@ -624,6 +665,7 @@ app.post("/force-unpair", async (c) => {
   return new Response(JSON.stringify({ ok: true, message: "Device force-unpaired successfully" }), {
     status: 200,
     headers: {
+      ...getCorsHeaders(c),
       "Content-Type": "application/json",
       "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
     },
@@ -631,12 +673,13 @@ app.post("/force-unpair", async (c) => {
 });
 
 // ----- Helper: require JWT -----
-async function requireJwt(c: ReturnType<Hono["req"]>): Promise<{ card_id: string } | Response> {
+async function requireJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string } | Response> {
   const auth = c.req.header("Authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return new Response(JSON.stringify({ error: "Authorization required" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  const cors = getCorsHeaders(c);
+  if (!token) return new Response(JSON.stringify({ error: "Authorization required" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
   const payload = await verifyToken(token);
-  if (!payload) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  if (!payload) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
   return payload;
 }
 
@@ -1180,4 +1223,33 @@ app.get("/map-state", async (c) => {
   });
 });
 
-Deno.serve(app.fetch);
+// Wrap so we always send CORS with exact origin (never *) — Supabase or Hono may add * otherwise
+function corsHeadersFromRequest(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? undefined;
+  const h: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true",
+  };
+  if (origin && isOriginAllowed(origin)) {
+    h["Access-Control-Allow-Origin"] = origin;
+  }
+  return h;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeadersFromRequest(req) });
+  }
+  const res = await app.fetch(req);
+  const origin = req.headers.get("Origin");
+  if (origin && isOriginAllowed(origin)) {
+    const nh = new Headers(res.headers);
+    nh.set("Access-Control-Allow-Origin", origin);
+    nh.set("Access-Control-Allow-Credentials", "true");
+    nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
+  }
+  return res;
+});
