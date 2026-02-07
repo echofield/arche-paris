@@ -238,7 +238,7 @@ app.post("/pair", async (c) => {
   }
 
   const rateKey = `pair:${cardId}`;
-  const allowed = await dbRateLimit(supabase, rateKey, 3, 3600);
+  const allowed = await dbRateLimit(supabase, rateKey, 15, 3600);
   if (!allowed) {
     return c.json({ error: "Too many pairing attempts. Try again later." }, 429);
   }
@@ -1243,13 +1243,12 @@ Deno.serve(async (req: Request) => {
   }
   const res = await app.fetch(req);
   const origin = req.headers.get("Origin");
+  const nh = new Headers(res.headers);
+  nh.set("Access-Control-Allow-Credentials", "true");
+  nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (origin && isOriginAllowed(origin)) {
-    const nh = new Headers(res.headers);
     nh.set("Access-Control-Allow-Origin", origin);
-    nh.set("Access-Control-Allow-Credentials", "true");
-    nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
   }
-  return res;
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
 });
