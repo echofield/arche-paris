@@ -173,8 +173,19 @@ export async function pairDevice(cardId: string): Promise<{ access_token: string
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    const errName = e instanceof Error ? e.name : '';
+
+    // Handle abort silently
+    if (errName === 'AbortError') {
+      throw e;
+    }
+
+    // Network/CORS errors - provide clear, actionable messages
     if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
-      throw new Error('Connexion impossible (réseau ou CORS). Vérifiez l’origine de la page.');
+      throw new Error('Connexion impossible. Vérifiez votre connexion internet ou réessayez dans quelques instants.');
+    }
+    if (msg.includes('CORS') || msg.includes('blocked')) {
+      throw new Error('Erreur de configuration serveur. Contactez le support si le problème persiste.');
     }
     throw e;
   }
@@ -206,11 +217,22 @@ export async function refreshAccessToken(): Promise<{ access_token: string; expi
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (ANON_KEY) headers['Authorization'] = `Bearer ${ANON_KEY}`;
-  const res = await fetch(`${CARD_GATE_BASE}/refresh`, {
-    method: 'POST',
-    headers,
-    credentials: 'include', // Send cookie
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${CARD_GATE_BASE}/refresh`, {
+      method: 'POST',
+      headers,
+      credentials: 'include', // Send cookie
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+      throw new Error('Connexion impossible. Vérifiez votre réseau.');
+    }
+    throw e;
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     clearMemoryToken();
@@ -573,11 +595,19 @@ export async function forceUnpairDevice(cardId: string, password: string): Promi
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, message: data?.error ?? `Force unpair failed: ${res.status}` };
+      // Provide clearer error messages
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, message: 'Mot de passe incorrect.' };
+      }
+      return { ok: false, message: data?.error ?? `Échec du transfert (${res.status})` };
     }
     clearMemoryToken();
-    return { ok: true, message: data?.message ?? 'Device force-unpaired successfully' };
-  } catch {
-    return { ok: false, message: 'Network error during force-unpair' };
+    return { ok: true, message: data?.message ?? 'Carte transférée avec succès' };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+      return { ok: false, message: 'Connexion impossible. Vérifiez votre réseau.' };
+    }
+    return { ok: false, message: 'Erreur réseau. Réessayez.' };
   }
 }

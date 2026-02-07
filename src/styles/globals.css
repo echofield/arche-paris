@@ -191,6 +191,84 @@
   }
 }
 
+/* ============ iPHONE SAFE AREAS & TOUCH TARGETS ============ */
+
+/* Safe area insets for notched iPhones */
+@supports (padding: env(safe-area-inset-top)) {
+  html {
+    /* Ensure viewport-fit=cover works */
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Main content should avoid bottom safe area (home indicator) */
+  .safe-bottom {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  /* Fixed bottom elements need extra padding */
+  .fixed-bottom {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Touch targets: minimum 44px for iOS accessibility */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Form inputs need good touch targets */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  textarea,
+  select {
+    min-height: 48px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Ensure nav buttons are tappable */
+  nav button {
+    padding: 12px 8px;
+    min-height: 44px;
+  }
+}
+
+/* Mobile-specific: ensure nothing is hidden behind bottom bar */
+@media (max-width: 768px) {
+  /* Reserve space at bottom for iPhone home indicator */
+  .main-content {
+    padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 24px));
+  }
+
+  /* Readable font sizes on mobile */
+  .small-caps {
+    font-size: 10px;
+  }
+
+  p {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  h1 {
+    font-size: clamp(32px, 8vw, 46px);
+  }
+
+  h2 {
+    font-size: clamp(24px, 6vw, 32px);
+  }
+
+  h3 {
+    font-size: clamp(20px, 5vw, 24px);
+  }
+}
+
 /* TABLETTE */
 @media (min-width: 769px) and (max-width: 1024px) {
   .quetes-grid {

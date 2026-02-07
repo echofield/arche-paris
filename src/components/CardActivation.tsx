@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { GeometricBackground } from './GeometricBackground';
 
 interface CardActivationProps {
@@ -12,6 +12,16 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleActivate = async () => {
     // Validation
@@ -24,6 +34,15 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
       setError('Les mots de passe ne correspondent pas');
       return;
     }
+
+    // Prevent double submission
+    if (isSubmitting) return;
+
+    // Abort any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     setIsSubmitting(true);
     setError(null);
@@ -48,7 +67,8 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
         body: JSON.stringify({
           code: cardCode,
           password
-        })
+        }),
+        signal: abortControllerRef.current?.signal
       });
 
       console.log('[CardActivation] Response status:', response.status);
@@ -77,8 +97,23 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
       onActivated({ ...data.card, password });
 
     } catch (err: any) {
+      // Handle abort silently (user cancelled or component unmounted)
+      if (err.name === 'AbortError') {
+        console.log('[CardActivation] Request aborted');
+        return;
+      }
+
       console.error('[CardActivation] Activation error:', err);
-      setError(err.message || 'Erreur lors de l\'activation de la carte');
+
+      // Better error messages for network/CORS issues
+      const msg = err.message || '';
+      if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        setError('Connexion impossible. Vérifiez votre réseau ou réessayez.');
+      } else if (msg.includes('CORS') || msg.includes('Origin')) {
+        setError('Erreur de configuration. Contactez le support.');
+      } else {
+        setError(msg || 'Erreur lors de l\'activation de la carte');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -92,7 +127,10 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
     flexDirection: 'column' as const,
     background: 'var(--paper)',
     position: 'relative' as const,
-    padding: '0 24px',
+    padding: '0 max(24px, env(safe-area-inset-left, 0px))',
+    paddingRight: 'max(24px, env(safe-area-inset-right, 0px))',
+    paddingTop: 'env(safe-area-inset-top, 0px)',
+    paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))',
     boxSizing: 'border-box' as const,
     width: '100%'
   };
@@ -102,7 +140,7 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
       <GeometricBackground composition="results" opacity={0.03} />
 
       {/* Header */}
-      <div style={{ padding: '32px 0 16px', position: 'relative', zIndex: 10, flexShrink: 0 }}>
+      <div style={{ padding: 'max(32px, env(safe-area-inset-top, 0px)) 0 16px', position: 'relative', zIndex: 10, flexShrink: 0 }}>
         {onBack && (
           <button
             onClick={onBack}
@@ -110,7 +148,11 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
             style={{
               background: 'transparent',
               opacity: 0.5,
-              transition: 'opacity var(--transition)'
+              transition: 'opacity var(--transition)',
+              minHeight: '44px', // Touch target
+              minWidth: '44px',
+              padding: '12px 16px',
+              marginLeft: '-16px' // Offset padding for visual alignment
             }}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
@@ -172,9 +214,9 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
 
           {/* Password Input */}
           <div style={{ marginBottom: 'var(--space-md)' }}>
-            <label 
-              className="small-caps" 
-              style={{ 
+            <label
+              className="small-caps"
+              style={{
                 display: 'block',
                 marginBottom: 'var(--space-sm)',
                 opacity: 1,
@@ -188,14 +230,16 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Minimum 4 caractères"
+              autoComplete="new-password"
               style={{
                 width: '100%',
                 background: 'transparent',
                 border: '0.5px solid var(--grey-light)',
                 borderRadius: '2px',
                 padding: 'var(--space-md)',
+                minHeight: '48px', // Touch target
                 fontFamily: 'var(--font-serif)',
-                fontSize: '17px',
+                fontSize: '17px', // Prevents iOS zoom
                 fontWeight: '300',
                 color: 'var(--ink)'
               }}
@@ -209,9 +253,9 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
 
           {/* Confirm Password Input */}
           <div style={{ marginBottom: 'var(--space-lg)' }}>
-            <label 
-              className="small-caps" 
-              style={{ 
+            <label
+              className="small-caps"
+              style={{
                 display: 'block',
                 marginBottom: 'var(--space-sm)',
                 opacity: 1,
@@ -225,14 +269,16 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Saisissez à nouveau"
+              autoComplete="new-password"
               style={{
                 width: '100%',
                 background: 'transparent',
                 border: '0.5px solid var(--grey-light)',
                 borderRadius: '2px',
                 padding: 'var(--space-md)',
+                minHeight: '48px', // Touch target
                 fontFamily: 'var(--font-serif)',
-                fontSize: '17px',
+                fontSize: '17px', // Prevents iOS zoom
                 fontWeight: '300',
                 color: 'var(--ink)'
               }}
@@ -273,6 +319,7 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
               background: canSubmit ? 'var(--green)' : 'var(--grey-light)',
               color: 'var(--paper)',
               padding: '20px 40px',
+              minHeight: '56px', // Touch target (larger for primary action)
               borderRadius: '2px',
               fontFamily: 'var(--font-serif)',
               fontSize: '16px',

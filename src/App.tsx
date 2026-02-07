@@ -17,7 +17,7 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
-import { initializeCard, afterCardGateAuthenticated, unpairCard, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, unpairCard, AlreadyPairedError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -134,10 +134,31 @@ export default function App() {
       setTimeout(() => setAppState('ready'), 1500);
     } catch (err) {
       console.error('Card Gate after auth:', err);
+
+      // Handle "already paired" - need password to transfer
+      if (err instanceof AlreadyPairedError) {
+        setCardStatus({
+          valid: false,
+          status: 'NEEDS_GATE',
+          message: err.message,
+          cardId: '',
+          cardCode: cardData.code,
+        });
+        setAppState('validating');
+        return;
+      }
+
+      // Handle abort/cancel errors silently (user cancelled or navigated away)
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes('abort') || errMsg.includes('cancel') || errMsg === 'The operation was aborted.') {
+        console.log('[App] Connection aborted by user');
+        return;
+      }
+
       setCardStatus({
         valid: false,
         status: 'ERROR',
-        message: 'Connexion limitée. Réessayez.',
+        message: errMsg || 'Connexion limitée. Réessayez.',
         cardId: cardData.id,
       });
       setAppState('invalid');

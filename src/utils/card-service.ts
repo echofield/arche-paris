@@ -136,11 +136,26 @@ export async function initializeCard(): Promise<CardStatus | null> {
   }
 }
 
+/** Error thrown when card is paired on another device and password is needed to transfer */
+export class AlreadyPairedError extends Error {
+  code = 'ALREADY_PAIRED_NEEDS_PASSWORD';
+  constructor(message = 'Cette carte est utilisée sur un autre appareil. Entrez votre mot de passe pour la transférer ici.') {
+    super(message);
+    this.name = 'AlreadyPairedError';
+  }
+}
+
 /**
  * After CardGate onAuthenticated(cardData): pair device, get token, store card.
  * Call this from the component that handles onAuthenticated (e.g. App).
  * cardData.id is the card id to use for all Gate operations.
  * password is optional but required for recovery when card is already paired but local secret is lost.
+ *
+ * 409 ALREADY_PAIRED handling:
+ * 1. Try /refresh to check if we have a valid session cookie already
+ * 2. If refresh works → we're connected, just store card
+ * 3. If refresh fails and no password → throw AlreadyPairedError (UI shows password prompt)
+ * 4. If password provided → force-unpair + pair
  */
 export async function afterCardGateAuthenticated(cardData: {
   id: string;
@@ -152,24 +167,38 @@ export async function afterCardGateAuthenticated(cardData: {
   try {
     await pairDevice(cardId);
   } catch (e: unknown) {
-    const err = e as { code?: string };
+    const err = e as { code?: string; message?: string };
     if (err?.code === 'ALREADY_PAIRED') {
-      // Check if we have local secret
-      if (!hasLocalSecret(cardId)) {
-        // No local secret but server says already paired
-        // Try to force-unpair using password, then re-pair
-        if (!cardData.password) {
-          throw new Error('Card already paired on another device. Password required to transfer.');
+      console.log('[card-service] 409 ALREADY_PAIRED received, trying /refresh first...');
+
+      // First, try to refresh - maybe we have a valid cookie from this device
+      try {
+        const refreshResult = await checkSession();
+        if (refreshResult.valid && refreshResult.cardId === cardId) {
+          // We have a valid session! Just get token and continue
+          console.log('[card-service] Refresh succeeded, session is valid');
+          await getCardToken(cardId);
+          setStoredCard(cardId);
+          return;
         }
-        console.log('[card-service] ALREADY_PAIRED without local secret, attempting force-unpair');
-        const forceResult = await forceUnpairDevice(cardId, cardData.password);
-        if (!forceResult.ok) {
-          throw new Error(forceResult.message ?? 'Force unpair failed');
-        }
-        // Now re-pair
-        await pairDevice(cardId);
+      } catch (refreshErr) {
+        console.log('[card-service] Refresh failed, need to force-unpair');
       }
-      // If we have local secret, just continue to validate
+
+      // Refresh didn't work - need password to transfer to this device
+      if (!cardData.password) {
+        throw new AlreadyPairedError();
+      }
+
+      // Have password, try force-unpair
+      console.log('[card-service] Attempting force-unpair with password');
+      const forceResult = await forceUnpairDevice(cardId, cardData.password);
+      if (!forceResult.ok) {
+        throw new Error(forceResult.message ?? 'Échec du transfert. Vérifiez le mot de passe.');
+      }
+
+      // Now re-pair
+      await pairDevice(cardId);
     } else {
       throw e;
     }

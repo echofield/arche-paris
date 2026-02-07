@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CardActivation } from './CardActivation';
 import { CardLogin } from './CardLogin';
 
@@ -13,9 +13,21 @@ type CardState = 'loading' | 'not_found' | 'needs_activation' | 'needs_login';
 export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
   const [cardState, setCardState] = useState<CardState>('loading');
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    // Abort previous request if cardCode changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
     checkCardStatus();
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [cardCode]);
 
   const checkCardStatus = async () => {
@@ -39,7 +51,8 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${anonKey}`
         },
-        body: JSON.stringify({ code: cardCode })
+        body: JSON.stringify({ code: cardCode }),
+        signal: abortControllerRef.current?.signal
       });
 
       console.log('[CardGate] Response status:', response.status, response.statusText);
@@ -77,8 +90,23 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
       }
 
     } catch (err: any) {
+      // Handle abort silently
+      if (err.name === 'AbortError') {
+        console.log('[CardGate] Request aborted');
+        return;
+      }
+
       console.error('[CardGate] Error checking card status:', err);
-      setError(err.message || 'Erreur lors de la vérification de la carte');
+
+      // Better error messages for network/CORS issues
+      const msg = err.message || '';
+      if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('Load failed')) {
+        setError('Connexion impossible. Vérifiez votre réseau et réessayez.');
+      } else if (msg.includes('CORS') || msg.includes('Origin')) {
+        setError('Erreur de connexion. Vérifiez l\'URL ou contactez le support.');
+      } else {
+        setError(msg || 'Erreur lors de la vérification de la carte');
+      }
       setCardState('not_found');
     }
   };
