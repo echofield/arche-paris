@@ -42,11 +42,13 @@ export function setStoredCard(cardId: string): void {
 
 /**
  * Clear stored card and Card Gate storage (device_secret, token) for this card.
+ * Also clears arche_card_session so the same card can be used on another device.
  */
 export function clearCard(): void {
   const cardId = getStoredCard();
   if (cardId) clearCardGateStorage(cardId);
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('arche_card_session');
 }
 
 /**

@@ -83,14 +83,23 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
     }
   };
 
+  const preLoginLayout = {
+    minHeight: '100dvh',
+    display: 'flex' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    padding: 24,
+    boxSizing: 'border-box' as const,
+    background: '#FAF8F2',
+    width: '100%'
+  };
+  const preLoginInner = { width: '100%', maxWidth: 400, margin: '0 auto', textAlign: 'center' as const };
+
   // Loading state
   if (cardState === 'loading') {
     return (
-      <div 
-        className="min-h-screen flex items-center justify-center" 
-        style={{ background: '#FAF8F2' }}
-      >
-        <div style={{ textAlign: 'center' }}>
+      <div className="min-h-screen" style={preLoginLayout}>
+        <div style={preLoginInner}>
           <div 
             style={{
               width: '60px',
@@ -99,7 +108,7 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
               borderTop: '3px solid #003D2C',
               borderRadius: '50%',
               animation: 'spin 1s linear infinite',
-              margin: '0 auto var(--space-lg)'
+              margin: '0 auto 24px'
             }}
           />
           <p 
@@ -127,8 +136,8 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
   // Card not found
   if (cardState === 'not_found') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: 'var(--paper)', padding: '0 var(--space-lg)' }}>
-        <div style={{ maxWidth: '480px', textAlign: 'center' }}>
+      <div className="min-h-screen" style={preLoginLayout}>
+        <div style={{ ...preLoginInner, maxWidth: 480 }}>
           <h2 style={{ marginBottom: 'var(--space-md)', color: '#DC2626' }}>
             Carte introuvable
           </h2>

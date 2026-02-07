@@ -86,12 +86,23 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
 
   const canSubmit = password.length >= 4 && password === confirmPassword && !isSubmitting;
 
+  const preLoginLayout = {
+    minHeight: '100dvh',
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    background: 'var(--paper)',
+    position: 'relative' as const,
+    padding: '0 24px',
+    boxSizing: 'border-box' as const,
+    width: '100%'
+  };
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper)', position: 'relative' }}>
+    <div className="min-h-screen flex flex-col" style={preLoginLayout}>
       <GeometricBackground composition="results" opacity={0.03} />
 
       {/* Header */}
-      <div style={{ padding: 'var(--space-xl) var(--space-lg) var(--space-md)', position: 'relative', zIndex: 10 }}>
+      <div style={{ padding: '32px 0 16px', position: 'relative', zIndex: 10, flexShrink: 0 }}>
         {onBack && (
           <button
             onClick={onBack}
@@ -110,8 +121,8 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center" style={{ padding: '0 var(--space-lg)', position: 'relative', zIndex: 10 }}>
-        <div style={{ maxWidth: '480px', width: '100%' }}>
+      <div className="flex-1 flex items-center justify-center" style={{ padding: '0 0 24px', position: 'relative', zIndex: 10 }}>
+        <div style={{ maxWidth: 480, width: '100%', margin: '0 auto' }}>
           {/* Card Code Display */}
           <div 
             style={{

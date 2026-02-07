@@ -1,7 +1,24 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
+
+const MAP_OPACITY_KEY = 'arche_home_map_opacity';
+const MAP_OPACITY_MIN = 0.06;
+const MAP_OPACITY_MAX = 0.5;
+const MAP_OPACITY_DEFAULT = 0.165;
+
+function getStoredMapOpacity(): number {
+  try {
+    const v = localStorage.getItem(MAP_OPACITY_KEY);
+    if (v == null) return MAP_OPACITY_DEFAULT;
+    const n = parseFloat(v);
+    if (!Number.isFinite(n)) return MAP_OPACITY_DEFAULT;
+    return Math.max(MAP_OPACITY_MIN, Math.min(MAP_OPACITY_MAX, n));
+  } catch {
+    return MAP_OPACITY_DEFAULT;
+  }
+}
 
 interface HomepageV1Props {
   showSilencePrompt?: boolean;
@@ -14,9 +31,9 @@ interface HomepageV1Props {
   onEnterCollection?: () => void;
   onEnterSeuil?: () => void;
   onEnterMeridiens?: () => void;
+  /** Déconnecter la carte sur cet appareil (pour utiliser la même carte sur un autre, ex. téléphone) */
+  onDisconnect?: () => void;
 }
-
-const MAP_STROKE_OPACITY = 0.165;
 
 export function HomepageV1({
   showSilencePrompt,
@@ -27,13 +44,23 @@ export function HomepageV1({
   onEnterHunter,
   onEnterCollection,
   onEnterSeuil,
-  onEnterMeridiens
+  onEnterMeridiens,
+  onDisconnect
 }: HomepageV1Props) {
   const { t } = useTranslation();
+  const [mapOpacity, setMapOpacity] = useState(() => getStoredMapOpacity());
 
   useEffect(() => {
     if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
   }, [showSilencePrompt, onSilencePromptShown]);
+
+  const handleMapOpacityChange = (value: number) => {
+    const clamped = Math.max(MAP_OPACITY_MIN, Math.min(MAP_OPACITY_MAX, value));
+    setMapOpacity(clamped);
+    try {
+      localStorage.setItem(MAP_OPACITY_KEY, String(clamped));
+    } catch {}
+  };
 
   return (
     <div
@@ -171,6 +198,27 @@ export function HomepageV1({
         >
           {t('nav.seuil')}
         </button>
+        {onDisconnect && (
+          <button
+            onClick={onDisconnect}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#6B6455',
+              opacity: 0.5,
+              cursor: 'pointer',
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+          >
+            {t('nav.disconnect')}
+          </button>
+        )}
       </nav>
 
       <div
@@ -232,7 +280,7 @@ export function HomepageV1({
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
-            marginBottom: '32px',
+            marginBottom: '12px',
             cursor: 'pointer',
             transition: 'opacity 0.3s ease'
           }}
@@ -244,9 +292,77 @@ export function HomepageV1({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              opacity: MAP_STROKE_OPACITY
+              opacity: mapOpacity
             }}
           />
+        </div>
+        {/* Fader: précision des lignes de la carte */}
+        <style>{`
+          .home-map-opacity-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+          }
+          .home-map-opacity-slider::-webkit-slider-runnable-track {
+            height: 2px;
+            background: rgba(0,61,44,0.2);
+          }
+          .home-map-opacity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #003D2C;
+            cursor: pointer;
+            margin-top: -5px;
+          }
+          .home-map-opacity-slider::-moz-range-track {
+            height: 2px;
+            background: rgba(0,61,44,0.2);
+          }
+          .home-map-opacity-slider::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #003D2C;
+            cursor: pointer;
+            border: none;
+          }
+        `}</style>
+        <div
+          style={{
+            width: 'clamp(200px, 40vw, 280px)',
+            marginBottom: '28px'
+          }}
+        >
+          <input
+            type="range"
+            min={MAP_OPACITY_MIN}
+            max={MAP_OPACITY_MAX}
+            step={0.01}
+            value={mapOpacity}
+            onChange={(e) => handleMapOpacityChange(parseFloat(e.target.value))}
+            aria-label="Précision des lignes de la carte"
+            style={{
+              width: '100%',
+              cursor: 'pointer'
+            }}
+            className="home-map-opacity-slider"
+          />
+          <p
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              opacity: 0.4,
+              marginTop: 6,
+              textAlign: 'center'
+            }}
+          >
+            Lignes
+          </p>
         </div>
 
         <p

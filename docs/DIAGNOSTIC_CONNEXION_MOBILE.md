@@ -3,6 +3,12 @@
 ## Problème
 La connexion avec PS-0001 et test1234 ne fonctionne pas sur téléphone.
 
+## Même carte sur plusieurs appareils
+La même carte (ex. PS-0001) peut être utilisée sur **plusieurs appareils** : l’ordinateur et le téléphone ont chacun leur propre session (stockée en local). Il n’y a pas de « verrouillage » côté serveur.
+
+- **Sur l’ordinateur** : si la carte est déjà connectée, vous pouvez cliquer sur **Déconnecter** (en haut à droite sur la homepage) pour libérer la session sur cet appareil.
+- **Sur le téléphone** : ouvrir l’app, saisir le code **PS-0001** puis le mot de passe. La connexion doit aboutir si l’Edge Function et la base sont corrects (voir causes ci‑dessous).
+
 ## Causes possibles
 
 ### 1. Variables d'environnement manquantes au build
@@ -36,33 +42,39 @@ Le code utilise le chemin `/make-server-9060b10a/check-card` (et activate-card, 
   - `src/components/CardActivation.tsx`
   - `src/components/CardLogin.tsx`
 
-### 3. CORS bloqué sur mobile
-L'Edge Function `activate-card` a une liste d'origines autorisées. Si l'app mobile est servie depuis une origine non listée, la requête sera bloquée.
+### 3. CORS bloqué sur mobile (corrigé)
+L'Edge Function `make-server-9060b10a` n'autorisait que certaines origines. Sur mobile, si l'URL d'accès (ex. autre sous-domaine Vercel) n'était pas dans la liste, le serveur renvoyait 403 "Origin not allowed".
 
-**Vérification :**
-- Dans la console mobile, regarder les erreurs réseau
-- Si vous voyez une erreur CORS (ex. "Origin not allowed"), c'est le problème
+**Solution appliquée :** Dans `supabase/functions/make-server-9060b10a/index.tsx`, toute origine `https://` est maintenant autorisée (sécurité = code + mot de passe). **Il faut redéployer l'Edge Function** pour que le correctif soit actif :
 
-**Solution :**
-- Modifier `src/supabase/functions/activate-card/index.tsx` :
-  - Ajouter l'origine de votre app mobile dans `ALLOWED_ORIGINS`
-  - Ou temporairement mettre `origin: '*'` pour tester (puis restreindre)
+```bash
+supabase functions deploy make-server-9060b10a
+```
 
-### 4. Carte PS-0001 non créée en base
-La carte doit exister dans la table `cards` avec le code `PS-0001`.
+### 4. Carte PS-0001 en base : table `cards`
+La connexion (check-card, activate-card, login-card) utilise **uniquement** la table `cards`. La table `user_lieu_cards` sert aux inscriptions par lieu et n’intervient pas pour le login carte.
 
-**Vérification :**
-- Se connecter à Supabase Dashboard
-- Aller dans Table Editor → `cards`
-- Chercher une ligne avec `code = 'PS-0001'`
+**À vérifier dans Supabase → Table Editor → `cards` pour la ligne `id = 'PS-0001'` :**
 
-**Solution :**
-- Si la carte n'existe pas, la créer :
-  ```sql
-  INSERT INTO cards (id, code, password_hash, activated_at)
-  VALUES ('PS-0001', 'PS-0001', NULL, NULL);
-  ```
-- Ou utiliser le script de génération de cartes
+| Colonne | Rôle | À vérifier |
+|--------|------|------------|
+| `id` | Identifiant carte | Une ligne avec `id = 'PS-0001'` doit exister. |
+| `password_hash` | Mot de passe hashé | NULL = carte vierge (écran activation). Renseigné = carte activée (écran login). |
+| `activated_at` | Date d’activation | Renseigné après activation. |
+| `failed_attempts` | Tentatives de login échouées | Si ≥ 5, la carte peut être verrouillée. |
+| `locked_until` | Fin du verrouillage | Si date/heure **dans le futur**, la carte est verrouillée. |
+
+**Si la carte est verrouillée**, débloquer en base :
+```sql
+UPDATE cards SET failed_attempts = 0, locked_until = NULL WHERE id = 'PS-0001';
+```
+
+**Si la carte n’existe pas**, la créer (carte vierge) :
+```sql
+INSERT INTO cards (id, activated_at, password_hash, failed_attempts, locked_until)
+VALUES ('PS-0001', NULL, NULL, 0, NULL);
+```
+Puis sur l’app : saisir PS-0001 → écran activation → choisir un mot de passe.
 
 ### 5. Mot de passe incorrect ou carte déjà activée
 Si la carte est déjà activée avec un autre mot de passe, `test1234` ne fonctionnera pas.
@@ -77,8 +89,28 @@ Si la carte est déjà activée avec un autre mot de passe, `test1234` ne foncti
   ```sql
   UPDATE cards
   SET password_hash = NULL, activated_at = NULL, failed_attempts = 0, locked_until = NULL
-  WHERE code = 'PS-0001';
+  WHERE id = 'PS-0001';
   ```
+
+## Tester avec une autre carte : PS-0002
+Pour isoler un souci lié à une carte (verrouillage, mauvaise config), vous pouvez utiliser **PS-0002**.
+
+1. **Vérifier ou créer la carte en base** (Supabase → SQL Editor) :
+   ```sql
+   -- Si elle n'existe pas, créer une carte vierge
+   INSERT INTO cards (id, activated_at, password_hash, failed_attempts, locked_until)
+   VALUES ('PS-0002', NULL, NULL, 0, NULL)
+   ON CONFLICT (id) DO NOTHING;
+   -- Si elle existe mais est verrouillée ou déjà activée, réinitialiser :
+   UPDATE cards
+   SET password_hash = NULL, activated_at = NULL, failed_attempts = 0, locked_until = NULL
+   WHERE id = 'PS-0002';
+   ```
+2. **Sur le téléphone** : ouvrir l’app, saisir le code **PS-0002**.
+3. Si la carte est vierge → écran **Activation** : choisir un mot de passe (ex. `test1234`) et confirmer.
+4. Si la carte est déjà activée → écran **Connexion** : entrer le mot de passe défini à l’activation.
+
+Les cartes **PS-0003** à **PS-0100** existent dans `generated-cards/insert-cards.sql` ; vous pouvez en utiliser une autre de la même façon (remplacer `PS-0002` par `PS-0003`, etc.).
 
 ## Étapes de diagnostic
 

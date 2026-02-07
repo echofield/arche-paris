@@ -17,7 +17,7 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
-import { initializeCard, afterCardGateAuthenticated, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, clearCard, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -93,6 +93,17 @@ export default function App() {
       runMilestonesIfNeeded();
     } catch {}
   }, [appState]);
+
+  // Déconnecter : libérer la carte sur cet appareil pour pouvoir l’utiliser sur un autre (ex. téléphone)
+  const handleDisconnect = () => {
+    clearCard();
+    setCardStatus(null);
+    setCurrentScreen('homepage');
+    setAppState('no_card');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('card');
+    window.history.replaceState({}, '', url.toString());
+  };
 
   // Manual card entry: show CardGate (check-card → activation or login)
   const handleManualEntry = (code: string) => {
@@ -206,6 +217,7 @@ export default function App() {
             onEnterSeuil={() => navigateTo('seuil')}
             onEnterEtudes={() => navigateTo('etudes')}
             onEnterMeridiens={() => navigateTo('meridiens')}
+            onDisconnect={handleDisconnect}
           />
         );
       case 'origine':

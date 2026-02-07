@@ -21,6 +21,8 @@ function isOriginAllowed(origin) {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   if (origin === "http://localhost:5173" || origin === "http://localhost:3000" || origin.startsWith("http://127.0.0.1:")) return true;
   if (origin.endsWith(".vercel.app")) return true;
+  // Mobile / autres déploiements : autoriser toute origine HTTPS (sécurité = code + mot de passe)
+  if (origin.startsWith("https://")) return true;
   return false;
 }
 

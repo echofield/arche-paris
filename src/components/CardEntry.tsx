@@ -23,15 +23,28 @@ interface CardEntryProps {
 export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: CardEntryProps) {
   const [manualCode, setManualCode] = useState('');
 
+  const preLoginLayout = {
+    minHeight: '100dvh',
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    padding: 24,
+    boxSizing: 'border-box' as const,
+    background: '#FAF8F2',
+    width: '100%',
+    position: 'relative' as const
+  };
+  const preLoginInner = { width: '100%', maxWidth: 400, margin: '0 auto', textAlign: 'center' as const, position: 'relative' as const, zIndex: 10 };
+
   // Loading state
   if (status === 'loading' || status === 'validating') {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: '#FAF8F2' }}
-      >
-        <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={1} />
-        <div style={{ textAlign: 'center', position: 'relative', zIndex: 10 }}>
+      <div className="min-h-screen" style={preLoginLayout}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={1} />
+        </div>
+        <div style={preLoginInner}>
           <div
             style={{
               width: '48px',
@@ -68,12 +81,11 @@ export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: Car
   // Welcome state (card validated, brief welcome message)
   if (status === 'welcome' && cardStatus) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: '#FAF8F2' }}
-      >
-        <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={1} />
-        <div style={{ textAlign: 'center', position: 'relative', zIndex: 10, maxWidth: '400px', padding: '0 var(--space-lg)' }}>
+      <div className="min-h-screen" style={preLoginLayout}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={1} />
+        </div>
+        <div style={preLoginInner}>
           <h1
             style={{
               fontFamily: 'var(--font-serif)',
@@ -135,12 +147,11 @@ export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: Car
 
   // No card or invalid card - show manual entry
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: '#FAF8F2' }}
-    >
-      <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={1} />
-      <div style={{ textAlign: 'center', position: 'relative', zIndex: 10, maxWidth: '400px', padding: '0 var(--space-lg)' }}>
+    <div className="min-h-screen" style={preLoginLayout}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={1} />
+      </div>
+      <div style={preLoginInner}>
         <h1
           style={{
             fontFamily: 'var(--font-serif)',
