@@ -55,7 +55,7 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${anonKey}`
         },
-        credentials: 'include', // For cookie-based sessions
+        // Note: no credentials here - check-card doesn't use cookies
         body: JSON.stringify({ code: normalizedCode }),
         signal: abortControllerRef.current?.signal
       });
