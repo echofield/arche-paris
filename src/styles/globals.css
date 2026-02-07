@@ -148,51 +148,60 @@
   }
 }
 
-/* ============ HOMEPAGE NAV LINKS ============ */
-.nav-link {
-  background: transparent;
-  border: none;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #003D2C;
-  opacity: 0.6;
-  cursor: pointer;
-  transition: opacity 0.3s ease;
-  padding: 8px 4px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
+/* Desktop: show full nav, hide mobile hamburger */
+@media (min-width: 769px) {
+  .homepage-nav-mobile {
+    display: none !important;
+  }
+  .homepage-nav-desktop {
+    display: flex !important;
+  }
 }
-.nav-link:hover { opacity: 1; }
-.nav-link-gold { color: #B8860B; opacity: 0.8; }
-.nav-link-gold:hover { opacity: 1; }
-.nav-link-muted { color: #6B6455; opacity: 0.5; }
-.nav-link-muted:hover { opacity: 0.9; }
-
-/* Mobile nav links in drawer */
-.mobile-nav-link {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  letter-spacing: 0.05em;
-  color: #003D2C;
-  padding: 14px 0;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-}
-.mobile-nav-link:hover, .mobile-nav-link:active { opacity: 1; }
-.mobile-nav-link-gold { color: #B8860B; }
-.mobile-nav-link-muted { color: #6B6455; opacity: 0.6; font-size: 12px; }
 
 /* RESPONSIVE MOBILE — Optimisation pour téléphones */
 @media (max-width: 768px) {
+  .homepage-root {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+
+  /* Mobile: hide desktop nav row, show hamburger */
+  .homepage-nav-desktop {
+    display: none !important;
+  }
+  .homepage-nav-mobile {
+    display: block;
+  }
+
+  /* Mobile drawer links */
+  .homepage-nav-mobile-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    color: #003D2C;
+    padding: 14px 0;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+  }
+  .homepage-nav-mobile-link:hover,
+  .homepage-nav-mobile-link:active {
+    opacity: 1;
+  }
+  .homepage-nav-mobile-link-gold {
+    color: #B8860B;
+  }
+  .homepage-nav-mobile-link-muted {
+    color: #6B6455;
+    opacity: 0.6;
+    font-size: 12px;
+  }
+
   :root {
     --space-xs: 6px;
     --space-sm: 12px;
@@ -206,20 +215,19 @@
     font-size: 15px;
   }
 
-  /* Hide desktop nav on mobile */
-  .desktop-nav {
-    display: none !important;
-  }
-
-  /* Show mobile menu toggle on mobile */
-  .mobile-menu-container {
-    display: block;
-  }
-
   /* Navigation mobile — generic (other pages) */
-  nav:not(.desktop-nav):not(.homepage-nav) {
+  nav:not(.homepage-nav-desktop) {
     gap: 12px !important;
     font-size: 9px !important;
+  }
+
+  /* Homepage CTA touch target */
+  .homepage-cta {
+    min-height: 44px;
+    padding: 12px 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Boutons fixes repositionnés */

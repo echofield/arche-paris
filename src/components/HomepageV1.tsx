@@ -43,7 +43,6 @@ export function HomepageV1({
     if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
   }, [showSilencePrompt, onSilencePromptShown]);
 
-  // Close menu when clicking outside
   useEffect(() => {
     if (!mobileMenuOpen) return;
     const handleClick = () => setMobileMenuOpen(false);
@@ -53,10 +52,11 @@ export function HomepageV1({
 
   return (
     <div
-      className="min-h-screen relative flex flex-col items-center justify-center"
+      className="homepage-root min-h-screen relative flex flex-col items-center justify-center"
       style={{
         background: '#FAF8F2',
         overflow: 'hidden',
+        minHeight: '100dvh',
         paddingTop: 'max(24px, env(safe-area-inset-top, 0px))',
         paddingBottom: 'max(32px, env(safe-area-inset-bottom, 0px))',
         paddingLeft: 'max(20px, env(safe-area-inset-left, 0px))',
@@ -84,31 +84,162 @@ export function HomepageV1({
         </div>
       )}
 
-      {/* Desktop nav - hidden on mobile */}
+      {/* Desktop: full nav row (hidden on mobile via CSS) */}
       <nav
-        className="homepage-nav desktop-nav"
+        className="homepage-nav homepage-nav-desktop"
         style={{
           position: 'absolute',
           top: 'max(24px, env(safe-area-inset-top, 0px))',
           right: 'max(20px, env(safe-area-inset-right, 0px))',
           display: 'flex',
-          gap: '24px',
+          gap: '32px',
           zIndex: 100
         }}
       >
-        <button onClick={onEnterQuetes} className="nav-link">{t('nav.quests')}</button>
-        {onEnterMeridiens && <button onClick={onEnterMeridiens} className="nav-link">{t('nav.meridiens')}</button>}
-        <button onClick={onEnterEtudes} className="nav-link">{t('nav.etudes')}</button>
-        <button onClick={onEnterCarnet} className="nav-link">{t('nav.notebook')}</button>
-        <button onClick={onEnterCollection} className="nav-link">{t('nav.map')}</button>
-        <button onClick={onEnterSeuil} className="nav-link nav-link-gold">{t('nav.seuil')}</button>
-        {onDisconnect && <button onClick={onDisconnect} className="nav-link nav-link-muted">{t('nav.disconnect')}</button>}
+        <button
+          onClick={onEnterQuetes}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.6,
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+        >
+          {t('nav.quests')}
+        </button>
+        {onEnterMeridiens && (
+          <button
+            onClick={onEnterMeridiens}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              opacity: 0.6,
+              cursor: 'pointer',
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+          >
+            {t('nav.meridiens')}
+          </button>
+        )}
+        <button
+          onClick={onEnterEtudes}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.6,
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+        >
+          {t('nav.etudes')}
+        </button>
+        <button
+          onClick={onEnterCarnet}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.6,
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+        >
+          {t('nav.notebook')}
+        </button>
+        <button
+          onClick={onEnterCollection}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.6,
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+        >
+          {t('nav.map')}
+        </button>
+        <button
+          onClick={onEnterSeuil}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: '#B8860B',
+            opacity: 0.8,
+            cursor: 'pointer',
+            transition: 'opacity 0.3s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.8')}
+        >
+          {t('nav.seuil')}
+        </button>
+        {onDisconnect && (
+          <button
+            onClick={onDisconnect}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#6B6455',
+              opacity: 0.5,
+              cursor: 'pointer',
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
+          >
+            {t('nav.disconnect')}
+          </button>
+        )}
       </nav>
 
-      {/* Mobile hamburger menu */}
-      <div className="mobile-menu-container">
+      {/* Mobile only: hamburger + drawer (visible only on small screens via CSS) */}
+      <div className="homepage-nav-mobile">
         <button
-          className="mobile-menu-toggle"
+          type="button"
+          className="homepage-nav-mobile-toggle"
           onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(!mobileMenuOpen); }}
           aria-label="Menu"
           style={{
@@ -125,14 +256,13 @@ export function HomepageV1({
             gap: '5px'
           }}
         >
-          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7, transition: 'all 0.3s' }} />
-          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7, transition: 'all 0.3s' }} />
-          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7, transition: 'all 0.3s' }} />
+          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
+          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
+          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
         </button>
-
-        {/* Mobile menu panel */}
         {mobileMenuOpen && (
           <div
+            className="homepage-nav-mobile-drawer"
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'fixed',
@@ -152,8 +282,8 @@ export function HomepageV1({
               overflowY: 'auto'
             }}
           >
-            {/* Close button */}
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(false)}
               style={{
                 position: 'absolute',
@@ -168,30 +298,25 @@ export function HomepageV1({
                 padding: '12px',
                 lineHeight: 1
               }}
+              aria-label="Fermer"
             >
               ×
             </button>
-
-            {/* Primary nav group */}
             <div style={{ marginBottom: '16px' }}>
               <p style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.4, marginBottom: '12px' }}>Explorer</p>
-              <button onClick={() => { onEnterQuetes(); setMobileMenuOpen(false); }} className="mobile-nav-link">{t('nav.quests')}</button>
-              <button onClick={() => { onEnterCarnet(); setMobileMenuOpen(false); }} className="mobile-nav-link">{t('nav.notebook')}</button>
-              <button onClick={() => { onEnterCollection(); setMobileMenuOpen(false); }} className="mobile-nav-link">{t('nav.map')}</button>
+              <button type="button" onClick={() => { onEnterQuetes(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.quests')}</button>
+              <button type="button" onClick={() => { onEnterCarnet(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.notebook')}</button>
+              <button type="button" onClick={() => { onEnterCollection(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.map')}</button>
             </div>
-
-            {/* Secondary nav group */}
             <div style={{ marginBottom: '16px' }}>
               <p style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.4, marginBottom: '12px' }}>Approfondir</p>
-              {onEnterMeridiens && <button onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="mobile-nav-link">{t('nav.meridiens')}</button>}
-              <button onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="mobile-nav-link">{t('nav.etudes')}</button>
-              <button onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="mobile-nav-link mobile-nav-link-gold">{t('nav.seuil')}</button>
+              {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.meridiens')}</button>}
+              <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.etudes')}</button>
+              <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link homepage-nav-mobile-link-gold">{t('nav.seuil')}</button>
             </div>
-
-            {/* Account group */}
             {onDisconnect && (
               <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid rgba(0,61,44,0.1)' }}>
-                <button onClick={() => { onDisconnect(); setMobileMenuOpen(false); }} className="mobile-nav-link mobile-nav-link-muted">{t('nav.disconnect')}</button>
+                <button type="button" onClick={() => { onDisconnect(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link homepage-nav-mobile-link-muted">{t('nav.disconnect')}</button>
               </div>
             )}
           </div>
@@ -206,7 +331,7 @@ export function HomepageV1({
           justifyContent: 'center',
           textAlign: 'center',
           padding: '24px',
-          paddingBottom: 'max(48px, calc(env(safe-area-inset-bottom, 0px) + 24px))',
+          paddingBottom: 'max(80px, calc(env(safe-area-inset-bottom, 0px) + 32px))',
           zIndex: 10
         }}
       >
@@ -291,6 +416,7 @@ export function HomepageV1({
         </p>
 
         <button
+          className="homepage-cta"
           onClick={onEnterCollection}
           style={{
             background: 'transparent',

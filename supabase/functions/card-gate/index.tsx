@@ -649,14 +649,14 @@ app.post("/force-unpair", async (c) => {
     return c.json({ error: "card_id and password required" }, 400);
   }
 
-  // Rate limit force-unpair attempts (stricter than regular unpair)
+  // Rate limit force-unpair (allow retries for wrong password / transfer flow)
   const rateKeyCard = `force_unpair:${cardId}`;
   const rateKeyIp = `force_unpair_ip:${ip}`;
-  if (!(await dbRateLimit(supabase, rateKeyCard, 3, 3600))) {
+  if (!(await dbRateLimit(supabase, rateKeyCard, 10, 3600))) {
     console.log(`[card-gate] force-unpair rate limited for card: ${cardId}`);
     return c.json({ error: "Too many force-unpair attempts for this card." }, 429);
   }
-  if (!(await dbRateLimit(supabase, rateKeyIp, 10, 3600))) {
+  if (!(await dbRateLimit(supabase, rateKeyIp, 30, 3600))) {
     console.log(`[card-gate] force-unpair rate limited for IP: ${ip}`);
     return c.json({ error: "Too many requests from this device." }, 429);
   }
