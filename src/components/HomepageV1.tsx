@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
@@ -7,7 +7,7 @@ import { getTodaySummary } from '../utils/walk-service';
 const MAP_STROKE_OPACITY = 0.5;
 
 interface HomepageV1Props {
-  /** When set, show quiet card id (e.g. PS-0001) in identity zone — engraved, no label */
+  /** When set, show quiet card id (e.g. PS-0001) in identity zone — engraved, no label (optional, for future iPhone) */
   cardId?: string | null;
   showSilencePrompt?: boolean;
   onSilencePromptShown?: () => void;
@@ -24,7 +24,7 @@ interface HomepageV1Props {
 }
 
 export function HomepageV1({
-  cardId,
+  cardId: _cardId,
   showSilencePrompt,
   onSilencePromptShown,
   onEnterQuetes,
@@ -37,60 +37,26 @@ export function HomepageV1({
   onDisconnect
 }: HomepageV1Props) {
   const { t } = useTranslation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
   }, [showSilencePrompt, onSilencePromptShown]);
 
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const handleClick = () => setMobileMenuOpen(false);
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [mobileMenuOpen]);
-
   return (
     <div
-      className="homepage-root min-h-screen relative flex flex-col items-center justify-center"
+      className="min-h-screen relative flex flex-col items-center justify-center"
       style={{
         background: '#FAF8F2',
-        overflow: 'hidden',
-        minHeight: '100dvh',
-        paddingTop: 'max(24px, env(safe-area-inset-top, 0px))',
-        paddingBottom: 'max(32px, env(safe-area-inset-bottom, 0px))',
-        paddingLeft: 'max(20px, env(safe-area-inset-left, 0px))',
-        paddingRight: 'max(20px, env(safe-area-inset-right, 0px))'
+        overflow: 'hidden'
       }}
     >
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
 
-      {cardId && (
-        <div
-          style={{
-            position: 'absolute',
-            left: 'max(20px, env(safe-area-inset-left, 0px))',
-            top: 'max(24px, env(safe-area-inset-top, 0px))',
-            zIndex: 100,
-            fontFamily: 'var(--font-sans)',
-            fontSize: '10px',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: '#003D2C',
-            opacity: 0.35
-          }}
-        >
-          {cardId}
-        </div>
-      )}
-
-      {/* Desktop: full nav row (hidden on mobile via CSS) */}
       <nav
-        className="homepage-nav homepage-nav-desktop"
         style={{
           position: 'absolute',
-          top: 'max(24px, env(safe-area-inset-top, 0px))',
-          right: 'max(20px, env(safe-area-inset-right, 0px))',
+          top: '24px',
+          right: '32px',
           display: 'flex',
           gap: '32px',
           zIndex: 100
@@ -235,94 +201,6 @@ export function HomepageV1({
         )}
       </nav>
 
-      {/* Mobile only: hamburger + drawer (visible only on small screens via CSS) */}
-      <div className="homepage-nav-mobile">
-        <button
-          type="button"
-          className="homepage-nav-mobile-toggle"
-          onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(!mobileMenuOpen); }}
-          aria-label="Menu"
-          style={{
-            position: 'absolute',
-            top: 'max(20px, env(safe-area-inset-top, 0px))',
-            right: 'max(16px, env(safe-area-inset-right, 0px))',
-            zIndex: 101,
-            background: 'transparent',
-            border: 'none',
-            padding: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '5px'
-          }}
-        >
-          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
-          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
-          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
-        </button>
-        {mobileMenuOpen && (
-          <div
-            className="homepage-nav-mobile-drawer"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: '280px',
-              maxWidth: '85vw',
-              background: 'var(--paper, #FAF8F2)',
-              boxShadow: '-4px 0 24px rgba(0,0,0,0.1)',
-              zIndex: 200,
-              padding: 'max(80px, calc(env(safe-area-inset-top, 0px) + 60px)) 32px 32px',
-              paddingRight: 'max(32px, env(safe-area-inset-right, 0px))',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              overflowY: 'auto'
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{
-                position: 'absolute',
-                top: 'max(20px, env(safe-area-inset-top, 0px))',
-                right: 'max(16px, env(safe-area-inset-right, 0px))',
-                background: 'transparent',
-                border: 'none',
-                fontSize: '24px',
-                color: '#003D2C',
-                opacity: 0.5,
-                cursor: 'pointer',
-                padding: '12px',
-                lineHeight: 1
-              }}
-              aria-label="Fermer"
-            >
-              ×
-            </button>
-            <div style={{ marginBottom: '16px' }}>
-              <p style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.4, marginBottom: '12px' }}>Explorer</p>
-              <button type="button" onClick={() => { onEnterQuetes(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.quests')}</button>
-              <button type="button" onClick={() => { onEnterCarnet(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.notebook')}</button>
-              <button type="button" onClick={() => { onEnterCollection(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.map')}</button>
-            </div>
-            <div style={{ marginBottom: '16px' }}>
-              <p style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#003D2C', opacity: 0.4, marginBottom: '12px' }}>Approfondir</p>
-              {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.meridiens')}</button>}
-              <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link">{t('nav.etudes')}</button>
-              <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link homepage-nav-mobile-link-gold">{t('nav.seuil')}</button>
-            </div>
-            {onDisconnect && (
-              <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid rgba(0,61,44,0.1)' }}>
-                <button type="button" onClick={() => { onDisconnect(); setMobileMenuOpen(false); }} className="homepage-nav-mobile-link homepage-nav-mobile-link-muted">{t('nav.disconnect')}</button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       <div
         style={{
           display: 'flex',
@@ -331,7 +209,6 @@ export function HomepageV1({
           justifyContent: 'center',
           textAlign: 'center',
           padding: '24px',
-          paddingBottom: 'max(80px, calc(env(safe-area-inset-bottom, 0px) + 32px))',
           zIndex: 10
         }}
       >
@@ -416,7 +293,6 @@ export function HomepageV1({
         </p>
 
         <button
-          className="homepage-cta"
           onClick={onEnterCollection}
           style={{
             background: 'transparent',
