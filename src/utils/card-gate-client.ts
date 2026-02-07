@@ -469,3 +469,40 @@ export function clearCardGateStorage(cardId: string): void {
   delete tokens[cardId];
   localStorage.setItem(STORAGE_TOKENS, JSON.stringify(tokens));
 }
+
+/**
+ * Unpair device from card. Uses device_secret (no JWT needed, as JWT may be expired).
+ * Clears DB hash and local storage. After this, card can be re-paired.
+ */
+export async function unpairDevice(cardId: string): Promise<{ ok: boolean; message?: string }> {
+  if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
+  const deviceSecret = getSecret(cardId);
+  if (!deviceSecret) {
+    // Not paired locally; just clear storage and return success
+    clearCardGateStorage(cardId);
+    return { ok: true, message: 'Not paired (no local secret)' };
+  }
+  try {
+    const res = await fetch(`${CARD_GATE_BASE}/unpair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(ANON_KEY ? { Authorization: `Bearer ${ANON_KEY}` } : {}) },
+      body: JSON.stringify({ card_id: cardId, device_secret: deviceSecret }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // If 401 (invalid secret), still clear local storage to allow re-pair
+      if (res.status === 401) {
+        clearCardGateStorage(cardId);
+        return { ok: true, message: 'Unpaired (local only; server secret mismatch)' };
+      }
+      throw new Error(data?.error ?? `Unpair failed: ${res.status}`);
+    }
+    // Success: clear local storage
+    clearCardGateStorage(cardId);
+    return { ok: true, message: data?.message ?? 'Device unpaired successfully' };
+  } catch (err) {
+    // Network error: still clear local storage so user can re-pair
+    clearCardGateStorage(cardId);
+    return { ok: true, message: 'Unpaired locally (network error, server state unknown)' };
+  }
+}

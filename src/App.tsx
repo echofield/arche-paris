@@ -17,7 +17,7 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
-import { initializeCard, afterCardGateAuthenticated, clearCard, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, unpairCard, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -94,9 +94,9 @@ export default function App() {
     } catch {}
   }, [appState]);
 
-  // Déconnecter : libérer la carte sur cet appareil pour pouvoir l’utiliser sur un autre (ex. téléphone)
-  const handleDisconnect = () => {
-    clearCard();
+  // Déconnecter : libérer la carte sur cet appareil pour pouvoir l'utiliser sur un autre (ex. téléphone)
+  const handleDisconnect = async () => {
+    await unpairCard();
     setCardStatus(null);
     setCurrentScreen('homepage');
     setAppState('no_card');

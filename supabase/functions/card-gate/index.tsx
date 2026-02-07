@@ -250,6 +250,75 @@ app.post("/validate", async (c) => {
   return c.json({ token, expires_at: exp.toISOString() });
 });
 
+// ----- /unpair -----
+// Allows device to unpair using device_secret (no JWT needed, as JWT may be expired)
+app.post("/unpair", async (c) => {
+  const supabase = getSupabase();
+  const ip = getClientIp(c);
+  let body: { card_id?: string; device_secret?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const cardId = body?.card_id;
+  const deviceSecretB64 = body?.device_secret;
+  if (!cardId || !deviceSecretB64 || typeof cardId !== "string" || typeof deviceSecretB64 !== "string") {
+    return c.json({ error: "card_id and device_secret required" }, 400);
+  }
+
+  // Rate limit unpair attempts
+  const rateKeyCard = `unpair:${cardId}`;
+  const rateKeyIp = `unpair_ip:${ip}`;
+  if (!(await dbRateLimit(supabase, rateKeyCard, 5, 3600))) {
+    return c.json({ error: "Too many unpair attempts for this card." }, 429);
+  }
+  if (!(await dbRateLimit(supabase, rateKeyIp, 20, 3600))) {
+    return c.json({ error: "Too many requests from this device." }, 429);
+  }
+
+  let deviceSecret: Uint8Array;
+  try {
+    deviceSecret = b64urlDecode(deviceSecretB64);
+  } catch {
+    return c.json({ error: "Invalid device_secret" }, 400);
+  }
+  if (deviceSecret.length !== 32) {
+    return c.json({ error: "Invalid device_secret" }, 400);
+  }
+
+  const { data: card, error: fetchError } = await supabase
+    .from("cards")
+    .select("id, device_secret_hash")
+    .eq("id", cardId)
+    .single();
+
+  if (fetchError || !card?.device_secret_hash) {
+    return c.json({ error: "Invalid card or not paired" }, 401);
+  }
+
+  const providedHash = await sha256Hex(deviceSecret);
+  if (!constantTimeCompare(providedHash, card.device_secret_hash)) {
+    return c.json({ error: "Invalid device_secret" }, 401);
+  }
+
+  // Clear the device_secret_hash to unpair
+  const { error: updateError } = await supabase
+    .from("cards")
+    .update({ device_secret_hash: null })
+    .eq("id", cardId);
+
+  if (updateError) {
+    console.error("[card-gate] unpair update error:", updateError);
+    return c.json({ error: "Unpair failed" }, 500);
+  }
+
+  // Also clear any rate limit for pairing so user can re-pair immediately
+  await supabase.from("rate_limits").delete().eq("key", `pair:${cardId}`);
+
+  return c.json({ ok: true, message: "Device unpaired successfully" });
+});
+
 // ----- Helper: require JWT -----
 async function requireJwt(c: ReturnType<Hono["req"]>): Promise<{ card_id: string } | Response> {
   const auth = c.req.header("Authorization");

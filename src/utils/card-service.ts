@@ -13,6 +13,7 @@ import {
   validateCardAndGetToken,
   getCardToken,
   clearCardGateStorage,
+  unpairDevice,
 } from './card-gate-client';
 
 export interface CardStatus {
@@ -43,12 +44,31 @@ export function setStoredCard(cardId: string): void {
 /**
  * Clear stored card and Card Gate storage (device_secret, token) for this card.
  * Also clears arche_card_session so the same card can be used on another device.
+ * NOTE: This only clears local storage; use unpairCard() to also clear server state.
  */
 export function clearCard(): void {
   const cardId = getStoredCard();
   if (cardId) clearCardGateStorage(cardId);
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem('arche_card_session');
+}
+
+/**
+ * Unpair current card from this device (clears server + local state).
+ * After this, the card can be paired again on the same or different device.
+ * Use this for proper logout/disconnect functionality.
+ */
+export async function unpairCard(): Promise<{ ok: boolean; message?: string }> {
+  const cardId = getStoredCard();
+  if (!cardId) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('arche_card_session');
+    return { ok: true, message: 'No card stored' };
+  }
+  const result = await unpairDevice(cardId);
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('arche_card_session');
+  return result;
 }
 
 /**
