@@ -11,6 +11,8 @@
     --ink: #1A1A1A;
     --green: #003D2C;
     --gold: #A38767;
+    /* Map/cartography: graphite only. Gold is for earned inscriptions (thresholds, seals, verified proofs), never base map. */
+    --map-ink: rgba(60, 63, 58, 1);
     --grey-light: #E8E5DE;
     --grey-medium: #C8C4BA;
 
