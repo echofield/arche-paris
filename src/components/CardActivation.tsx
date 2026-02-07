@@ -3,7 +3,7 @@ import { GeometricBackground } from './GeometricBackground';
 
 interface CardActivationProps {
   cardCode: string;
-  onActivated: (cardData: { id: string; code: string; activated_at: string }) => void;
+  onActivated: (cardData: { id: string; code: string; activated_at: string; password?: string }) => void;
   onBack?: () => void;
 }
 
@@ -73,8 +73,8 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
 
       console.log('[CardActivation] Card activated successfully:', data.card);
       
-      // Appeler onActivated avec les données de la carte
-      onActivated(data.card);
+      // Appeler onActivated avec les données de la carte + password
+      onActivated({ ...data.card, password });
 
     } catch (err: any) {
       console.error('[CardActivation] Activation error:', err);

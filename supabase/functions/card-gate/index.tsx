@@ -141,6 +141,20 @@ function b64urlDecode(str: string): Uint8Array {
   return bytes;
 }
 
+// Password verification (same algorithm as make-server)
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  const parts = storedHash.split(":");
+  const saltHex = parts[0];
+  const expectedHash = parts[1];
+  if (!saltHex || !expectedHash) return false;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(saltHex + password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return hashHex === expectedHash;
+}
+
 // ----- /pair -----
 app.post("/pair", async (c) => {
   const supabase = getSupabase();
@@ -317,6 +331,78 @@ app.post("/unpair", async (c) => {
   await supabase.from("rate_limits").delete().eq("key", `pair:${cardId}`);
 
   return c.json({ ok: true, message: "Device unpaired successfully" });
+});
+
+// ----- /force-unpair -----
+// For when user has no local device_secret (e.g., cleared browser data)
+// Authenticates via password instead of device_secret
+app.post("/force-unpair", async (c) => {
+  const supabase = getSupabase();
+  const ip = getClientIp(c);
+  let body: { card_id?: string; password?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const cardId = body?.card_id;
+  const password = body?.password;
+  if (!cardId || !password || typeof cardId !== "string" || typeof password !== "string") {
+    return c.json({ error: "card_id and password required" }, 400);
+  }
+
+  // Rate limit force-unpair attempts (stricter than regular unpair)
+  const rateKeyCard = `force_unpair:${cardId}`;
+  const rateKeyIp = `force_unpair_ip:${ip}`;
+  if (!(await dbRateLimit(supabase, rateKeyCard, 3, 3600))) {
+    console.log(`[card-gate] force-unpair rate limited for card: ${cardId}`);
+    return c.json({ error: "Too many force-unpair attempts for this card." }, 429);
+  }
+  if (!(await dbRateLimit(supabase, rateKeyIp, 10, 3600))) {
+    console.log(`[card-gate] force-unpair rate limited for IP: ${ip}`);
+    return c.json({ error: "Too many requests from this device." }, 429);
+  }
+
+  // Fetch card with password_hash
+  const { data: card, error: fetchError } = await supabase
+    .from("cards")
+    .select("id, password_hash, device_secret_hash")
+    .eq("id", cardId)
+    .single();
+
+  if (fetchError || !card) {
+    console.log(`[card-gate] force-unpair card not found: ${cardId}`);
+    return c.json({ error: "Card not found" }, 404);
+  }
+
+  if (!card.password_hash) {
+    console.log(`[card-gate] force-unpair card not activated: ${cardId}`);
+    return c.json({ error: "Card not activated" }, 400);
+  }
+
+  // Verify password
+  const isValid = await verifyPassword(password, card.password_hash);
+  if (!isValid) {
+    console.log(`[card-gate] force-unpair invalid password for card: ${cardId}`);
+    return c.json({ error: "Invalid password" }, 401);
+  }
+
+  // Clear the device_secret_hash
+  const { error: updateError } = await supabase
+    .from("cards")
+    .update({ device_secret_hash: null })
+    .eq("id", cardId);
+
+  if (updateError) {
+    console.error("[card-gate] force-unpair update error:", updateError);
+    return c.json({ error: "Force unpair failed" }, 500);
+  }
+
+  // Clear rate limits for pairing so user can re-pair immediately
+  await supabase.from("rate_limits").delete().eq("key", `pair:${cardId}`);
+
+  console.log(`[card-gate] force-unpair successful for card: ${cardId}`);
+  return c.json({ ok: true, message: "Device force-unpaired successfully" });
 });
 
 // ----- Helper: require JWT -----

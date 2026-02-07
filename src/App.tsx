@@ -121,7 +121,7 @@ export default function App() {
   };
 
   // After CardGate activation/login: pair, validate, store card, then ready
-  const handleCardGateAuthenticated = async (cardData: { id: string; code: string; activated_at: string }) => {
+  const handleCardGateAuthenticated = async (cardData: { id: string; code: string; activated_at: string; password?: string }) => {
     try {
       await afterCardGateAuthenticated(cardData);
       setCardStatus({

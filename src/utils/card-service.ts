@@ -14,6 +14,8 @@ import {
   getCardToken,
   clearCardGateStorage,
   unpairDevice,
+  hasLocalSecret,
+  forceUnpairDevice,
 } from './card-gate-client';
 
 export interface CardStatus {
@@ -130,11 +132,13 @@ export async function initializeCard(): Promise<CardStatus | null> {
  * After CardGate onAuthenticated(cardData): pair device, get token, store card.
  * Call this from the component that handles onAuthenticated (e.g. App).
  * cardData.id is the card id to use for all Gate operations.
+ * password is optional but required for recovery when card is already paired but local secret is lost.
  */
 export async function afterCardGateAuthenticated(cardData: {
   id: string;
   code: string;
   activated_at: string;
+  password?: string;
 }): Promise<void> {
   const cardId = cardData.id;
   try {
@@ -142,7 +146,22 @@ export async function afterCardGateAuthenticated(cardData: {
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err?.code === 'ALREADY_PAIRED') {
-      // Same device returning: we already have device_secret, just validate
+      // Check if we have local secret
+      if (!hasLocalSecret(cardId)) {
+        // No local secret but server says already paired
+        // Try to force-unpair using password, then re-pair
+        if (!cardData.password) {
+          throw new Error('Card already paired on another device. Password required to transfer.');
+        }
+        console.log('[card-service] ALREADY_PAIRED without local secret, attempting force-unpair');
+        const forceResult = await forceUnpairDevice(cardId, cardData.password);
+        if (!forceResult.ok) {
+          throw new Error(forceResult.message ?? 'Force unpair failed');
+        }
+        // Now re-pair
+        await pairDevice(cardId);
+      }
+      // If we have local secret, just continue to validate
     } else {
       throw e;
     }

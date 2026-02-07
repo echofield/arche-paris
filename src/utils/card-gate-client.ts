@@ -506,3 +506,34 @@ export async function unpairDevice(cardId: string): Promise<{ ok: boolean; messa
     return { ok: true, message: 'Unpaired locally (network error, server state unknown)' };
   }
 }
+
+/**
+ * Check if we have a local device secret for this card.
+ */
+export function hasLocalSecret(cardId: string): boolean {
+  return getSecret(cardId) !== null;
+}
+
+/**
+ * Force-unpair device using password (when no local device_secret available).
+ * Use this when ALREADY_PAIRED but no local secret (e.g., cleared browser data).
+ */
+export async function forceUnpairDevice(cardId: string, password: string): Promise<{ ok: boolean; message?: string }> {
+  if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
+  try {
+    const res = await fetch(`${CARD_GATE_BASE}/force-unpair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(ANON_KEY ? { Authorization: `Bearer ${ANON_KEY}` } : {}) },
+      body: JSON.stringify({ card_id: cardId, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, message: data?.error ?? `Force unpair failed: ${res.status}` };
+    }
+    // Success: clear local storage
+    clearCardGateStorage(cardId);
+    return { ok: true, message: data?.message ?? 'Device force-unpaired successfully' };
+  } catch (err) {
+    return { ok: false, message: 'Network error during force-unpair' };
+  }
+}

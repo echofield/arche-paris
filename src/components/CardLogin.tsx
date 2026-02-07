@@ -3,7 +3,7 @@ import { GeometricBackground } from './GeometricBackground';
 
 interface CardLoginProps {
   cardCode: string;
-  onLoggedIn: (cardData: { id: string; code: string; activated_at: string }) => void;
+  onLoggedIn: (cardData: { id: string; code: string; activated_at: string; password?: string }) => void;
   onBack?: () => void;
 }
 
@@ -96,8 +96,8 @@ export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
         logged_in_at: data.session.logged_in_at
       }));
 
-      // Appeler onLoggedIn avec les données de la carte
-      onLoggedIn(data.card);
+      // Appeler onLoggedIn avec les données de la carte + password pour force-unpair si nécessaire
+      onLoggedIn({ ...data.card, password });
 
     } catch (err: any) {
       console.error('[CardLogin] Login error:', err);

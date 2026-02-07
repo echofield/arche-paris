@@ -4,7 +4,7 @@ import { CardLogin } from './CardLogin';
 
 interface CardGateProps {
   cardCode: string;
-  onAuthenticated: (cardData: { id: string; code: string; activated_at: string }) => void;
+  onAuthenticated: (cardData: { id: string; code: string; activated_at: string; password?: string }) => void;
   onBack?: () => void;
 }
 
