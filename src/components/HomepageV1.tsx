@@ -1,24 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 
-const MAP_OPACITY_KEY = 'arche_home_map_opacity';
-const MAP_OPACITY_MIN = 0.06;
-const MAP_OPACITY_MAX = 0.5;
-const MAP_OPACITY_DEFAULT = 0.165;
-
-function getStoredMapOpacity(): number {
-  try {
-    const v = localStorage.getItem(MAP_OPACITY_KEY);
-    if (v == null) return MAP_OPACITY_DEFAULT;
-    const n = parseFloat(v);
-    if (!Number.isFinite(n)) return MAP_OPACITY_DEFAULT;
-    return Math.max(MAP_OPACITY_MIN, Math.min(MAP_OPACITY_MAX, n));
-  } catch {
-    return MAP_OPACITY_DEFAULT;
-  }
-}
+/** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
+const MAP_STROKE_OPACITY = 0.5;
 
 interface HomepageV1Props {
   showSilencePrompt?: boolean;
@@ -48,19 +34,10 @@ export function HomepageV1({
   onDisconnect
 }: HomepageV1Props) {
   const { t } = useTranslation();
-  const [mapOpacity, setMapOpacity] = useState(() => getStoredMapOpacity());
 
   useEffect(() => {
     if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
   }, [showSilencePrompt, onSilencePromptShown]);
-
-  const handleMapOpacityChange = (value: number) => {
-    const clamped = Math.max(MAP_OPACITY_MIN, Math.min(MAP_OPACITY_MAX, value));
-    setMapOpacity(clamped);
-    try {
-      localStorage.setItem(MAP_OPACITY_KEY, String(clamped));
-    } catch {}
-  };
 
   return (
     <div
@@ -280,7 +257,7 @@ export function HomepageV1({
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
-            marginBottom: '12px',
+            marginBottom: '32px',
             cursor: 'pointer',
             transition: 'opacity 0.3s ease'
           }}
@@ -292,77 +269,9 @@ export function HomepageV1({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              opacity: mapOpacity
+              opacity: MAP_STROKE_OPACITY
             }}
           />
-        </div>
-        {/* Fader: précision des lignes de la carte */}
-        <style>{`
-          .home-map-opacity-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            background: transparent;
-          }
-          .home-map-opacity-slider::-webkit-slider-runnable-track {
-            height: 2px;
-            background: rgba(0,61,44,0.2);
-          }
-          .home-map-opacity-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #003D2C;
-            cursor: pointer;
-            margin-top: -5px;
-          }
-          .home-map-opacity-slider::-moz-range-track {
-            height: 2px;
-            background: rgba(0,61,44,0.2);
-          }
-          .home-map-opacity-slider::-moz-range-thumb {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #003D2C;
-            cursor: pointer;
-            border: none;
-          }
-        `}</style>
-        <div
-          style={{
-            width: 'clamp(200px, 40vw, 280px)',
-            marginBottom: '28px'
-          }}
-        >
-          <input
-            type="range"
-            min={MAP_OPACITY_MIN}
-            max={MAP_OPACITY_MAX}
-            step={0.01}
-            value={mapOpacity}
-            onChange={(e) => handleMapOpacityChange(parseFloat(e.target.value))}
-            aria-label="Précision des lignes de la carte"
-            style={{
-              width: '100%',
-              cursor: 'pointer'
-            }}
-            className="home-map-opacity-slider"
-          />
-          <p
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: 10,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#003D2C',
-              opacity: 0.4,
-              marginTop: 6,
-              textAlign: 'center'
-            }}
-          >
-            Lignes
-          </p>
         </div>
 
         <p
