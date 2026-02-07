@@ -13,7 +13,6 @@ import {
   getCardToken,
   clearCardGateStorage,
   unpairDevice,
-  hasLocalSecret,
   forceUnpairDevice,
   checkSession,
 } from './card-gate-client';
@@ -55,12 +54,23 @@ export function clearCard(): void {
   localStorage.removeItem('arche_card_session');
 }
 
+export interface UnpairCardResult {
+  ok: boolean;
+  message?: string;
+  /** If true, card is still paired on server but session expired - need password */
+  needsPassword?: boolean;
+  cardId?: string;
+}
+
 /**
  * Unpair current card from this device (clears server + local state).
  * After this, the card can be paired again on the same or different device.
  * Use this for proper logout/disconnect functionality.
+ *
+ * If needsPassword is true in the result, the card is still paired on server
+ * but the session cookie is missing. User must provide password to force-unpair.
  */
-export async function unpairCard(): Promise<{ ok: boolean; message?: string }> {
+export async function unpairCard(): Promise<UnpairCardResult> {
   const cardId = getStoredCard();
   if (!cardId) {
     localStorage.removeItem(STORAGE_KEY);
@@ -68,8 +78,27 @@ export async function unpairCard(): Promise<{ ok: boolean; message?: string }> {
     return { ok: true, message: 'No card stored' };
   }
   const result = await unpairDevice(cardId);
+
+  // If server says we need password, don't clear local storage yet
+  // (user might cancel and want to stay logged in locally)
+  if (result.needsPassword) {
+    return { ...result, cardId };
+  }
+
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem('arche_card_session');
+  return result;
+}
+
+/**
+ * Force unpair using password. Call this when unpairCard returns needsPassword: true.
+ */
+export async function forceUnpairCard(cardId: string, password: string): Promise<{ ok: boolean; message?: string }> {
+  const result = await forceUnpairDevice(cardId, password);
+  if (result.ok) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('arche_card_session');
+  }
   return result;
 }
 

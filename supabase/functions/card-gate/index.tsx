@@ -427,15 +427,55 @@ app.post("/refresh", async (c) => {
 });
 
 // ----- /unpair-session -----
-// Cookie-only unpair: verify refresh cookie -> clear device_secret_hash -> clear cookie. No body.
+// Cookie-only unpair: verify refresh cookie -> clear device_secret_hash -> clear cookie.
+// If no cookie but card_id provided in body, check if card is still paired and return specific error.
 app.post("/unpair-session", async (c) => {
   const supabase = getSupabase();
   const ip = getClientIp(c);
 
   const cookieHeader = c.req.header("Cookie");
   const parsed = parseRefreshCookie(cookieHeader);
+
+  // Try to get card_id from body (for checking if card is still paired)
+  let bodyCardId: string | null = null;
+  try {
+    const body = await c.req.json();
+    bodyCardId = body?.card_id ?? null;
+  } catch {
+    // No body or invalid JSON - that's fine
+  }
+
   if (!parsed) {
     const origin = c.req.header("Origin");
+
+    // If card_id provided, check if card is still paired on server
+    if (bodyCardId) {
+      const { data: card } = await supabase
+        .from("cards")
+        .select("device_secret_hash")
+        .eq("id", bodyCardId)
+        .single();
+
+      if (card?.device_secret_hash) {
+        // Card is still paired but we have no cookie to verify identity
+        // User needs to use force-unpair with password
+        console.log(`[card-gate] unpair-session: no cookie but card ${bodyCardId} is still paired`);
+        return new Response(JSON.stringify({
+          ok: false,
+          code: "COOKIE_MISSING_CARD_PAIRED",
+          message: "Session expirée. Utilisez votre mot de passe pour déconnecter."
+        }), {
+          status: 401,
+          headers: {
+            ...getCorsHeaders(c),
+            "Content-Type": "application/json",
+            "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
+          },
+        });
+      }
+    }
+
+    // No cookie and card not paired (or no card_id) - just clear local state
     return new Response(JSON.stringify({ ok: true, message: "No session" }), {
       status: 200,
       headers: {

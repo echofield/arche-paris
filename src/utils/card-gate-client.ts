@@ -550,7 +550,14 @@ export function clearCardGateStorage(_cardId: string): void {
 /**
  * Unpair device. Calls /unpair-session with credentials (cookie); server clears device_secret_hash and cookie.
  */
-export async function unpairDevice(cardId: string): Promise<{ ok: boolean; message?: string }> {
+export interface UnpairResult {
+  ok: boolean;
+  message?: string;
+  /** If true, card is still paired on server but cookie is missing - need password to force-unpair */
+  needsPassword?: boolean;
+}
+
+export async function unpairDevice(cardId: string): Promise<UnpairResult> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -559,9 +566,20 @@ export async function unpairDevice(cardId: string): Promise<{ ok: boolean; messa
       method: 'POST',
       headers,
       credentials: 'include',
+      body: JSON.stringify({ card_id: cardId }), // Send card_id so server can check if still paired
     });
     const data = await res.json().catch(() => ({}));
     clearMemoryToken();
+
+    // Check for "cookie missing but card still paired" case
+    if (res.status === 401 && data?.code === 'COOKIE_MISSING_CARD_PAIRED') {
+      return {
+        ok: false,
+        message: data?.message ?? 'Session expirée. Mot de passe requis.',
+        needsPassword: true
+      };
+    }
+
     if (res.ok) return { ok: true, message: data?.message ?? 'Device unpaired' };
     return { ok: true, message: data?.error ?? 'Session cleared' };
   } catch {

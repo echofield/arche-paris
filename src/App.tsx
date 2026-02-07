@@ -17,7 +17,7 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
-import { initializeCard, afterCardGateAuthenticated, unpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -46,6 +46,13 @@ export default function App() {
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
   const [showSilencePrompt, setShowSilencePrompt] = useState(false);
+
+  // Force-unpair state (when session expired but card still paired on server)
+  const [showForceUnpairPrompt, setShowForceUnpairPrompt] = useState(false);
+  const [forceUnpairCardId, setForceUnpairCardId] = useState<string | null>(null);
+  const [forceUnpairPassword, setForceUnpairPassword] = useState('');
+  const [forceUnpairError, setForceUnpairError] = useState<string | null>(null);
+  const [forceUnpairLoading, setForceUnpairLoading] = useState(false);
 
   // Initialize card on mount
   useEffect(() => {
@@ -96,13 +103,61 @@ export default function App() {
 
   // Déconnecter : libérer la carte sur cet appareil pour pouvoir l'utiliser sur un autre (ex. téléphone)
   const handleDisconnect = async () => {
-    await unpairCard();
+    const result = await unpairCard();
+
+    // If session expired but card still paired on server, show password prompt
+    if (result.needsPassword && result.cardId) {
+      setForceUnpairCardId(result.cardId);
+      setForceUnpairPassword('');
+      setForceUnpairError(result.message || null);
+      setShowForceUnpairPrompt(true);
+      return;
+    }
+
+    // Normal disconnect succeeded
     setCardStatus(null);
     setCurrentScreen('homepage');
     setAppState('no_card');
     const url = new URL(window.location.href);
     url.searchParams.delete('card');
     window.history.replaceState({}, '', url.toString());
+  };
+
+  // Handle force-unpair with password
+  const handleForceUnpair = async () => {
+    if (!forceUnpairCardId || !forceUnpairPassword) return;
+
+    setForceUnpairLoading(true);
+    setForceUnpairError(null);
+
+    try {
+      const result = await forceUnpairCard(forceUnpairCardId, forceUnpairPassword);
+
+      if (result.ok) {
+        // Success - complete the disconnect
+        setShowForceUnpairPrompt(false);
+        setCardStatus(null);
+        setCurrentScreen('homepage');
+        setAppState('no_card');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('card');
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        setForceUnpairError(result.message || 'Échec de la déconnexion');
+      }
+    } catch (err) {
+      setForceUnpairError(err instanceof Error ? err.message : 'Erreur inattendue');
+    } finally {
+      setForceUnpairLoading(false);
+    }
+  };
+
+  // Cancel force-unpair (stay logged in locally)
+  const handleCancelForceUnpair = () => {
+    setShowForceUnpairPrompt(false);
+    setForceUnpairCardId(null);
+    setForceUnpairPassword('');
+    setForceUnpairError(null);
   };
 
   // Manual card entry: show CardGate (check-card → activation or login)
@@ -387,6 +442,100 @@ export default function App() {
               <ArcheSymbol size={48} />
             </button>
             <CompanionBlock />
+          </div>
+        )}
+
+        {/* Force-unpair modal: shown when session expired but card still paired on server */}
+        {showForceUnpairPrompt && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 20000,
+              padding: '24px'
+            }}
+            onClick={handleCancelForceUnpair}
+          >
+            <div
+              style={{
+                background: 'var(--paper, #FAF8F2)',
+                borderRadius: '4px',
+                padding: '32px',
+                maxWidth: '400px',
+                width: '100%',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ fontFamily: 'var(--font-serif)', marginBottom: '16px', color: 'var(--ink, #1A1A1A)' }}>
+                Session expirée
+              </h3>
+              <p style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--ink, #1A1A1A)', opacity: 0.7 }}>
+                Entrez votre mot de passe pour déconnecter cette carte.
+              </p>
+              <input
+                type="password"
+                value={forceUnpairPassword}
+                onChange={(e) => setForceUnpairPassword(e.target.value)}
+                placeholder="Mot de passe"
+                autoComplete="current-password"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  border: '1px solid var(--grey-light, #E8E5DE)',
+                  borderRadius: '2px',
+                  fontSize: '16px',
+                  fontFamily: 'var(--font-sans)',
+                  minHeight: '48px'
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && forceUnpairPassword) handleForceUnpair();
+                }}
+              />
+              {forceUnpairError && (
+                <p style={{ fontSize: '13px', color: '#B22222', marginBottom: '16px' }}>
+                  {forceUnpairError}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={handleCancelForceUnpair}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'transparent',
+                    border: '1px solid var(--grey-light, #E8E5DE)',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    minHeight: '44px'
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleForceUnpair}
+                  disabled={!forceUnpairPassword || forceUnpairLoading}
+                  style={{
+                    padding: '12px 24px',
+                    background: forceUnpairPassword ? 'var(--green, #003D2C)' : 'var(--grey-light, #E8E5DE)',
+                    color: forceUnpairPassword ? 'white' : 'var(--ink, #1A1A1A)',
+                    border: 'none',
+                    borderRadius: '2px',
+                    cursor: forceUnpairPassword ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    opacity: forceUnpairLoading ? 0.6 : 1,
+                    minHeight: '44px'
+                  }}
+                >
+                  {forceUnpairLoading ? 'Déconnexion...' : 'Déconnecter'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
