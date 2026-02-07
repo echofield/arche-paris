@@ -30,6 +30,7 @@ export function LanguageSelector({ position = 'fixed' }: LanguageSelectorProps) 
 
   return (
     <div
+      className="language-selector"
       style={{
         ...baseStyle,
         display: 'flex',

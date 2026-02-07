@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
+import { useIsMobile } from './ui/use-mobile';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.5;
@@ -38,6 +39,12 @@ export function HomepageV1({
 }: HomepageV1Props) {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
@@ -50,9 +57,12 @@ export function HomepageV1({
     return () => document.removeEventListener('click', handleClick);
   }, [mobileMenuOpen]);
 
+  const showDesktopNav = mounted && !isMobile;
+  const showMobileNav = !mounted || isMobile;
+
   return (
     <div
-      className="min-h-screen relative flex flex-col items-center justify-center"
+      className="homepage-root min-h-screen relative flex flex-col items-center justify-center"
       style={{
         background: '#FAF8F2',
         overflow: 'hidden'
@@ -60,7 +70,8 @@ export function HomepageV1({
     >
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
 
-      {/* Desktop: single nav row (hidden on phone via CSS) */}
+      {/* Desktop: single nav row (only rendered when mounted && !isMobile) */}
+      {showDesktopNav && (
       <nav
         className="homepage-nav-desktop"
         style={{
@@ -210,8 +221,10 @@ export function HomepageV1({
           </button>
         )}
       </nav>
+      )}
 
-      {/* Phone only: hamburger + vertical menu (Explorer / Approfondir) — hidden on desktop via CSS */}
+      {/* Phone only: hamburger + vertical menu (Explorer / Approfondir) — rendered when !mounted (hydration-safe) or isMobile */}
+      {showMobileNav && (
       <div className="homepage-nav-mobile">
         <button
           type="button"
@@ -298,8 +311,10 @@ export function HomepageV1({
           </div>
         )}
       </div>
+      )}
 
       <div
+        className="homepage-content"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -340,6 +355,7 @@ export function HomepageV1({
         </h1>
 
         <p
+          className="homepage-subtitle"
           style={{
             fontFamily: 'var(--font-sans)',
             fontSize: '11px',
@@ -354,6 +370,7 @@ export function HomepageV1({
         </p>
 
         <div
+          className="homepage-map-wrap"
           onClick={onEnterCollection}
           style={{
             width: 'clamp(280px, 50vw, 400px)',
@@ -376,6 +393,7 @@ export function HomepageV1({
         </div>
 
         <p
+          className="homepage-walk"
           style={{
             fontFamily: 'var(--font-sans)',
             fontSize: '11px',
@@ -391,6 +409,7 @@ export function HomepageV1({
         </p>
 
         <button
+          className="homepage-cta"
           onClick={onEnterCollection}
           style={{
             background: 'transparent',

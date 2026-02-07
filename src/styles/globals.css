@@ -168,6 +168,15 @@
     display: block;
   }
 
+  /* Language selector: top-left on phone so hamburger keeps top-right; respect safe area */
+  .language-selector {
+    position: fixed !important;
+    top: max(16px, env(safe-area-inset-top, 0px)) !important;
+    left: max(16px, env(safe-area-inset-left, 0px)) !important;
+    right: auto !important;
+    z-index: 100 !important;
+  }
+
   /* Drawer: section titles (same graphism for Explorer / Approfondir) */
   .homepage-nav-drawer-section {
     font-family: var(--font-sans);
@@ -247,6 +256,37 @@
 
   .homepage-image {
     display: none !important;
+  }
+
+  /* Tight layout on iPhone: compact padding and spacing */
+  .homepage-root {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+  .homepage-content {
+    padding: 16px 20px !important;
+    padding-bottom: max(60px, calc(env(safe-area-inset-bottom) + 16px)) !important;
+  }
+  .homepage-content h1 {
+    font-size: clamp(36px, 9vw, 48px) !important;
+    margin-bottom: 6px !important;
+  }
+  .homepage-content p:first-of-type {
+    margin-bottom: 24px !important;
+  }
+  .homepage-content .homepage-subtitle {
+    margin-bottom: 32px !important;
+  }
+  .homepage-content .homepage-map-wrap {
+    width: clamp(260px, 50vw, 320px) !important;
+    height: clamp(180px, 35vw, 220px) !important;
+    margin-bottom: 24px !important;
+  }
+  .homepage-content .homepage-walk {
+    margin-bottom: 20px !important;
+  }
+  .homepage-content .homepage-cta {
+    margin-bottom: 32px !important;
   }
 }
 
