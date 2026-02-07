@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
@@ -37,10 +37,18 @@ export function HomepageV1({
   onDisconnect
 }: HomepageV1Props) {
   const { t } = useTranslation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (showSilencePrompt && onSilencePromptShown) onSilencePromptShown();
   }, [showSilencePrompt, onSilencePromptShown]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleClick = () => setMobileMenuOpen(false);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [mobileMenuOpen]);
 
   return (
     <div
@@ -52,7 +60,9 @@ export function HomepageV1({
     >
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
 
+      {/* Desktop: single nav row (hidden on phone via CSS) */}
       <nav
+        className="homepage-nav-desktop"
         style={{
           position: 'absolute',
           top: '24px',
@@ -200,6 +210,94 @@ export function HomepageV1({
           </button>
         )}
       </nav>
+
+      {/* Phone only: hamburger + vertical menu (Explorer / Approfondir) — hidden on desktop via CSS */}
+      <div className="homepage-nav-mobile">
+        <button
+          type="button"
+          className="homepage-nav-mobile-toggle"
+          onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(!mobileMenuOpen); }}
+          aria-label="Menu"
+          style={{
+            position: 'absolute',
+            top: 'max(20px, env(safe-area-inset-top, 0px))',
+            right: 'max(16px, env(safe-area-inset-right, 0px))',
+            zIndex: 101,
+            background: 'transparent',
+            border: 'none',
+            padding: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px'
+          }}
+        >
+          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
+          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
+          <span style={{ width: '20px', height: '2px', background: '#003D2C', opacity: 0.7 }} />
+        </button>
+        {mobileMenuOpen && (
+          <div
+            className="homepage-nav-mobile-drawer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '280px',
+              maxWidth: '85vw',
+              background: 'var(--paper, #FAF8F2)',
+              boxShadow: '-4px 0 24px rgba(0,0,0,0.1)',
+              zIndex: 200,
+              padding: 'max(80px, calc(env(safe-area-inset-top, 0px) + 60px)) 32px 32px',
+              paddingRight: 'max(32px, env(safe-area-inset-right, 0px))',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              overflowY: 'auto'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                position: 'absolute',
+                top: 'max(20px, env(safe-area-inset-top, 0px))',
+                right: 'max(16px, env(safe-area-inset-right, 0px))',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                color: '#003D2C',
+                opacity: 0.5,
+                cursor: 'pointer',
+                padding: '12px',
+                lineHeight: 1
+              }}
+              aria-label="Fermer"
+            >
+              ×
+            </button>
+            <div className="homepage-nav-drawer-block">
+              <p className="homepage-nav-drawer-section">{t('home.mobileSectionExplorer', 'Explorer')}</p>
+              <button type="button" onClick={() => { onEnterQuetes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.quests')}</button>
+              <button type="button" onClick={() => { onEnterCarnet(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.notebook')}</button>
+              <button type="button" onClick={() => { onEnterCollection(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.map')}</button>
+            </div>
+            <div className="homepage-nav-drawer-block">
+              <p className="homepage-nav-drawer-section">{t('home.mobileSectionApprofondir', 'Approfondir')}</p>
+              {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.meridiens')}</button>}
+              <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.etudes')}</button>
+              <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-gold">{t('nav.seuil')}</button>
+            </div>
+            {onDisconnect && (
+              <div className="homepage-nav-drawer-footer">
+                <button type="button" onClick={() => { onDisconnect(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-muted">{t('nav.disconnect')}</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div
         style={{
