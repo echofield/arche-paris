@@ -145,6 +145,18 @@ export class AlreadyPairedError extends Error {
   }
 }
 
+/** Error thrown when rate limited */
+export class RateLimitError extends Error {
+  code = 'RATE_LIMITED';
+  constructor(message = 'Trop de tentatives. Veuillez patienter quelques minutes avant de réessayer.') {
+    super(message);
+    this.name = 'RateLimitError';
+  }
+}
+
+// Guard to prevent concurrent calls to afterCardGateAuthenticated
+let authInProgress = false;
+
 /**
  * After CardGate onAuthenticated(cardData): pair device, get token, store card.
  * Call this from the component that handles onAuthenticated (e.g. App).
@@ -163,6 +175,13 @@ export async function afterCardGateAuthenticated(cardData: {
   activated_at: string;
   password?: string;
 }): Promise<void> {
+  // Prevent concurrent calls (React StrictMode, double-renders, etc.)
+  if (authInProgress) {
+    console.log('[card-service] Auth already in progress, skipping');
+    return;
+  }
+  authInProgress = true;
+
   const cardId = cardData.id;
   try {
     await pairDevice(cardId);
@@ -179,14 +198,17 @@ export async function afterCardGateAuthenticated(cardData: {
           console.log('[card-service] Refresh succeeded, session is valid');
           await getCardToken(cardId);
           setStoredCard(cardId);
+          authInProgress = false;
           return;
         }
+        console.log('[card-service] Refresh returned different card or invalid');
       } catch (refreshErr) {
-        console.log('[card-service] Refresh failed, need to force-unpair');
+        console.log('[card-service] Refresh failed:', refreshErr);
       }
 
       // Refresh didn't work - need password to transfer to this device
       if (!cardData.password) {
+        authInProgress = false;
         throw new AlreadyPairedError();
       }
 
@@ -194,15 +216,22 @@ export async function afterCardGateAuthenticated(cardData: {
       console.log('[card-service] Attempting force-unpair with password');
       const forceResult = await forceUnpairDevice(cardId, cardData.password);
       if (!forceResult.ok) {
+        authInProgress = false;
+        // Check for rate limit
+        if (forceResult.message?.includes('Too many') || forceResult.message?.includes('Trop de')) {
+          throw new RateLimitError();
+        }
         throw new Error(forceResult.message ?? 'Échec du transfert. Vérifiez le mot de passe.');
       }
 
       // Now re-pair
       await pairDevice(cardId);
     } else {
+      authInProgress = false;
       throw e;
     }
   }
   await getCardToken(cardId);
   setStoredCard(cardId);
+  authInProgress = false;
 }

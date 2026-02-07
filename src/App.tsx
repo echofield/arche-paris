@@ -17,7 +17,7 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
-import { initializeCard, afterCardGateAuthenticated, unpairCard, AlreadyPairedError, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, unpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -145,6 +145,18 @@ export default function App() {
           cardCode: cardData.code,
         });
         setAppState('validating');
+        return;
+      }
+
+      // Handle rate limit - show clear message, stay on current screen
+      if (err instanceof RateLimitError) {
+        setCardStatus({
+          valid: false,
+          status: 'ERROR',
+          message: err.message,
+          cardId: cardData.id,
+        });
+        setAppState('invalid');
         return;
       }
 

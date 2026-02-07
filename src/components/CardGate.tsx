@@ -45,13 +45,18 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a/check-card`;
       console.log('[CardGate] Checking card:', cardCode, 'URL:', url);
 
+      // Normalize card code (trim whitespace, uppercase)
+      const normalizedCode = cardCode.trim().toUpperCase();
+      console.log('[CardGate] Normalized code:', normalizedCode);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${anonKey}`
         },
-        body: JSON.stringify({ code: cardCode }),
+        credentials: 'include', // For cookie-based sessions
+        body: JSON.stringify({ code: normalizedCode }),
         signal: abortControllerRef.current?.signal
       });
 
@@ -78,8 +83,9 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
       const { card } = data;
 
       if (!card.exists) {
+        console.error('[CardGate] Card not found:', normalizedCode, 'Response:', data);
         setCardState('not_found');
-        setError('Code de carte invalide');
+        setError(`Code ${normalizedCode} non reconnu`);
         return;
       }
 
