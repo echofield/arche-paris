@@ -205,6 +205,7 @@ export default function App() {
       case 'homepage':
         return (
           <HomepageV1
+            cardId={cardStatus?.cardId ?? null}
             showSilencePrompt={showSilencePrompt}
             onSilencePromptShown={() => {
               markSilencePromptShown();

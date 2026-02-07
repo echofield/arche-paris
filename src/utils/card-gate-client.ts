@@ -1,11 +1,15 @@
 /**
- * ARCHÉ — Card Gate Client (V1)
+ * ARCHÉ — Card Gate Client (V2 - Secure)
  *
- * INVARIANTS (no fallback):
+ * SECURITY (V2):
+ * - Refresh token: httpOnly cookie (server-managed, not accessible to JS)
+ * - Access token: memory only (never in localStorage)
+ * - No device_secret in client code
+ * - All requests use credentials: 'include' for cookies
+ *
+ * INVARIANTS:
  * - All journal/trace access goes through Card Gate. Never revert to direct DB.
  * - If Card Gate fails: queue locally / show offline.
- * - Token: JWT scoped per cardId, 4h; refresh silently via /validate.
- * - device_secret: 32 bytes, stored locally; only hash in DB.
  */
 
 const CARD_GATE_BASE = (() => {
@@ -13,10 +17,8 @@ const CARD_GATE_BASE = (() => {
   return projectId ? `https://${projectId}.supabase.co/functions/v1/card-gate` : '';
 })();
 
-const STORAGE_DEVICE_SECRETS = 'arche_cg_secrets';
-const STORAGE_TOKENS = 'arche_cg_tokens';
 const STORAGE_PENDING_WRITES = 'arche_cg_pending_writes';
-const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000; // refresh 5 min before expiry
+const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000; // refresh 2 min before expiry
 
 /** Max queue length; when exceeded, oldest ops are dropped (keep newest). */
 export const MAX_QUEUE_LENGTH = 200;
@@ -50,7 +52,36 @@ export class CardGateOfflineError extends Error {
   }
 }
 
-type TokenEntry = { token: string; expires_at: string };
+// ============ IN-MEMORY TOKEN STORE ============
+// Access tokens are NEVER stored in localStorage - only in memory
+interface TokenEntry {
+  accessToken: string;
+  expiresAt: number; // timestamp ms
+  cardId: string;
+}
+
+let currentToken: TokenEntry | null = null;
+
+function setMemoryToken(cardId: string, accessToken: string, expiresAt: string): void {
+  currentToken = {
+    cardId,
+    accessToken,
+    expiresAt: new Date(expiresAt).getTime(),
+  };
+}
+
+function getMemoryToken(cardId: string): string | null {
+  if (!currentToken || currentToken.cardId !== cardId) return null;
+  const now = Date.now();
+  if (currentToken.expiresAt - TOKEN_REFRESH_MARGIN_MS <= now) return null; // expired or near expiry
+  return currentToken.accessToken;
+}
+
+function clearMemoryToken(): void {
+  currentToken = null;
+}
+
+// ============ PENDING WRITES QUEUE ============
 
 export interface PendingWrite {
   cardId: string;
@@ -59,7 +90,6 @@ export interface PendingWrite {
   content: string;
   ts: number;
   idempotency_key: string;
-  /** For type 'trace' only */
   quest_id?: string;
   etape_id?: string;
 }
@@ -80,7 +110,6 @@ function setPendingQueue(queue: PendingWrite[]): void {
   queueListeners.forEach((fn) => fn());
 }
 
-/** Subscribe to queue changes (e.g. for SyncState). Returns unsubscribe. */
 export function subscribeToQueueChange(fn: () => void): () => void {
   queueListeners.add(fn);
   return () => queueListeners.delete(fn);
@@ -107,66 +136,31 @@ export function getPendingWritesCount(): number {
   return getPendingQueue().length;
 }
 
-/** Unique card IDs that have pending writes (for flush-on-online). */
 export function getPendingCardIds(): string[] {
   return [...new Set(getPendingQueue().map((w) => w.cardId))];
 }
 
-/** Treat as offline: queue write and show message. */
-function isOfflineFailure(res: Response | null, _err?: unknown): boolean {
-  if (!res) return true; // network error
+function isOfflineFailure(res: Response | null): boolean {
+  if (!res) return true;
   return res.status >= 500 || res.status === 429;
 }
 
-function getSecrets(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(STORAGE_DEVICE_SECRETS);
-    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function setSecret(cardId: string, deviceSecret: string): void {
-  const secrets = getSecrets();
-  secrets[cardId] = deviceSecret;
-  localStorage.setItem(STORAGE_DEVICE_SECRETS, JSON.stringify(secrets));
-}
-
-function getSecret(cardId: string): string | null {
-  return getSecrets()[cardId] ?? null;
-}
-
-function getTokens(): Record<string, TokenEntry> {
-  try {
-    const raw = localStorage.getItem(STORAGE_TOKENS);
-    return raw ? (JSON.parse(raw) as Record<string, TokenEntry>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function setToken(cardId: string, entry: TokenEntry): void {
-  const tokens = getTokens();
-  tokens[cardId] = entry;
-  localStorage.setItem(STORAGE_TOKENS, JSON.stringify(tokens));
-}
+// ============ AUTH FUNCTIONS ============
 
 export function getCardGateBaseUrl(): string {
   return CARD_GATE_BASE;
 }
 
 /**
- * Pair this device to the card (one-time). Call after activation (code+password).
- * Returns device_secret; stored locally. 409 = Already paired.
+ * Pair device to card. Sets httpOnly cookie on server, returns access token.
+ * Call after activation (code+password). 409 = Already paired.
  */
-const ANON_KEY = typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY ? (import.meta.env.VITE_SUPABASE_ANON_KEY as string) : '';
-
-export async function pairDevice(cardId: string): Promise<{ device_secret: string }> {
+export async function pairDevice(cardId: string): Promise<{ access_token: string; expires_at: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   const res = await fetch(`${CARD_GATE_BASE}/pair`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(ANON_KEY ? { Authorization: `Bearer ${ANON_KEY}` } : {}) },
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Important: send/receive cookies
     body: JSON.stringify({ card_id: cardId }),
   });
   const data = await res.json().catch(() => ({}));
@@ -176,42 +170,82 @@ export async function pairDevice(cardId: string): Promise<{ device_secret: strin
     throw err;
   }
   if (!res.ok) throw new Error(data?.error ?? `Pair failed: ${res.status}`);
-  if (!data?.device_secret) throw new Error('No device_secret in response');
-  setSecret(cardId, data.device_secret);
-  return { device_secret: data.device_secret };
+  if (!data?.access_token) throw new Error('No access_token in response');
+
+  // Store in memory only
+  setMemoryToken(cardId, data.access_token, data.expires_at);
+  return { access_token: data.access_token, expires_at: data.expires_at };
 }
 
 /**
- * Validate card_id + device_secret and get a short-lived JWT. Refresh via this.
+ * Refresh access token using httpOnly cookie.
+ * Returns new access token (stored in memory).
  */
-export async function validateCardAndGetToken(cardId: string): Promise<{ token: string; expires_at: string }> {
+export async function refreshAccessToken(): Promise<{ access_token: string; expires_at: string; card_id: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
-  const deviceSecret = getSecret(cardId);
-  if (!deviceSecret) throw new Error('Not paired. Call pairDevice after activation.');
+  const res = await fetch(`${CARD_GATE_BASE}/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Send cookie
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    clearMemoryToken();
+    throw new Error(data?.error ?? `Refresh failed: ${res.status}`);
+  }
+  if (!data?.access_token || !data?.card_id) throw new Error('Invalid refresh response');
+
+  setMemoryToken(data.card_id, data.access_token, data.expires_at);
+  return { access_token: data.access_token, expires_at: data.expires_at, card_id: data.card_id };
+}
+
+/**
+ * Get valid access token for cardId. Refreshes if needed.
+ */
+export async function getCardToken(cardId: string): Promise<string> {
+  // Check memory first
+  const memToken = getMemoryToken(cardId);
+  if (memToken) return memToken;
+
+  // Refresh from cookie
+  const { access_token } = await refreshAccessToken();
+  return access_token;
+}
+
+/**
+ * Check if we have a valid session (refresh cookie works).
+ * Used during app init to see if user is logged in.
+ */
+export async function checkSession(): Promise<{ valid: boolean; cardId?: string }> {
+  try {
+    const { card_id } = await refreshAccessToken();
+    return { valid: true, cardId: card_id };
+  } catch {
+    return { valid: false };
+  }
+}
+
+/**
+ * Validate with device_secret (legacy/migration support).
+ * Sets httpOnly cookie and returns access token.
+ */
+export async function validateCardAndGetToken(cardId: string, deviceSecret: string): Promise<{ access_token: string; expires_at: string }> {
+  if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   const res = await fetch(`${CARD_GATE_BASE}/validate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(ANON_KEY ? { Authorization: `Bearer ${ANON_KEY}` } : {}) },
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ card_id: cardId, device_secret: deviceSecret }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error ?? `Validate failed: ${res.status}`);
-  if (!data?.token || !data?.expires_at) throw new Error('No token in response');
-  setToken(cardId, { token: data.token, expires_at: data.expires_at });
-  return { token: data.token, expires_at: data.expires_at };
+  if (!data?.access_token) throw new Error('No access_token in response');
+
+  setMemoryToken(cardId, data.access_token, data.expires_at);
+  return { access_token: data.access_token, expires_at: data.expires_at };
 }
 
-/**
- * Get token for cardId; refresh if expired or near expiry. Use for all Gate requests.
- */
-export async function getCardToken(cardId: string): Promise<string> {
-  const tokens = getTokens();
-  const entry = tokens[cardId];
-  const now = Date.now();
-  const expiresAt = entry?.expires_at ? new Date(entry.expires_at).getTime() : 0;
-  if (entry?.token && expiresAt - TOKEN_REFRESH_MARGIN_MS > now) return entry.token;
-  const { token } = await validateCardAndGetToken(cardId);
-  return token;
-}
+// ============ GATE FETCH (with auto-refresh) ============
 
 async function gateFetch(
   cardId: string,
@@ -227,11 +261,12 @@ async function gateFetch(
       Authorization: `Bearer ${token}`,
       ...options.headers,
     },
+    credentials: 'include',
     body: options.body,
   });
 }
 
-// ---------- Journal (Card Gate only; no direct DB) ----------
+// ============ JOURNAL ============
 
 export const MY_PARIS_PLACE_ID = '__my_paris__';
 export const WALK_PLACE_ID = '__walk__';
@@ -304,7 +339,7 @@ export async function appendJournalEntry(cardId: string, placeId: string, conten
   }
 }
 
-// ---------- Traces (Card Gate only) ----------
+// ============ TRACES ============
 
 export interface GateTrace {
   content: string;
@@ -331,7 +366,6 @@ export interface LeaveTraceResult {
   error?: string;
 }
 
-/** One idempotency key per (quest, etape) so retries don't duplicate. */
 export function traceIdempotencyKey(questId: string, etapeId: string): string {
   return `trace:${questId}:${etapeId}`;
 }
@@ -396,10 +430,8 @@ export async function hasLeftTrace(cardId: string, questId: string, etapeId: str
   return (data?.has_left as boolean) ?? false;
 }
 
-/**
- * Flush pending writes (journal + trace) for a card. Call when back online (e.g. focus/retry).
- * Uses stored idempotency_key so server dedupes. Returns number of items successfully sent.
- */
+// ============ FLUSH PENDING ============
+
 export async function flushPendingWrites(cardId: string): Promise<number> {
   const queue = getPendingQueue().filter((w) => w.cardId === cardId);
   if (queue.length === 0) return 0;
@@ -431,7 +463,7 @@ export async function flushPendingWrites(cardId: string): Promise<number> {
           }),
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok || (res.status === 400 && (data?.error === 'ALREADY_LEFT_TRACE'))) {
+        if (res.ok || (res.status === 400 && data?.error === 'ALREADY_LEFT_TRACE')) {
           sent++;
           continue;
         }
@@ -450,7 +482,7 @@ export async function flushPendingWrites(cardId: string): Promise<number> {
         }
       }
     } catch (_e) {
-      // keep in queue for next flush
+      // keep in queue
     }
     remaining.push(item);
   }
@@ -458,82 +490,65 @@ export async function flushPendingWrites(cardId: string): Promise<number> {
   return sent;
 }
 
+// ============ LOGOUT / UNPAIR ============
+
 /**
- * Clear stored device secret and token for a card (e.g. logout / testing).
+ * Clear memory token (logout from this session).
  */
-export function clearCardGateStorage(cardId: string): void {
-  const secrets = getSecrets();
-  delete secrets[cardId];
-  localStorage.setItem(STORAGE_DEVICE_SECRETS, JSON.stringify(secrets));
-  const tokens = getTokens();
-  delete tokens[cardId];
-  localStorage.setItem(STORAGE_TOKENS, JSON.stringify(tokens));
+export function clearCardGateStorage(_cardId: string): void {
+  clearMemoryToken();
+  // Note: httpOnly cookie cannot be cleared by JS - server clears it on unpair
 }
 
 /**
- * Unpair device from card. Uses device_secret (no JWT needed, as JWT may be expired).
- * Clears DB hash and local storage. After this, card can be re-paired.
+ * Unpair device. Calls /unpair-session with credentials (cookie); server clears device_secret_hash and cookie.
  */
 export async function unpairDevice(cardId: string): Promise<{ ok: boolean; message?: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
-  const deviceSecret = getSecret(cardId);
-  if (!deviceSecret) {
-    // Not paired locally; just clear storage and return success
-    clearCardGateStorage(cardId);
-    return { ok: true, message: 'Not paired (no local secret)' };
-  }
   try {
-    const res = await fetch(`${CARD_GATE_BASE}/unpair`, {
+    const res = await fetch(`${CARD_GATE_BASE}/unpair-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(ANON_KEY ? { Authorization: `Bearer ${ANON_KEY}` } : {}) },
-      body: JSON.stringify({ card_id: cardId, device_secret: deviceSecret }),
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      // If 401 (invalid secret), still clear local storage to allow re-pair
-      if (res.status === 401) {
-        clearCardGateStorage(cardId);
-        return { ok: true, message: 'Unpaired (local only; server secret mismatch)' };
-      }
-      throw new Error(data?.error ?? `Unpair failed: ${res.status}`);
-    }
-    // Success: clear local storage
-    clearCardGateStorage(cardId);
-    return { ok: true, message: data?.message ?? 'Device unpaired successfully' };
-  } catch (err) {
-    // Network error: still clear local storage so user can re-pair
-    clearCardGateStorage(cardId);
-    return { ok: true, message: 'Unpaired locally (network error, server state unknown)' };
+    clearMemoryToken();
+    if (res.ok) return { ok: true, message: data?.message ?? 'Device unpaired' };
+    return { ok: true, message: data?.error ?? 'Session cleared' };
+  } catch {
+    clearMemoryToken();
+    return { ok: true, message: 'Logged out locally' };
   }
 }
 
 /**
- * Check if we have a local device secret for this card.
+ * Check if we have a valid session.
+ * In V2, this checks if the refresh cookie works.
  */
-export function hasLocalSecret(cardId: string): boolean {
-  return getSecret(cardId) !== null;
+export function hasLocalSecret(_cardId: string): boolean {
+  // In V2, we don't have local secrets - check memory token
+  return currentToken !== null;
 }
 
 /**
- * Force-unpair device using password (when no local device_secret available).
- * Use this when ALREADY_PAIRED but no local secret (e.g., cleared browser data).
+ * Force-unpair using password. Clears server state and cookie.
  */
 export async function forceUnpairDevice(cardId: string, password: string): Promise<{ ok: boolean; message?: string }> {
   if (!CARD_GATE_BASE) throw new Error('Card Gate URL not configured');
   try {
     const res = await fetch(`${CARD_GATE_BASE}/force-unpair`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(ANON_KEY ? { Authorization: `Bearer ${ANON_KEY}` } : {}) },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ card_id: cardId, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       return { ok: false, message: data?.error ?? `Force unpair failed: ${res.status}` };
     }
-    // Success: clear local storage
-    clearCardGateStorage(cardId);
+    clearMemoryToken();
     return { ok: true, message: data?.message ?? 'Device force-unpaired successfully' };
-  } catch (err) {
+  } catch {
     return { ok: false, message: 'Network error during force-unpair' };
   }
 }

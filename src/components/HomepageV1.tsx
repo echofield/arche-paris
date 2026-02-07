@@ -7,6 +7,8 @@ import { getTodaySummary } from '../utils/walk-service';
 const MAP_STROKE_OPACITY = 0.5;
 
 interface HomepageV1Props {
+  /** When set, show quiet card id (e.g. PS-0001) in identity zone — engraved, no label */
+  cardId?: string | null;
   showSilencePrompt?: boolean;
   onSilencePromptShown?: () => void;
   onEnterQuetes: () => void;
@@ -22,6 +24,7 @@ interface HomepageV1Props {
 }
 
 export function HomepageV1({
+  cardId,
   showSilencePrompt,
   onSilencePromptShown,
   onEnterQuetes,
@@ -44,16 +47,40 @@ export function HomepageV1({
       className="min-h-screen relative flex flex-col items-center justify-center"
       style={{
         background: '#FAF8F2',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        paddingTop: 'max(24px, env(safe-area-inset-top, 0px))',
+        paddingBottom: 'max(32px, env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'max(20px, env(safe-area-inset-left, 0px))',
+        paddingRight: 'max(20px, env(safe-area-inset-right, 0px))'
       }}
     >
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
 
+      {cardId && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 'max(20px, env(safe-area-inset-left, 0px))',
+            top: 'max(24px, env(safe-area-inset-top, 0px))',
+            zIndex: 100,
+            fontFamily: 'var(--font-sans)',
+            fontSize: '10px',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.35
+          }}
+        >
+          {cardId}
+        </div>
+      )}
+
       <nav
+        className="homepage-nav"
         style={{
           position: 'absolute',
-          top: '24px',
-          right: '32px',
+          top: 'max(24px, env(safe-area-inset-top, 0px))',
+          right: 'max(20px, env(safe-area-inset-right, 0px))',
           display: 'flex',
           gap: '32px',
           zIndex: 100
@@ -206,6 +233,7 @@ export function HomepageV1({
           justifyContent: 'center',
           textAlign: 'center',
           padding: '24px',
+          paddingBottom: 'max(48px, calc(env(safe-area-inset-bottom, 0px) + 24px))',
           zIndex: 10
         }}
       >

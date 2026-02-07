@@ -4,18 +4,18 @@
  * INVARIANTS:
  * - Activation requires non-enumerable proof (code+password via activate-card Edge Function).
  *   activate_card must never succeed with card_id alone. Pairing assumes this.
- * - After activation/login (CardGate onAuthenticated): pairDevice then validateCardAndGetToken.
+ * - After activation/login (CardGate onAuthenticated): pairDevice then getCardToken (token in memory).
  * - No direct DB for journal/traces; all via Card Gate. No fallback to direct DB.
  */
 
 import {
   pairDevice,
-  validateCardAndGetToken,
   getCardToken,
   clearCardGateStorage,
   unpairDevice,
   hasLocalSecret,
   forceUnpairDevice,
+  checkSession,
 } from './card-gate-client';
 
 export interface CardStatus {
@@ -102,8 +102,16 @@ export async function initializeCard(): Promise<CardStatus | null> {
     };
   }
 
-  const storedCard = getStoredCard();
-  if (!storedCard) return null;
+  let storedCard = getStoredCard();
+  if (!storedCard) {
+    const session = await checkSession();
+    if (session.valid && session.cardId) {
+      setStoredCard(session.cardId);
+      storedCard = session.cardId;
+    } else {
+      return null;
+    }
+  }
 
   if (storedCard.startsWith('DEMO')) {
     return {
@@ -166,6 +174,6 @@ export async function afterCardGateAuthenticated(cardData: {
       throw e;
     }
   }
-  await validateCardAndGetToken(cardId);
+  await getCardToken(cardId);
   setStoredCard(cardId);
 }

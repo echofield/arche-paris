@@ -27,6 +27,7 @@ import { CompanionBlock } from './CompanionBlock';
 import { useTranslation } from '../utils/i18n';
 import { getRefusedArrondissements, isRefused, setRefused } from '../utils/refused-arrondissements';
 import { getMapState, postInscription } from '../utils/card-gate-map-client';
+import { hasLocalSecret } from '../utils/card-gate-client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, EngravedSegment } from '../types/map-engraving';
@@ -129,10 +130,12 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const unvisitedRefused = unvisitedArrondissements.filter((arr) => refusedList.includes(arr));
 
   useEffect(() => {
+    if (!hasLocalSecret(cardId)) return;
     loadMyParisNote(cardId).then(setNote);
   }, [cardId]);
 
   useEffect(() => {
+    if (!hasLocalSecret(cardId)) return;
     setMapStateError(null);
     getMapState(cardId)
       .then((state) => {

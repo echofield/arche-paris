@@ -49,10 +49,27 @@ app.use(
     origin: (o) => (o && isOriginAllowed(o) ? o : null),
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // Allow cookies
   })
 );
 
-const JWT_EXPIRY_HOURS = 4;
+const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
+const REFRESH_TOKEN_EXPIRY_DAYS = 30;
+
+// Cookie settings for refresh token
+function getRefreshCookieOptions(origin: string | undefined): string {
+  const isLocalhost = origin?.includes("localhost") || origin?.includes("127.0.0.1");
+  const secure = !isLocalhost;
+  const sameSite = "Lax";
+  const maxAge = REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60;
+  return `HttpOnly; ${secure ? "Secure; " : ""}SameSite=${sameSite}; Max-Age=${maxAge}; Path=/`;
+}
+
+function clearRefreshCookie(origin: string | undefined): string {
+  const isLocalhost = origin?.includes("localhost") || origin?.includes("127.0.0.1");
+  const secure = !isLocalhost;
+  return `HttpOnly; ${secure ? "Secure; " : ""}SameSite=Lax; Max-Age=0; Path=/`;
+}
 
 function getSupabase() {
   return createClient(
@@ -101,16 +118,33 @@ function constantTimeCompare(a: string, b: string): boolean {
   return out === 0;
 }
 
-async function signToken(cardId: string): Promise<string> {
+async function signAccessToken(cardId: string): Promise<string> {
   const secret = Deno.env.get("CARD_GATE_JWT_SECRET");
   if (!secret) throw new Error("CARD_GATE_JWT_SECRET not set");
   const key = new TextEncoder().encode(secret);
-  const exp = new Date(Date.now() + JWT_EXPIRY_HOURS * 60 * 60 * 1000);
-  return await new SignJWT({ card_id: cardId })
+  const exp = new Date(Date.now() + ACCESS_TOKEN_EXPIRY_MINUTES * 60 * 1000);
+  return await new SignJWT({ card_id: cardId, type: "access" })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuedAt()
     .setExpirationTime(exp)
     .sign(key);
+}
+
+// Parse refresh cookie: "card_id:device_secret_b64"
+function parseRefreshCookie(cookieHeader: string | undefined): { cardId: string; deviceSecret: string } | null {
+  if (!cookieHeader) return null;
+  const cookies = cookieHeader.split(";").map((c) => c.trim());
+  const refreshCookie = cookies.find((c) => c.startsWith("arche_refresh="));
+  if (!refreshCookie) return null;
+  const value = refreshCookie.split("=")[1];
+  if (!value) return null;
+  const decoded = decodeURIComponent(value);
+  const sepIndex = decoded.indexOf(":");
+  if (sepIndex === -1) return null;
+  const cardId = decoded.slice(0, sepIndex);
+  const deviceSecret = decoded.slice(sepIndex + 1);
+  if (!cardId || !deviceSecret) return null;
+  return { cardId, deviceSecret };
 }
 
 async function verifyToken(token: string): Promise<{ card_id: string } | null> {
@@ -205,8 +239,24 @@ app.post("/pair", async (c) => {
     return c.json({ error: "Pairing failed" }, 500);
   }
 
+  // Set refresh cookie (httpOnly) and return access token
   const deviceSecretB64 = b64urlEncode(deviceSecret);
-  return c.json({ device_secret: deviceSecretB64 });
+  const origin = c.req.header("Origin");
+  const cookieValue = encodeURIComponent(`${cardId}:${deviceSecretB64}`);
+  const accessToken = await signAccessToken(cardId);
+  const expiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  return new Response(JSON.stringify({
+    ok: true,
+    access_token: accessToken,
+    expires_at: expiresAt
+  }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `arche_refresh=${cookieValue}; ${getRefreshCookieOptions(origin)}`,
+    },
+  });
 });
 
 // ----- /validate -----
@@ -259,9 +309,168 @@ app.post("/validate", async (c) => {
     return c.json({ error: "Invalid device_secret" }, 401);
   }
 
-  const token = await signToken(cardId);
-  const exp = new Date(Date.now() + JWT_EXPIRY_HOURS * 60 * 60 * 1000);
-  return c.json({ token, expires_at: exp.toISOString() });
+  // Set refresh cookie and return access token
+  const origin = c.req.header("Origin");
+  const cookieValue = encodeURIComponent(`${cardId}:${deviceSecretB64}`);
+  const accessToken = await signAccessToken(cardId);
+  const expiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  return new Response(JSON.stringify({
+    access_token: accessToken,
+    expires_at: expiresAt
+  }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `arche_refresh=${cookieValue}; ${getRefreshCookieOptions(origin)}`,
+    },
+  });
+});
+
+// ----- /refresh -----
+// Reads refresh token from httpOnly cookie, validates, returns new access token
+app.post("/refresh", async (c) => {
+  const supabase = getSupabase();
+  const ip = getClientIp(c);
+
+  // Parse refresh cookie
+  const cookieHeader = c.req.header("Cookie");
+  const parsed = parseRefreshCookie(cookieHeader);
+  if (!parsed) {
+    return c.json({ error: "No valid refresh token" }, 401);
+  }
+
+  const { cardId, deviceSecret: deviceSecretB64 } = parsed;
+
+  // Rate limiting
+  const rateKeyCard = `refresh:${cardId}`;
+  const rateKeyIp = `refresh_ip:${ip}`;
+  if (!(await dbRateLimit(supabase, rateKeyCard, 60, 3600))) {
+    return c.json({ error: "Too many refresh attempts for this card." }, 429);
+  }
+  if (!(await dbRateLimit(supabase, rateKeyIp, 200, 3600))) {
+    return c.json({ error: "Too many requests from this device." }, 429);
+  }
+
+  // Validate device secret
+  let deviceSecret: Uint8Array;
+  try {
+    deviceSecret = b64urlDecode(deviceSecretB64);
+  } catch {
+    return c.json({ error: "Invalid refresh token" }, 401);
+  }
+  if (deviceSecret.length !== 32) {
+    return c.json({ error: "Invalid refresh token" }, 401);
+  }
+
+  const { data: card, error: fetchError } = await supabase
+    .from("cards")
+    .select("id, device_secret_hash")
+    .eq("id", cardId)
+    .single();
+
+  if (fetchError || !card?.device_secret_hash) {
+    return c.json({ error: "Invalid card or not paired" }, 401);
+  }
+
+  const providedHash = await sha256Hex(deviceSecret);
+  if (!constantTimeCompare(providedHash, card.device_secret_hash)) {
+    return c.json({ error: "Invalid refresh token" }, 401);
+  }
+
+  // Return new access token
+  const accessToken = await signAccessToken(cardId);
+  const expiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  return c.json({
+    access_token: accessToken,
+    expires_at: expiresAt,
+    card_id: cardId
+  });
+});
+
+// ----- /unpair-session -----
+// Cookie-only unpair: verify refresh cookie -> clear device_secret_hash -> clear cookie. No body.
+app.post("/unpair-session", async (c) => {
+  const supabase = getSupabase();
+  const ip = getClientIp(c);
+
+  const cookieHeader = c.req.header("Cookie");
+  const parsed = parseRefreshCookie(cookieHeader);
+  if (!parsed) {
+    const origin = c.req.header("Origin");
+    return new Response(JSON.stringify({ ok: true, message: "No session" }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
+      },
+    });
+  }
+
+  const { cardId, deviceSecret: deviceSecretB64 } = parsed;
+
+  const rateKeyCard = `unpair_session:${cardId}`;
+  const rateKeyIp = `unpair_session_ip:${ip}`;
+  if (!(await dbRateLimit(supabase, rateKeyCard, 10, 3600))) {
+    return c.json({ error: "Too many unpair attempts for this card." }, 429);
+  }
+  if (!(await dbRateLimit(supabase, rateKeyIp, 30, 3600))) {
+    return c.json({ error: "Too many requests from this device." }, 429);
+  }
+
+  let deviceSecret: Uint8Array;
+  try {
+    deviceSecret = b64urlDecode(deviceSecretB64);
+  } catch {
+    return c.json({ error: "Invalid refresh token" }, 401);
+  }
+  if (deviceSecret.length !== 32) {
+    return c.json({ error: "Invalid refresh token" }, 401);
+  }
+
+  const { data: card, error: fetchError } = await supabase
+    .from("cards")
+    .select("id, device_secret_hash")
+    .eq("id", cardId)
+    .single();
+
+  if (fetchError || !card?.device_secret_hash) {
+    const origin = c.req.header("Origin");
+    return new Response(JSON.stringify({ ok: true, message: "Not paired" }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
+      },
+    });
+  }
+
+  const providedHash = await sha256Hex(deviceSecret);
+  if (!constantTimeCompare(providedHash, card.device_secret_hash)) {
+    return c.json({ error: "Invalid refresh token" }, 401);
+  }
+
+  const { error: updateError } = await supabase
+    .from("cards")
+    .update({ device_secret_hash: null })
+    .eq("id", cardId);
+
+  if (updateError) {
+    console.error("[card-gate] unpair-session update error:", updateError);
+    return c.json({ error: "Unpair failed" }, 500);
+  }
+
+  await supabase.from("rate_limits").delete().eq("key", `pair:${cardId}`);
+
+  const origin = c.req.header("Origin");
+  return new Response(JSON.stringify({ ok: true, message: "Device unpaired successfully" }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
+    },
+  });
 });
 
 // ----- /unpair -----
@@ -330,7 +539,15 @@ app.post("/unpair", async (c) => {
   // Also clear any rate limit for pairing so user can re-pair immediately
   await supabase.from("rate_limits").delete().eq("key", `pair:${cardId}`);
 
-  return c.json({ ok: true, message: "Device unpaired successfully" });
+  // Clear the refresh cookie
+  const origin = c.req.header("Origin");
+  return new Response(JSON.stringify({ ok: true, message: "Device unpaired successfully" }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
+    },
+  });
 });
 
 // ----- /force-unpair -----
@@ -401,8 +618,16 @@ app.post("/force-unpair", async (c) => {
   // Clear rate limits for pairing so user can re-pair immediately
   await supabase.from("rate_limits").delete().eq("key", `pair:${cardId}`);
 
+  // Clear the refresh cookie
+  const origin = c.req.header("Origin");
   console.log(`[card-gate] force-unpair successful for card: ${cardId}`);
-  return c.json({ ok: true, message: "Device force-unpaired successfully" });
+  return new Response(JSON.stringify({ ok: true, message: "Device force-unpaired successfully" }), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
+    },
+  });
 });
 
 // ----- Helper: require JWT -----
