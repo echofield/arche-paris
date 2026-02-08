@@ -50,6 +50,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -99,6 +100,7 @@ export function HistoireArchives({ onBack }: HistoireProps) {
       setIsPlaying(false);
       setPlayingIndex(null);
     } else {
+      setAudioError(null);
       // Stop any existing audio
       if (audioRef.current) {
         audioRef.current.pause();
@@ -114,13 +116,13 @@ export function HistoireArchives({ onBack }: HistoireProps) {
       };
       
       audio.onerror = () => {
-        console.log('Audio file not found (placeholder)');
+        setAudioError('Ce son n’est pas encore disponible.');
         setIsPlaying(false);
         setPlayingIndex(null);
       };
-      
+
       audio.play().catch(() => {
-        // Silently handle play errors (placeholder files)
+        setAudioError('Ce son n’est pas encore disponible.');
         setIsPlaying(false);
         setPlayingIndex(null);
       });
@@ -490,6 +492,24 @@ export function HistoireArchives({ onBack }: HistoireProps) {
             }}
           />
         </button>
+      )}
+      {audioError && (
+        <p
+          style={{
+            position: 'fixed',
+            bottom: 'calc(var(--space-xl) + 100px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            margin: 0,
+            fontSize: '12px',
+            color: 'var(--ink-muted, #666)',
+            maxWidth: '80%',
+            textAlign: 'center',
+            zIndex: 100
+          }}
+        >
+          {audioError}
+        </p>
       )}
 
       {/* Bottom hint (very subtle) */}

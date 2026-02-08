@@ -256,11 +256,21 @@ export default function App() {
       } else if (hash === 'etudes') {
         setCurrentScreen('etudes');
       } else if (hash.startsWith('quete/')) {
-        setSelectedQueteId(hash.split('/')[1]);
-        setCurrentScreen('detail');
+        const queteId = hash.split('/')[1]?.trim();
+        if (queteId) {
+          setSelectedQueteId(queteId);
+          setCurrentScreen('detail');
+        } else {
+          setCurrentScreen('quetes');
+        }
       } else if (hash.startsWith('quest-run/')) {
-        setQuestRunId(hash.slice('quest-run/'.length) || null);
-        setCurrentScreen('questRun');
+        const runId = hash.slice('quest-run/'.length).trim() || null;
+        if (runId) {
+          setQuestRunId(runId);
+          setCurrentScreen('questRun');
+        } else {
+          setCurrentScreen('quetes');
+        }
       } else if (hash === 'aura') {
         setCurrentScreen('aura');
       } else if (hash === 'meridiens') {
