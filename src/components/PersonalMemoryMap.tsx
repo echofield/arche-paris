@@ -98,6 +98,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [ecrireDraft, setEcrireDraft] = useState('');
   const [ecrireSaving, setEcrireSaving] = useState(false);
   const [ecrireError, setEcrireError] = useState<string | null>(null);
+  const [ecrireOptInField, setEcrireOptInField] = useState(false); // Share to Le Champ
 
   const collection = getCollection();
   const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
@@ -826,6 +827,35 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
                 {wordCount(ecrireDraft)} / 80–120
               </div>
+              
+              {/* Opt-in to Le Champ */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  color: '#003D2C',
+                  opacity: 0.6,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={ecrireOptInField}
+                  onChange={(e) => setEcrireOptInField(e.target.checked)}
+                  style={{
+                    width: 14,
+                    height: 14,
+                    cursor: 'pointer',
+                    accentColor: '#003D2C',
+                  }}
+                />
+                <span>Partager au Champ</span>
+              </label>
+              
               {ecrireError && (
                 <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#8B0000' }}>{ecrireError}</p>
               )}
@@ -851,10 +881,12 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                       kind: 'arrondissement',
                       arrondissement: ecrireSheetArr,
                       text,
-                      idempotency_key: `arr-${ecrireSheetArr}-${Date.now()}`
+                      idempotency_key: `arr-${ecrireSheetArr}-${Date.now()}`,
+                      opt_in_field: ecrireOptInField
                     });
                     refreshMapState();
                     setEcrireDraft('');
+                    setEcrireOptInField(false); // Reset checkbox
                     bump('presence');
                     emitEngraveEvent('inscription');
                   } catch (err) {

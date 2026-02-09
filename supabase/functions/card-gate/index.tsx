@@ -1349,7 +1349,7 @@ app.post("/inscriptions", async (c) => {
   if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
     return c.json({ error: "Too many requests" }, 429);
   }
-  let body: { kind?: string; arrondissement?: number; anchor_id?: string; text?: string; idempotency_key?: string };
+  let body: { kind?: string; arrondissement?: number; anchor_id?: string; text?: string; idempotency_key?: string; opt_in_field?: boolean };
   try {
     body = await c.req.json();
   } catch {
@@ -1376,6 +1376,7 @@ app.post("/inscriptions", async (c) => {
     arrondissement: typeof body?.arrondissement === "number" ? body.arrondissement : null,
     anchor_id: typeof body?.anchor_id === "string" ? body.anchor_id : null,
     text,
+    opt_in_field: typeof body?.opt_in_field === "boolean" ? body.opt_in_field : false,
     created_at: now,
   };
   if (typeof body?.idempotency_key === "string" && body.idempotency_key.length > 0) {

@@ -30,6 +30,7 @@ export interface PostInscriptionPayload {
   anchor_id?: string;
   text: string;
   idempotency_key?: string;
+  opt_in_field?: boolean; // Share to Le Champ (collective, anonymous)
 }
 
 export async function postInscription(cardId: string, payload: PostInscriptionPayload): Promise<{ ok: boolean; id?: string; created_at?: string }> {
