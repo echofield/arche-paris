@@ -462,9 +462,9 @@ export function HomepageV1({
         </p>
 
         {/* Miroir: Daily sentence */}
-        {cardId && (
+        {_cardId && (
           <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
+            <MiroirSurface cardId={_cardId} onOpenKept={onOpenKept} />
           </div>
         )}
       </div>
