@@ -83,9 +83,7 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-app.options("*", (c) => {
-  return new Response(null, { status: 204, headers: getCorsHeaders(c) });
-});
+// OPTIONS requests are handled by Deno.serve wrapper to ensure proper CORS
 
 const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
@@ -2000,13 +1998,20 @@ function corsHeadersFromRequest(req: Request): Record<string, string> {
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin") ?? undefined;
   
-  // Handle preflight OPTIONS requests
+  // Handle preflight OPTIONS requests FIRST - before Hono can interfere
   if (req.method === "OPTIONS") {
-    const headers = corsHeadersFromRequest(req);
-    // Ensure we never have '*' in the response
-    if (headers["Access-Control-Allow-Origin"] === "*") {
-      delete headers["Access-Control-Allow-Origin"];
+    const headers: Record<string, string> = {
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+    };
+    
+    // CRITICAL: Only set specific origin if allowed (NEVER '*')
+    if (origin && isOriginAllowed(origin)) {
+      headers["Access-Control-Allow-Origin"] = origin;
     }
+    // If origin not allowed, don't set Access-Control-Allow-Origin at all
+    
     return new Response(null, { status: 204, headers });
   }
   
