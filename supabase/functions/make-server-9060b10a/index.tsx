@@ -34,10 +34,12 @@ app.use("*", async (c, next) => {
   await next();
 });
 
+// CORS middleware: explicitly set origin (never '*') to avoid conflicts
 app.use("*", cors({
   origin: (o) => (o && isOriginAllowed(o) ? o : null),
   allowMethods: ["GET", "POST", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
+  credentials: false, // This endpoint doesn't use cookies
 }));
 
 function getSupabase() {
@@ -238,4 +240,19 @@ app.post("/login-card", async (c) => {
   }
 });
 
-Deno.serve(app.fetch);
+// Wrap to ensure CORS headers are always explicit (never '*')
+Deno.serve(async (req: Request) => {
+  const res = await app.fetch(req);
+  const origin = req.headers.get("Origin");
+  const nh = new Headers(res.headers);
+  
+  // Remove any wildcard that might have been set
+  nh.delete("Access-Control-Allow-Origin");
+  
+  // Only set specific origin if allowed (never '*')
+  if (origin && isOriginAllowed(origin)) {
+    nh.set("Access-Control-Allow-Origin", origin);
+  }
+  
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
+});
