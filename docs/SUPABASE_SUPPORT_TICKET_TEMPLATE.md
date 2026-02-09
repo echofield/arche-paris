@@ -30,6 +30,31 @@ the wildcard '*' when the request's credentials mode is 'include'.
 
 ## Evidence
 
+### Browser Console Test (CONFIRMED)
+**Test Date**: 2026-02-09
+**Browser**: Chrome/Edge DevTools Console
+
+**Test Code Executed**:
+```javascript
+fetch('https://qvyrpzgxsppkwfvqvgcn.supabase.co/functions/v1/card-gate/refresh', {
+  method: 'OPTIONS',
+  headers: {
+    'Origin': 'https://www.xn--arch-paris-e7a.com',
+    'Access-Control-Request-Method': 'POST',
+    'Access-Control-Request-Headers': 'content-type, authorization'
+  },
+  credentials: 'include'
+})
+```
+
+**Browser Error Message**:
+```
+Cross-Origin Request Blocked: 
+Reason: Credential is not supported if the CORS header 'Access-Control-Allow-Origin' is '*'
+```
+
+**Conclusion**: Browser explicitly confirms it received `Access-Control-Allow-Origin: *` (wildcard)
+
 ### Function Code Verification
 ✅ **Code Review Complete**: Confirmed no code path sets wildcard `*`
 - OPTIONS handler (lines 2002-2025) only sets specific origin when allowed
@@ -38,9 +63,9 @@ the wildcard '*' when the request's credentials mode is 'include'.
 - See `docs/CORS_CODE_REVIEW.md` for full analysis
 
 ### Function Logs
-**Invocation Timestamp**: `[PASTE TIMESTAMP HERE]`
+**Check**: Supabase Dashboard → Functions → card-gate → Logs
 
-**Log Output**:
+**Expected Log Output** (if function is working correctly):
 ```
 [card-gate] OPTIONS preflight - Allowed origin: https://www.xn--arch-paris-e7a.com
 [card-gate] OPTIONS response headers: {
@@ -52,23 +77,14 @@ the wildcard '*' when the request's credentials mode is 'include'.
 }
 ```
 
-**Observation**: Function logs show correct specific origin, but actual response contains wildcard.
+**If logs show specific origin but browser receives wildcard**: Infrastructure override confirmed.
 
 ### Actual Response Headers
-**From curl test or Invocations tab**:
-
-```http
-HTTP/1.1 204 No Content
-Access-Control-Allow-Origin: *  ← PROBLEM: Should be specific origin
-Access-Control-Allow-Credentials: true
-Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With
-Access-Control-Max-Age: 600
-```
-
-**OR from Supabase Dashboard → Functions → card-gate → Invocations:**
+**From Supabase Dashboard → Functions → card-gate → Invocations:**
 
 [PASTE INVOCATION RESPONSE HEADERS HERE]
+
+**Expected**: If Invocations show `Access-Control-Allow-Origin: *` but logs show specific origin, this confirms platform override.
 
 ## Requested Origin
 - **Origin**: `https://www.xn--arch-paris-e7a.com`
