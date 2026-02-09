@@ -18,6 +18,7 @@ interface AuraPageProps {
   onBack: () => void;
   cardId?: string | null;
   onOpenKept?: () => void;
+  onEnterChamp?: () => void;
 }
 
 /** Opacity by companion level (0=Quiet → 3=Bright). No animation. */
@@ -25,7 +26,7 @@ function glyphOpacity(level: 0 | 1 | 2 | 3): number {
   return 0.4 + level * 0.2; // 0.4, 0.6, 0.8, 1.0
 }
 
-export function AuraPage({ onBack, cardId, onOpenKept }: AuraPageProps) {
+export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageProps) {
   const [sealOpen, setSealOpen] = useState(false);
   const [sealContent, setSealContent] = useState('');
   const [sealSaved, setSealSaved] = useState(false);
@@ -103,25 +104,48 @@ export function AuraPage({ onBack, cardId, onOpenKept }: AuraPageProps) {
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
 
       {/* Optional: Graver un moment */}
-      <button
-        type="button"
-        onClick={() => setSealOpen(true)}
-        style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: 11,
-          letterSpacing: '0.08em',
-          color: '#003D2C',
-          opacity: 0.5,
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          padding: '8px 16px',
-          textDecoration: 'underline',
-          textUnderlineOffset: 2
-        }}
-      >
-        Graver un moment
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={() => setSealOpen(true)}
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            color: '#003D2C',
+            opacity: 0.5,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '8px 16px',
+            textDecoration: 'underline',
+            textUnderlineOffset: 2
+          }}
+        >
+          Graver un moment
+        </button>
+        {onEnterChamp && (
+          <button
+            type="button"
+            onClick={onEnterChamp}
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              color: '#003D2C',
+              opacity: 0.4,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px 12px',
+              textDecoration: 'underline',
+              textUnderlineOffset: 2
+            }}
+          >
+            Le Champ
+          </button>
+        )}
+      </div>
 
       {/* Seal modal — same logic as former Fade panel; optional, discreet */}
       {sealOpen && (

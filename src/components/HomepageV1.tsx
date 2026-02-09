@@ -3,7 +3,6 @@ import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 import { useIsMobile } from './ui/use-mobile';
-import { MiroirSurface } from './MiroirSurface';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.5;
@@ -454,19 +453,11 @@ export function HomepageV1({
             fontStyle: 'italic',
             color: '#1A1A1A',
             opacity: 0.6,
-            lineHeight: 1.5,
-            marginBottom: '32px'
+            lineHeight: 1.5
           }}
         >
           {t('home.sentence')}
         </p>
-
-        {/* Miroir: Daily sentence */}
-        {_cardId && (
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <MiroirSurface cardId={_cardId} onOpenKept={onOpenKept} />
-          </div>
-        )}
       </div>
 
       <button

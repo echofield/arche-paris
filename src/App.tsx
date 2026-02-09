@@ -381,6 +381,7 @@ export default function App() {
             onBack={() => navigateTo('homepage')}
             cardId={cardStatus?.cardId ?? null}
             onOpenKept={() => navigateTo('kept')}
+            onEnterChamp={() => navigateTo('champ')}
           />
         );
       case 'kept':
