@@ -18,6 +18,7 @@ import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
 import { ChampScreen } from './components/ChampScreen';
+import { KeptSentences } from './components/KeptSentences';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -27,7 +28,7 @@ import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -278,6 +279,8 @@ export default function App() {
         setCurrentScreen('meridiens');
       } else if (hash === 'champ') {
         setCurrentScreen('champ');
+      } else if (hash === 'kept') {
+        setCurrentScreen('kept');
       } else {
         setCurrentScreen('homepage');
       }
@@ -316,7 +319,9 @@ export default function App() {
             onEnterCarnet={() => navigateTo('carnet')}
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
+            onEnterChamp={() => navigateTo('champ')}
             onEnterSeuil={() => navigateTo('seuil')}
+            onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
             onEnterMeridiens={() => navigateTo('meridiens')}
             onDisconnect={handleDisconnect}
@@ -387,6 +392,13 @@ export default function App() {
       case 'champ':
         return (
           <ChampScreen
+            cardId={cardStatus?.cardId || 'unknown'}
+            onBack={() => navigateTo('homepage')}
+          />
+        );
+      case 'kept':
+        return (
+          <KeptSentences
             cardId={cardStatus?.cardId || 'unknown'}
             onBack={() => navigateTo('homepage')}
           />

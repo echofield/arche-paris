@@ -3,6 +3,7 @@ import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 import { useIsMobile } from './ui/use-mobile';
+import { MiroirSurface } from './MiroirSurface';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.5;
@@ -18,7 +19,9 @@ interface HomepageV1Props {
   onEnterCarnet?: () => void;
   onEnterHunter?: () => void;
   onEnterCollection?: () => void;
+  onEnterChamp?: () => void;
   onEnterSeuil?: () => void;
+  onOpenKept?: () => void;
   onEnterMeridiens?: () => void;
   /** Déconnecter la carte sur cet appareil (pour utiliser la même carte sur un autre, ex. téléphone) */
   onDisconnect?: () => void;
@@ -33,9 +36,11 @@ export function HomepageV1({
   onEnterCarnet,
   onEnterHunter,
   onEnterCollection,
+  onEnterChamp,
   onEnterSeuil,
   onEnterMeridiens,
-  onDisconnect
+  onDisconnect,
+  onOpenKept
 }: HomepageV1Props) {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -371,7 +376,13 @@ export function HomepageV1({
 
         <div
           className="homepage-map-wrap"
-          onClick={onEnterCollection}
+          onClick={() => {
+            if (onEnterChamp) {
+              onEnterChamp();
+            } else if (onEnterCollection) {
+              onEnterCollection();
+            }
+          }}
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
@@ -410,7 +421,13 @@ export function HomepageV1({
 
         <button
           className="homepage-cta"
-          onClick={onEnterCollection}
+          onClick={() => {
+            if (onEnterChamp) {
+              onEnterChamp();
+            } else if (onEnterCollection) {
+              onEnterCollection();
+            }
+          }}
           style={{
             background: 'transparent',
             border: 'none',
@@ -437,11 +454,19 @@ export function HomepageV1({
             fontStyle: 'italic',
             color: '#1A1A1A',
             opacity: 0.6,
-            lineHeight: 1.5
+            lineHeight: 1.5,
+            marginBottom: '32px'
           }}
         >
           {t('home.sentence')}
         </p>
+
+        {/* Miroir: Daily sentence */}
+        {cardId && (
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
+          </div>
+        )}
       </div>
 
       <button

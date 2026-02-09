@@ -1263,6 +1263,341 @@ app.get("/map-state", async (c) => {
   });
 });
 
+// ============ PARIS TIMEZONE HELPERS ============
+
+const PARIS_TZ = "Europe/Paris";
+
+function getTodayParisDate(): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PARIS_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(now);
+}
+
+function getParisDateFromIso(iso: string): string {
+  const date = new Date(iso);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PARIS_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(date);
+}
+
+function getLast7ParisDays(): string[] {
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: PARIS_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    days.push(formatter.format(date));
+  }
+  return days;
+}
+
+function daysBetweenParisDates(parisDateA: string, parisDateB: string): number {
+  const a = new Date(parisDateA + "T00:00:00+01:00");
+  const b = new Date(parisDateB + "T00:00:00+01:00");
+  const diffMs = Math.abs(a.getTime() - b.getTime());
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function getTodayParisMMDD(): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: PARIS_TZ,
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(now);
+}
+
+// ============ MIROIR SENTENCE POOLS ============
+
+const BLOC_A_FOUNDATION = [
+  "Tu aurais voulu l'oublier, mais la pierre se souvient.",
+  "Les rues que tu piétines te soutiendront, même quand tout cède.",
+  "Il t'a fallu trois hivers pour remarquer ce visage.",
+  "Des rivières de vin coulaient ici, et tu passais sans t'arrêter.",
+];
+
+const BLOC_B_CORE = [
+  "Tu marches sur ce qui a résisté à pire que toi.",
+  "La pierre a vu passer ce que tu appelles encore nouveau.",
+  "Tu pensais traverser, mais c'est toi qui restes.",
+  "Certains visages attendent des années avant d'être reconnus.",
+  "Tu aurais pu partir plus tôt, mais quelque chose a retenu ton pas.",
+  "Ce lieu n'a rien promis, pourtant tu reviens.",
+  "La ville ne t'a rien dit, et c'est pour cela que tu écoutes.",
+  "Tu n'étais pas attendu, mais tu n'es pas de trop.",
+];
+
+const BLOC_C_ECHO = [
+  "Tu es passé là où quelque chose s'est déjà perdu, et pourtant tu continues.",
+  "La ville ne t'attend pas, mais elle remarque quand tu hésites.",
+  "Ce que tu n'as pas regardé aujourd'hui pèsera demain plus que le reste.",
+  "Tu marches dans une phrase commencée avant toi.",
+  "Rien ne t'oblige à rester, sauf ce que tu reconnais sans le nommer.",
+  "La distance n'est pas là où tu crois l'avoir parcourue.",
+  "Ce lieu a survécu à pire que ton passage — mais pas à ton oubli.",
+  "Tu es entré sans savoir ce que tu allais laisser derrière.",
+  "La ville ne se souvient pas de toi, mais elle se souvient avec toi.",
+  "Ce que tu appelles aujourd'hui ordinaire était autrefois une décision.",
+];
+
+// Helper: Map sentence to its pool kind
+function sentenceToKind(sentence: string): "foundation" | "core" | "echo" {
+  if (BLOC_A_FOUNDATION.includes(sentence)) return "foundation";
+  if (BLOC_C_ECHO.includes(sentence)) return "echo";
+  return "core";
+}
+
+// Simple hash for deterministic selection
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+// ============ MIROIR ENDPOINTS ============
+
+// ----- Miroir: GET /mirror/today -----
+app.get("/mirror/today", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  const cardId = payload.card_id;
+  const todayParis = getTodayParisDate();
+  const todayMMDD = getTodayParisMMDD();
+
+  // Check cache
+  const { data: cached } = await supabase
+    .from("mirror_daily")
+    .select("sentence, anecdote, date")
+    .eq("card_id", cardId)
+    .eq("date", todayParis)
+    .single();
+
+  if (cached) {
+    // Cache hit: return cached sentence with kind derived from sentence
+    return c.json({
+      date: cached.date,
+      sentence: cached.sentence,
+      anecdote: cached.anecdote,
+      kind: sentenceToKind(cached.sentence),
+    });
+  }
+
+  // Cache miss: compute kind and select sentence
+  const last7ParisDays = getLast7ParisDays();
+  const sevenDaysAgoUtc = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Fetch inscriptions for activity signals
+  const { data: inscriptions } = await supabase
+    .from("inscriptions")
+    .select("created_at, arrondissement")
+    .eq("card_id", cardId)
+    .gte("created_at", sevenDaysAgoUtc)
+    .order("created_at", { ascending: false });
+
+  const inscriptionsList = inscriptions ?? [];
+
+  // Activity signals
+  const inscriptionsToday = inscriptionsList.filter(
+    (i) => getParisDateFromIso(i.created_at) === todayParis
+  ).length;
+  const activeDays7 = new Set(
+    inscriptionsList.map((i) => getParisDateFromIso(i.created_at))
+  ).size;
+  const lastActivity = inscriptionsList[0]?.created_at;
+  const daysSinceLastActivity = lastActivity
+    ? daysBetweenParisDates(getParisDateFromIso(lastActivity), todayParis)
+    : 999;
+  const totalArrondissements = new Set(
+    inscriptionsList.map((i) => i.arrondissement).filter((a) => a != null)
+  ).size;
+
+  // Compute raw kind (before cooldown)
+  function computeKind(): "foundation" | "core" | "echo" {
+    // Foundation: rare cases (initiation/return after 7+ days absence)
+    if (daysSinceLastActivity >= 7 || inscriptionsList.length === 0) {
+      return "foundation";
+    }
+
+    // Echo: triggered by activity
+    const hasActivity = inscriptionsToday > 0 || activeDays7 >= 3 || totalArrondissements >= 2;
+    if (hasActivity) {
+      return "echo";
+    }
+
+    // Default: core
+    return "core";
+  }
+
+  const rawKind = computeKind();
+
+  // Apply echo cooldown: no echo in last 3 days, max 2 in previous 6 days
+  let finalKind = rawKind;
+  if (rawKind === "echo") {
+    // Recompute kinds for past 7 days to check cooldown
+    const pastKinds: ("foundation" | "core" | "echo")[] = [];
+    for (let i = 1; i <= 6; i++) {
+      const pastDate = last7ParisDays[i];
+      const { data: pastCached } = await supabase
+        .from("mirror_daily")
+        .select("sentence")
+        .eq("card_id", cardId)
+        .eq("date", pastDate)
+        .single();
+      if (pastCached) {
+        pastKinds.push(sentenceToKind(pastCached.sentence));
+      }
+    }
+
+    // Check cooldown: no echo in last 3 days
+    const last3DaysHaveEcho = pastKinds.slice(0, 3).some((k) => k === "echo");
+    // Max 2 echoes in previous 6 days
+    const echoCount6Days = pastKinds.filter((k) => k === "echo").length;
+
+    if (last3DaysHaveEcho || echoCount6Days >= 2) {
+      finalKind = "core"; // Downgrade to core if cooldown active
+    }
+  }
+
+  // Select sentence from appropriate pool
+  const pool = finalKind === "foundation" ? BLOC_A_FOUNDATION : finalKind === "echo" ? BLOC_C_ECHO : BLOC_B_CORE;
+  
+  // Avoid repeating yesterday's sentence
+  const { data: yesterdayCached } = await supabase
+    .from("mirror_daily")
+    .select("sentence")
+    .eq("card_id", cardId)
+    .eq("date", last7ParisDays[1])
+    .single();
+  const yesterdaySentence = yesterdayCached?.sentence;
+
+  let selectedSentence: string;
+  if (pool.length === 1) {
+    selectedSentence = pool[0];
+  } else {
+    // Deterministic selection using hash
+    const seed = `${cardId}:${todayParis}:${finalKind}`;
+    let attempts = 0;
+    do {
+      const hash = simpleHash(`${seed}:${attempts}`);
+      selectedSentence = pool[hash % pool.length];
+      attempts++;
+    } while (selectedSentence === yesterdaySentence && attempts < 10);
+  }
+
+  // Get anecdote (if available)
+  const anecdotes: Record<string, string> = {
+    // Add anecdotes here keyed by MM-DD format
+    // Example: "01-15": "Ce jour-là à Paris: ..."
+  };
+  const anecdote = anecdotes[todayMMDD] ?? null;
+
+  // Save to cache
+  await supabase.from("mirror_daily").insert({
+    card_id: cardId,
+    date: todayParis,
+    sentence: selectedSentence,
+    anecdote,
+  });
+
+  return c.json({
+    date: todayParis,
+    sentence: selectedSentence,
+    anecdote,
+    kind: finalKind,
+  });
+});
+
+// ----- Miroir: GET /mirror/kept -----
+app.get("/mirror/kept", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  const cardId = payload.card_id;
+
+  const { data: items, error } = await supabase
+    .from("kept_sentences")
+    .select("id, text, created_at")
+    .eq("card_id", cardId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[card-gate] mirror kept:", error);
+    return c.json({ error: "Failed to load kept sentences" }, 500);
+  }
+
+  return c.json({
+    items: (items ?? []).map((item) => ({
+      id: item.id,
+      text: item.text,
+      createdAt: item.created_at,
+    })),
+  });
+});
+
+// ----- Miroir: POST /mirror/keep -----
+app.post("/mirror/keep", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  let body: { sentence?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const sentence = (body?.sentence ?? "").trim();
+  if (sentence.length < 3) {
+    return c.json({ error: "sentence required (min 3 chars)" }, 400);
+  }
+  const cardId = payload.card_id;
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from("kept_sentences").insert({
+    card_id: cardId,
+    text: sentence,
+    created_at: now,
+  });
+
+  if (error) {
+    console.error("[card-gate] mirror keep:", error);
+    return c.json({ error: "Failed to keep sentence" }, 500);
+  }
+
+  return c.json({ ok: true });
+});
+
 // ----- Champ: GET /champ/items -----
 app.get("/champ/items", async (c) => {
   const supabase = getSupabase();
