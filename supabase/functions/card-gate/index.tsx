@@ -1989,24 +1989,43 @@ function corsHeadersFromRequest(req: Request): Record<string, string> {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Credentials": "true",
   };
+  // CRITICAL: Never use '*' when credentials are included. Always use specific origin or omit.
   if (origin && isOriginAllowed(origin)) {
     h["Access-Control-Allow-Origin"] = origin;
   }
+  // If origin not allowed, don't set Access-Control-Allow-Origin at all (will fail CORS, which is correct)
   return h;
 }
 
 Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin") ?? undefined;
+  
+  // Handle preflight OPTIONS requests
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeadersFromRequest(req) });
+    const headers = corsHeadersFromRequest(req);
+    // Ensure we never have '*' in the response
+    if (headers["Access-Control-Allow-Origin"] === "*") {
+      delete headers["Access-Control-Allow-Origin"];
+    }
+    return new Response(null, { status: 204, headers });
   }
+  
+  // Handle actual requests
   const res = await app.fetch(req);
-  const origin = req.headers.get("Origin");
   const nh = new Headers(res.headers);
+  
+  // Remove any wildcard that might have been set by Supabase/Hono defaults
+  nh.delete("Access-Control-Allow-Origin");
+  
+  // Set proper CORS headers
   nh.set("Access-Control-Allow-Credentials", "true");
   nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  
+  // Only set specific origin if allowed (never '*')
   if (origin && isOriginAllowed(origin)) {
     nh.set("Access-Control-Allow-Origin", origin);
   }
+  
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
 });
