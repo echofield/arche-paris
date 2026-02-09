@@ -404,13 +404,6 @@ export default function App() {
             onBack={() => navigateTo('homepage')}
           />
         );
-      case 'kept':
-        return (
-          <KeptSentences
-            cardId={cardStatus?.cardId || 'unknown'}
-            onBack={() => navigateTo('homepage')}
-          />
-        );
       default:
         return null;
     }
