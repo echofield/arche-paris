@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { BackButton } from './BackButton';
-import { ParisFieldMap, type FieldItem as ParisFieldItem } from './ParisFieldMap';
+import { ChampMapSection, type FieldItem as ChampFieldItem } from './ChampMapSection';
 import { useTranslation } from '../utils/i18n';
 import { loadChampItems, type FieldItem } from '../utils/card-gate-client';
 
@@ -18,10 +18,10 @@ interface ChampScreenProps {
 
 export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const { t } = useTranslation();
-  const [items, setItems] = useState<ParisFieldItem[]>([]);
+  const [items, setItems] = useState<ChampFieldItem[]>([]);
   const [fullItems, setFullItems] = useState<FieldItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<ParisFieldItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ChampFieldItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,7 +29,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     loadChampItems(cardId)
       .then((data) => {
         if (!cancelled) {
-          const mappedItems: ParisFieldItem[] = data
+          const mappedItems: ChampFieldItem[] = data
             .filter((item): item is FieldItem & { arrondissement: number } => item.arrondissement != null)
             .map((item) => ({
               id: item.id,
@@ -127,33 +127,40 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           >
             …
           </div>
-        ) : items.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '60px 24px',
-            }}
-          >
-            <p
-              style={{
-                fontFamily: 'var(--font-sans, Inter, sans-serif)',
-                fontSize: 12,
-                fontWeight: 400,
-                letterSpacing: '0.04em',
-                color: 'var(--ink, #1A1A1A)',
-                opacity: 0.35,
-                lineHeight: 1.6,
-              }}
-            >
-              Les traces apparaitront ici.
-            </p>
-          </div>
         ) : (
-          <ParisFieldMap 
-            items={items} 
-            onSelect={(item) => setSelectedItem(item)}
-            selectedId={selectedItem?.id ?? null}
-          />
+          <>
+            {/* Always show map, even if no items */}
+            <ChampMapSection 
+              items={items} 
+              onSelect={(item) => setSelectedItem(item)}
+              selectedId={selectedItem?.id ?? null}
+              mapVariant="draw"
+            />
+            {/* Show message if no items */}
+            {items.length === 0 && (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '40px 24px',
+                  marginTop: -40,
+                }}
+              >
+                <p
+                  style={{
+                    fontFamily: 'var(--font-sans, Inter, sans-serif)',
+                    fontSize: 12,
+                    fontWeight: 400,
+                    letterSpacing: '0.04em',
+                    color: 'var(--ink, #1A1A1A)',
+                    opacity: 0.35,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Les traces apparaitront ici.
+                </p>
+              </div>
+            )}
+          </>
         )}
       </section>
 
