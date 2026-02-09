@@ -26,6 +26,17 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+
+    // Dev mode: skip API calls, show empty map immediately
+    const isDevMode = cardId === 'DEMO-DEV' || cardId === 'unknown';
+    if (isDevMode) {
+      console.log('[ChampScreen] Dev mode - skipping API call, showing empty map');
+      setItems([]);
+      setFullItems([]);
+      setLoading(false);
+      return;
+    }
+
     loadChampItems(cardId)
       .then((data) => {
         if (!cancelled) {
@@ -37,7 +48,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
               textExcerpt: item.textExcerpt,
               timeLabel: item.timeLabel,
             }));
-          
+
           // Store full items with full text for modal
           setFullItems(data.filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null));
           setItems(mappedItems);
@@ -109,7 +120,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
       {/* Paris Map */}
       <section
         style={{
-          maxWidth: 900,
+          maxWidth: 720, // Reduced from 900 (20% smaller: 900 * 0.8 = 720)
           margin: '0 auto',
           padding: '24px 24px 0',
         }}
