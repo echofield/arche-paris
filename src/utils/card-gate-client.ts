@@ -543,6 +543,7 @@ export type FieldItem = {
   id: string;
   arrondissement: number | null;
   textExcerpt: string;
+  textFull?: string; // Full text for modal display
   timeLabel: string;
   created_at: string;
 };

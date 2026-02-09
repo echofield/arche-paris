@@ -1958,18 +1958,20 @@ app.get("/champ/items", async (c) => {
       timeLabel = `il y a ${daysDiff} jours`;
     }
 
-    let textExcerpt = row.text.trim().replace(/\s+/g, " ");
+    // Full text for display (not truncated)
+    const fullText = row.text.trim().replace(/\s+/g, " ");
+    
+    // Excerpt for map dots (truncated)
+    let textExcerpt = fullText;
     if (textExcerpt.length > 90) {
       textExcerpt = textExcerpt.slice(0, 87).trim() + "…";
-    }
-    if (textExcerpt.length < 60 && textExcerpt.length > 0) {
-      textExcerpt = textExcerpt;
     }
 
     return {
       id: row.id,
       arrondissement: row.arrondissement,
       textExcerpt,
+      textFull: fullText, // Full text for modal display
       timeLabel,
       created_at: row.created_at,
     };

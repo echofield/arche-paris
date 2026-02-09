@@ -19,7 +19,9 @@ interface ChampScreenProps {
 export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const { t } = useTranslation();
   const [items, setItems] = useState<ParisFieldItem[]>([]);
+  const [fullItems, setFullItems] = useState<FieldItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<ParisFieldItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +37,9 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
               textExcerpt: item.textExcerpt,
               timeLabel: item.timeLabel,
             }));
+          
+          // Store full items with full text for modal
+          setFullItems(data.filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null));
           setItems(mappedItems);
         }
       })
@@ -144,9 +149,94 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
             </p>
           </div>
         ) : (
-          <ParisFieldMap items={items} />
+          <ParisFieldMap 
+            items={items} 
+            onSelect={(item) => setSelectedItem(item)}
+            selectedId={selectedItem?.id ?? null}
+          />
         )}
       </section>
+
+      {/* Sentence modal — shows full text when dot is clicked */}
+      {selectedItem && (
+        <div
+          role="dialog"
+          aria-label="Sentence"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.2)',
+            padding: 24,
+          }}
+          onClick={() => setSelectedItem(null)}
+        >
+          <div
+            style={{
+              background: '#FAF8F2',
+              border: '1px solid rgba(0, 61, 44, 0.15)',
+              borderRadius: 4,
+              padding: 32,
+              maxWidth: 500,
+              width: '100%',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 10,
+                    letterSpacing: '0.1em',
+                    color: '#003D2C',
+                    opacity: 0.5,
+                    textTransform: 'uppercase',
+                    marginBottom: 4,
+                  }}
+                >
+                  {selectedItem.arrondissement}e arrondissement · {selectedItem.timeLabel}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedItem(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 18,
+                  color: '#003D2C',
+                  opacity: 0.5,
+                  cursor: 'pointer',
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 'clamp(15px, 2.5vw, 17px)',
+                fontStyle: 'italic',
+                color: '#1A1A1A',
+                opacity: 0.7,
+                lineHeight: 1.7,
+              }}
+            >
+              {fullItems.find(f => f.id === selectedItem.id)?.textFull || selectedItem.textExcerpt}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
