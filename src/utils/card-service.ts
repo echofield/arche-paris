@@ -106,10 +106,24 @@ export async function forceUnpairCard(cardId: string, password: string): Promise
  * Initialize: if URL has ?card=CODE, return needsGate so App shows CardGate(CODE).
  * If we have stored card, try getCardToken; if success return valid, else no_card.
  * Demo mode: cardId starting with DEMO is allowed without gate.
+ * Dev mode: ?dev=true or ?skipAuth=true bypasses all authentication.
  */
 export async function initializeCard(): Promise<CardStatus | null> {
   const urlParams = new URLSearchParams(window.location.search);
   const codeFromUrl = urlParams.get('card');
+  const devMode = urlParams.get('dev') === 'true' || urlParams.get('skipAuth') === 'true';
+
+  // Dev mode: skip all authentication, go straight to DEMO
+  if (devMode) {
+    const demoCardId = 'DEMO-DEV';
+    setStoredCard(demoCardId);
+    return {
+      valid: true,
+      status: 'DEMO',
+      message: 'Mode développement.',
+      cardId: demoCardId,
+    };
+  }
 
   if (codeFromUrl?.startsWith('DEMO')) {
     setStoredCard(codeFromUrl);

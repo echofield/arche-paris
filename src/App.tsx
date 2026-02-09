@@ -59,6 +59,24 @@ export default function App() {
   // Initialize card on mount
   useEffect(() => {
     async function init() {
+      // Dev mode: skip all authentication, go directly to ready state
+      const urlParams = new URLSearchParams(window.location.search);
+      const devMode = urlParams.get('dev') === 'true' || urlParams.get('skipAuth') === 'true';
+      
+      if (devMode) {
+        console.log('[ARCHÉ] Dev mode enabled - skipping authentication');
+        const demoStatus: CardStatus = {
+          valid: true,
+          status: 'DEMO',
+          message: 'Mode développement.',
+          cardId: 'DEMO-DEV',
+        };
+        setCardStatus(demoStatus);
+        // Skip welcome screen, go directly to ready
+        setAppState('ready');
+        return;
+      }
+
       const status = await initializeCard();
 
       if (!status) {
