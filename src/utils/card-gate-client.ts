@@ -537,6 +537,26 @@ export async function flushPendingWrites(cardId: string): Promise<number> {
   return sent;
 }
 
+// ============ CHAMP (Le Champ - Collective Field) ============
+
+export type FieldItem = {
+  id: string;
+  arrondissement: number | null;
+  textExcerpt: string;
+  timeLabel: string;
+  created_at: string;
+};
+
+export async function loadChampItems(cardId: string): Promise<FieldItem[]> {
+  const res = await gateFetch(cardId, '/champ/items');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error('[card-gate-client] loadChampItems failed:', data?.error ?? res.status);
+    return [];
+  }
+  return (data?.items as FieldItem[]) ?? [];
+}
+
 // ============ LOGOUT / UNPAIR ============
 
 /**

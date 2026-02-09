@@ -5,16 +5,50 @@
  * Map extracted from petitsouvenir (CarteInteractive.tsx, MapSection.tsx)
  */
 
+import { useState, useEffect } from 'react';
 import { BackButton } from './BackButton';
-import { ParisFieldMap } from './ParisFieldMap';
+import { ParisFieldMap, type FieldItem as ParisFieldItem } from './ParisFieldMap';
 import { useTranslation } from '../utils/i18n';
+import { loadChampItems, type FieldItem } from '../utils/card-gate-client';
 
 interface ChampScreenProps {
+  cardId: string;
   onBack: () => void;
 }
 
-export function ChampScreen({ onBack }: ChampScreenProps) {
+export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const { t } = useTranslation();
+  const [items, setItems] = useState<ParisFieldItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    loadChampItems(cardId)
+      .then((data) => {
+        if (!cancelled) {
+          const mappedItems: ParisFieldItem[] = data
+            .filter((item): item is FieldItem & { arrondissement: number } => item.arrondissement != null)
+            .map((item) => ({
+              id: item.id,
+              arrondissement: item.arrondissement,
+              textExcerpt: item.textExcerpt,
+              timeLabel: item.timeLabel,
+            }));
+          setItems(mappedItems);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          console.error('[ChampScreen] Failed to load items:', e);
+          setItems([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [cardId]);
 
   return (
     <div
@@ -75,31 +109,43 @@ export function ChampScreen({ onBack }: ChampScreenProps) {
           padding: '24px 24px 0',
         }}
       >
-        <ParisFieldMap items={[]} />
-      </section>
-
-      {/* Empty state hint */}
-      <section
-        style={{
-          maxWidth: 400,
-          margin: '48px auto 0',
-          padding: '0 24px',
-          textAlign: 'center',
-        }}
-      >
-        <p
-          style={{
-            fontFamily: 'var(--font-sans, Inter, sans-serif)',
-            fontSize: 12,
-            fontWeight: 400,
-            letterSpacing: '0.04em',
-            color: 'var(--ink, #1A1A1A)',
-            opacity: 0.35,
-            lineHeight: 1.6,
-          }}
-        >
-          Les traces apparaitront ici.
-        </p>
+        {loading ? (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '60px 24px',
+              fontFamily: 'var(--font-serif, "Cormorant Garamond", Georgia, serif)',
+              fontSize: 15,
+              color: '#6B6455',
+              opacity: 0.6,
+            }}
+          >
+            …
+          </div>
+        ) : items.length === 0 ? (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '60px 24px',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: 'var(--font-sans, Inter, sans-serif)',
+                fontSize: 12,
+                fontWeight: 400,
+                letterSpacing: '0.04em',
+                color: 'var(--ink, #1A1A1A)',
+                opacity: 0.35,
+                lineHeight: 1.6,
+              }}
+            >
+              Les traces apparaitront ici.
+            </p>
+          </div>
+        ) : (
+          <ParisFieldMap items={items} />
+        )}
       </section>
     </div>
   );

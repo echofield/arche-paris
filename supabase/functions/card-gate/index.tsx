@@ -1263,6 +1263,72 @@ app.get("/map-state", async (c) => {
   });
 });
 
+// ----- Champ: GET /champ/items -----
+app.get("/champ/items", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  const todayParis = getTodayParisDate();
+  const last7ParisDays = getLast7ParisDays();
+  const sevenDaysAgoParis = last7ParisDays[6];
+  const sevenDaysAgoUtc = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: inscriptionsRows, error } = await supabase
+    .from("inscriptions")
+    .select("id, arrondissement, text, created_at")
+    .eq("opt_in_field", true)
+    .gte("created_at", sevenDaysAgoUtc)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error("[card-gate] champ items:", error);
+    return c.json({ error: "Failed to load champ items" }, 500);
+  }
+
+  const last7ParisDaysSet = new Set(last7ParisDays);
+  const items = (inscriptionsRows ?? [])
+    .filter((row) => {
+      const parisDate = getParisDateFromIso(row.created_at);
+      return last7ParisDaysSet.has(parisDate);
+    })
+    .slice(0, 50)
+    .map((row) => {
+    const parisDate = getParisDateFromIso(row.created_at);
+    const daysDiff = daysBetweenParisDates(parisDate, todayParis);
+    let timeLabel: string;
+    if (daysDiff === 0) {
+      timeLabel = "aujourd'hui";
+    } else if (daysDiff === 1) {
+      timeLabel = "hier";
+    } else {
+      timeLabel = `il y a ${daysDiff} jours`;
+    }
+
+    let textExcerpt = row.text.trim().replace(/\s+/g, " ");
+    if (textExcerpt.length > 90) {
+      textExcerpt = textExcerpt.slice(0, 87).trim() + "…";
+    }
+    if (textExcerpt.length < 60 && textExcerpt.length > 0) {
+      textExcerpt = textExcerpt;
+    }
+
+    return {
+      id: row.id,
+      arrondissement: row.arrondissement,
+      textExcerpt,
+      timeLabel,
+      created_at: row.created_at,
+    };
+  });
+
+  return c.json({ items });
+});
+
 // Wrap so we always send CORS with exact origin (never *) — Supabase or Hono may add * otherwise
 function corsHeadersFromRequest(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? undefined;
