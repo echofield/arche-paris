@@ -2003,20 +2003,24 @@ Deno.serve(async (req: Request) => {
     // Create headers object - explicitly avoid any wildcard
     const headers = new Headers();
     headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
     headers.set("Access-Control-Allow-Credentials", "true");
+    headers.set("Access-Control-Max-Age", "600"); // Cache preflight for 10 minutes
     
-    // CRITICAL: Only set specific origin if allowed (NEVER '*')
-    // If we don't set it, browser will reject, but that's better than wildcard
+    // CRITICAL: Echo the exact origin if allowed (NEVER '*')
     if (origin && isOriginAllowed(origin)) {
       headers.set("Access-Control-Allow-Origin", origin);
+      console.log("[card-gate] OPTIONS preflight - Allowed origin:", origin);
+      console.log("[card-gate] OPTIONS response headers:", Object.fromEntries(headers));
+    } else {
+      console.log("[card-gate] OPTIONS preflight - Origin not allowed:", origin);
+      // Do NOT set Access-Control-Allow-Origin if origin not allowed
+      // Browser will reject, but that's better than wildcard
     }
-    // Explicitly do NOT set Access-Control-Allow-Origin if origin not allowed
     
     return new Response(null, { 
       status: 204, 
       headers: headers,
-      // Prevent Supabase from adding default CORS
     });
   }
   
@@ -2038,13 +2042,16 @@ Deno.serve(async (req: Request) => {
   // Set proper CORS headers explicitly
   nh.set("Access-Control-Allow-Credentials", "true");
   nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   
-  // Only set specific origin if allowed (never '*')
+  // Echo the exact origin if allowed (never '*')
   if (origin && isOriginAllowed(origin)) {
     nh.set("Access-Control-Allow-Origin", origin);
+    console.log("[card-gate] Request response - Allowed origin:", origin);
+  } else {
+    console.log("[card-gate] Request response - Origin not allowed:", origin);
+    // Do NOT set Access-Control-Allow-Origin if origin not allowed
   }
-  // Explicitly do NOT set Access-Control-Allow-Origin if origin not allowed
   
   return new Response(res.body, { 
     status: res.status, 
