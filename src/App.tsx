@@ -17,6 +17,7 @@ import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
+import { ChampScreen } from './components/ChampScreen';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -26,7 +27,7 @@ import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -275,6 +276,8 @@ export default function App() {
         setCurrentScreen('aura');
       } else if (hash === 'meridiens') {
         setCurrentScreen('meridiens');
+      } else if (hash === 'champ') {
+        setCurrentScreen('champ');
       } else {
         setCurrentScreen('homepage');
       }
@@ -379,6 +382,13 @@ export default function App() {
           <MeridiensLive
             onBack={() => navigateTo('homepage')}
             cardId={cardStatus?.cardId ?? null}
+          />
+        );
+      case 'champ':
+        return (
+          <ChampScreen
+            cardId={cardStatus?.cardId || 'unknown'}
+            onBack={() => navigateTo('homepage')}
           />
         );
       default:
