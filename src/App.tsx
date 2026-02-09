@@ -60,11 +60,17 @@ export default function App() {
   useEffect(() => {
     async function init() {
       // Dev mode: skip all authentication, go directly to ready state
+      // Check dev mode FIRST, even if ?card= is present
       const urlParams = new URLSearchParams(window.location.search);
       const devMode = urlParams.get('dev') === 'true' || urlParams.get('skipAuth') === 'true';
       
       if (devMode) {
         console.log('[ARCHÉ] Dev mode enabled - skipping authentication');
+        // Remove ?card= from URL if present to avoid confusion
+        const url = new URL(window.location.href);
+        url.searchParams.delete('card');
+        window.history.replaceState({}, '', url.toString());
+        
         const demoStatus: CardStatus = {
           valid: true,
           status: 'DEMO',
