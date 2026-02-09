@@ -557,41 +557,6 @@ export async function loadChampItems(cardId: string): Promise<FieldItem[]> {
   return (data?.items as FieldItem[]) ?? [];
 }
 
-// ============ MIROIR (Daily Sentence) ============
-
-export type MirrorToday = {
-  date: string;
-  sentence: string;
-  anecdote: string | null;
-  kind?: 'foundation' | 'core' | 'echo';
-};
-
-export async function loadMirrorToday(cardId: string): Promise<MirrorToday> {
-  const res = await gateFetch(cardId, '/mirror/today');
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    console.error('[card-gate-client] loadMirrorToday failed:', data?.error ?? res.status);
-    throw new Error(data?.error ?? 'Failed to load mirror');
-  }
-  return data as MirrorToday;
-}
-
-export type KeptSentenceItem = {
-  id: string;
-  text: string;
-  createdAt: string;
-};
-
-export async function loadMirrorKept(cardId: string): Promise<KeptSentenceItem[]> {
-  const res = await gateFetch(cardId, '/mirror/kept');
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    console.error('[card-gate-client] loadMirrorKept failed:', data?.error ?? res.status);
-    return [];
-  }
-  return (data?.items as KeptSentenceItem[]) ?? [];
-}
-
 // ============ LOGOUT / UNPAIR ============
 
 /**
