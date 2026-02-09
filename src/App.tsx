@@ -380,6 +380,14 @@ export default function App() {
           <AuraPage
             onBack={() => navigateTo('homepage')}
             cardId={cardStatus?.cardId ?? null}
+            onOpenKept={() => navigateTo('kept')}
+          />
+        );
+      case 'kept':
+        return (
+          <KeptSentences
+            onBack={() => navigateTo('aura')}
+            cardId={cardStatus?.cardId ?? null}
           />
         );
       case 'meridiens':
@@ -441,8 +449,8 @@ export default function App() {
           </>
         )}
 
-        {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura page. */}
-        {appState === 'ready' && currentScreen !== 'aura' && (
+        {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura and Kept pages. */}
+        {appState === 'ready' && currentScreen !== 'aura' && currentScreen !== 'kept' && (
           <div
             style={{
               position: 'fixed',

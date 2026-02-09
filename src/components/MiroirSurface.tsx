@@ -1,160 +1,211 @@
 /**
- * ARCHÉ — Miroir (Life Layer Phase 0)
- * Surface: 1 daily sentence + optional "Ce jour-là à Paris" anecdote.
- * Link to "Phrases gardées". No scroll, no history here.
+ * ARCHÉ — Miroir Surface
+ * Daily reflection sentence integrated into Aura
+ * Matches Aura's artistic direction: calm, minimal, phenomenological
  */
 
 import { useState, useEffect } from 'react';
-import { useTranslation } from '../utils/i18n';
-import { loadMirrorToday } from '../utils/card-gate-client';
+import { loadMirrorToday, keepMirrorSentence, type MirrorToday } from '../utils/card-gate-client';
 
 interface MiroirSurfaceProps {
-  cardId: string;
+  cardId: string | null | undefined;
   onOpenKept?: () => void;
 }
 
 export function MiroirSurface({ cardId, onOpenKept }: MiroirSurfaceProps) {
-  const { t } = useTranslation();
-  const [sentence, setSentence] = useState<string>('');
-  const [anecdote, setAnecdote] = useState<string | null>(null);
-  const [kind, setKind] = useState<'foundation' | 'core' | 'echo' | undefined>(undefined);
+  const [mirror, setMirror] = useState<MirrorToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [keeping, setKeeping] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+    if (!cardId) {
+      setLoading(false);
+      return;
+    }
+
     loadMirrorToday(cardId)
       .then((data) => {
-        if (!cancelled) {
-          setSentence(data.sentence);
-          setAnecdote(data.anecdote);
-          setKind(data.kind);
-        }
+        setMirror(data);
+        setError(null);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
+        setError(e instanceof Error ? e.message : 'Erreur');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       });
-    return () => { cancelled = true; };
   }, [cardId]);
+
+  const handleKeep = async () => {
+    if (!cardId || !mirror || keeping) return;
+    setKeeping(true);
+    try {
+      await keepMirrorSentence(cardId, mirror.sentence);
+      // Optional: show feedback (but keep it minimal, matching Aura style)
+    } catch (e) {
+      // Silent fail (Aura style: no aggressive error messages)
+    } finally {
+      setKeeping(false);
+    }
+  };
+
+  if (loading) {
+    return null; // Silent loading (Aura style)
+  }
+
+  if (error || !mirror) {
+    return null; // Silent fail (Aura style)
+  }
+
+  const kindLabel = mirror.kind === 'echo' ? 'Écho' : mirror.kind === 'foundation' ? 'Seuil' : null;
 
   return (
     <div
       style={{
-        width: '100%',
-        maxWidth: '420px',
-        padding: '20px 0',
-        borderTop: '1px solid rgba(0, 61, 44, 0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        maxWidth: 320,
+        marginBottom: 'clamp(24px, 6vw, 40px)',
       }}
     >
-      <div
+      {/* Daily sentence */}
+      <p
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          marginBottom: '12px',
+          fontFamily: 'var(--font-serif)',
+          fontSize: 'clamp(14px, 3vw, 16px)',
+          fontStyle: 'italic',
+          color: '#1A1A1A',
+          opacity: 0.6,
+          textAlign: 'center',
+          maxWidth: 280,
+          marginBottom: mirror.anecdote ? 'clamp(16px, 4vw, 24px)' : 0,
+          lineHeight: 1.5,
         }}
       >
-        <span
+        {mirror.sentence}
+      </p>
+
+      {/* Kind label (Écho / Seuil) */}
+      {kindLabel && (
+        <p
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: '10px',
+            fontSize: 10,
             letterSpacing: '0.1em',
-            textTransform: 'uppercase',
             color: '#003D2C',
-            opacity: 0.6,
+            opacity: 0.4,
+            marginTop: -8,
+            marginBottom: mirror.anecdote ? 'clamp(16px, 4vw, 24px)' : 'clamp(8px, 2vw, 12px)',
+            textTransform: 'uppercase',
           }}
         >
-          {t('miroir.title')}
-        </span>
-        {kind === 'echo' && (
-          <span
+          {kindLabel}
+        </p>
+      )}
+
+      {/* Historical anecdote */}
+      {mirror.anecdote && (
+        <div
+          style={{
+            marginTop: kindLabel ? 0 : 'clamp(16px, 4vw, 24px)',
+            marginBottom: 'clamp(16px, 4vw, 24px)',
+            paddingTop: 'clamp(16px, 4vw, 24px)',
+            borderTop: '0.5px solid rgba(0, 61, 44, 0.15)',
+            width: '100%',
+          }}
+        >
+          <p
             style={{
               fontFamily: 'var(--font-sans)',
-              fontSize: '9px',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
+              fontSize: 10,
+              letterSpacing: '0.1em',
               color: '#003D2C',
-              opacity: 0.4,
+              opacity: 0.5,
+              marginBottom: 8,
+              textTransform: 'uppercase',
             }}
           >
-            Écho
-          </span>
-        )}
-        {kind === 'foundation' && (
-          <span
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: '9px',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: '#003D2C',
-              opacity: 0.4,
-            }}
-          >
-            Seuil
-          </span>
-        )}
-      </div>
-      {loading && (
-        <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: '#6B6455' }}>…</p>
-      )}
-      {error && (
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#8B0000' }}>{error}</p>
-      )}
-      {!loading && !error && sentence && (
-        <>
+            Ce jour-là à Paris
+          </p>
           <p
             style={{
               fontFamily: 'var(--font-serif)',
-              fontSize: 'clamp(15px, 2vw, 17px)',
+              fontSize: 'clamp(12px, 2.5vw, 14px)',
+              fontStyle: 'italic',
               color: '#1A1A1A',
+              opacity: 0.5,
               lineHeight: 1.5,
-              marginBottom: anecdote ? '16px' : '12px',
             }}
           >
-            {sentence}
+            {mirror.anecdote}
           </p>
-          {anecdote && (
-            <p
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: 13,
-                fontStyle: 'italic',
-                color: '#6B6455',
-                lineHeight: 1.5,
-                marginBottom: '12px',
-              }}
-            >
-              {anecdote}
-            </p>
-          )}
-        </>
+        </div>
       )}
-      {onOpenKept && (
+
+      {/* Actions: Keep + Phrases gardées */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 16,
+          alignItems: 'center',
+          marginTop: mirror.anecdote ? 0 : 'clamp(8px, 2vw, 12px)',
+        }}
+      >
         <button
           type="button"
-          onClick={onOpenKept}
+          onClick={handleKeep}
+          disabled={keeping}
           style={{
-            background: 'none',
-            border: 'none',
             fontFamily: 'var(--font-sans)',
-            fontSize: '11px',
-            letterSpacing: '0.06em',
+            fontSize: 10,
+            letterSpacing: '0.08em',
             color: '#003D2C',
-            opacity: 0.7,
-            cursor: 'pointer',
+            opacity: keeping ? 0.3 : 0.5,
+            background: 'transparent',
+            border: 'none',
+            cursor: keeping ? 'default' : 'pointer',
+            padding: '4px 8px',
             textDecoration: 'underline',
-            padding: 0,
+            textUnderlineOffset: 2,
           }}
         >
-          {t('miroir.kept')}
+          {keeping ? '...' : 'Garder'}
         </button>
-      )}
+        {onOpenKept && (
+          <>
+            <span
+              style={{
+                color: '#003D2C',
+                opacity: 0.2,
+                fontSize: 10,
+              }}
+            >
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={onOpenKept}
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                letterSpacing: '0.08em',
+                color: '#003D2C',
+                opacity: 0.5,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
+              }}
+            >
+              Phrases gardées
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

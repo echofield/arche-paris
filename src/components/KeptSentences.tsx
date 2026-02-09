@@ -1,113 +1,175 @@
 /**
- * ARCHÉ — Phrases gardées (Life Layer Phase 0)
- * List of sentences the user saved from Miroir or (later) Champ.
+ * ARCHÉ — Kept Sentences Screen
+ * Displays sentences saved by the user
+ * Matches Aura's artistic direction: calm, minimal, phenomenological
  */
 
 import { useState, useEffect } from 'react';
 import { BackButton } from './BackButton';
-import { useTranslation } from '../utils/i18n';
 import { loadMirrorKept, type KeptSentenceItem } from '../utils/card-gate-client';
 
 interface KeptSentencesProps {
-  cardId: string;
   onBack: () => void;
+  cardId?: string | null;
 }
 
-export function KeptSentences({ cardId, onBack }: KeptSentencesProps) {
-  const { t } = useTranslation();
+export function KeptSentences({ onBack, cardId }: KeptSentencesProps) {
   const [items, setItems] = useState<KeptSentenceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!cardId) {
+      setLoading(false);
+      return;
+    }
+
     loadMirrorKept(cardId)
-      .then((list) => {
-        if (!cancelled) setItems(list);
+      .then((data) => {
+        setItems(data);
+        setError(null);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
+        setError(e instanceof Error ? e.message : 'Erreur');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       });
-    return () => { cancelled = true; };
   }, [cardId]);
 
   return (
     <div
       style={{
-        minHeight: '100vh',
+        position: 'fixed',
+        inset: 0,
         background: '#FAF8F2',
-        position: 'relative',
-        padding: 'clamp(24px, 4vw, 48px)',
-        paddingTop: 'clamp(80px, 10vh, 100px)',
-        maxWidth: '560px',
-        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        padding: 'clamp(24px, 5vw, 48px)',
+        paddingTop: 'clamp(80px, 10vw, 120px)',
+        boxSizing: 'border-box',
+        overflowY: 'auto',
       }}
     >
       <BackButton onClick={onBack} />
+
+      {/* Header */}
       <h1
         style={{
           fontFamily: 'var(--font-serif)',
-          fontSize: 'clamp(22px, 3vw, 28px)',
+          fontSize: 'clamp(28px, 6vw, 36px)',
           fontWeight: 400,
-          color: '#003D2C',
-          marginBottom: '24px',
+          color: '#1A1A1A',
+          letterSpacing: '0.08em',
+          marginBottom: 4,
         }}
       >
-        {t('miroir.kept')}
+        Phrases gardées
       </h1>
-      {loading && (
-        <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: '#6B6455' }}>…</p>
-      )}
-      {error && (
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#8B0000' }}>{error}</p>
-      )}
-      {!loading && !error && items.length === 0 && (
-        <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: '#6B6455' }}>
-          {t('miroir.emptyKept')}
+      <p
+        style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+          color: '#003D2C',
+          opacity: 0.5,
+          letterSpacing: '0.1em',
+          marginBottom: 'clamp(32px, 8vw, 56px)',
+        }}
+      >
+        Mémoire
+      </p>
+
+      {/* Content */}
+      {loading ? (
+        <p
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 14,
+            fontStyle: 'italic',
+            color: '#1A1A1A',
+            opacity: 0.4,
+          }}
+        >
+          ...
         </p>
-      )}
-      {!loading && items.length > 0 && (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      ) : error ? (
+        <p
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 14,
+            fontStyle: 'italic',
+            color: '#1A1A1A',
+            opacity: 0.4,
+          }}
+        >
+          Erreur
+        </p>
+      ) : items.length === 0 ? (
+        <p
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: 'clamp(14px, 3vw, 16px)',
+            fontStyle: 'italic',
+            color: '#1A1A1A',
+            opacity: 0.4,
+            textAlign: 'center',
+            maxWidth: 280,
+            lineHeight: 1.5,
+          }}
+        >
+          Aucune phrase gardée.
+        </p>
+      ) : (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'clamp(24px, 6vw, 32px)',
+            width: '100%',
+            maxWidth: 400,
+          }}
+        >
           {items.map((item) => (
-            <li
+            <div
               key={item.id}
               style={{
-                padding: '16px 0',
-                borderBottom: '1px solid rgba(0, 61, 44, 0.08)',
+                paddingBottom: 'clamp(24px, 6vw, 32px)',
+                borderBottom: '0.5px solid rgba(0, 61, 44, 0.1)',
               }}
             >
               <p
                 style={{
                   fontFamily: 'var(--font-serif)',
-                  fontSize: 15,
+                  fontSize: 'clamp(14px, 3vw, 16px)',
+                  fontStyle: 'italic',
                   color: '#1A1A1A',
+                  opacity: 0.6,
                   lineHeight: 1.5,
-                  margin: 0,
+                  marginBottom: 8,
                 }}
               >
-                {item.text}
+                {item.sentence}
               </p>
-              <span
+              <p
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: 10,
-                  color: '#6B6455',
-                  marginTop: '4px',
-                  display: 'inline-block',
+                  letterSpacing: '0.1em',
+                  color: '#003D2C',
+                  opacity: 0.3,
                 }}
               >
-                {new Date(item.createdAt).toLocaleDateString(undefined, {
+                {new Date(item.created_at).toLocaleDateString('fr-FR', {
                   day: 'numeric',
-                  month: 'short',
+                  month: 'long',
                   year: 'numeric',
                 })}
-              </span>
-            </li>
+              </p>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

@@ -1022,6 +1022,320 @@ app.get("/trace/check", async (c) => {
   return c.json({ has_left: (count ?? 0) > 0 });
 });
 
+// ============ MIROIR: PARIS TIMEZONE HELPERS ============
+
+/** Get today's date in Paris timezone (YYYY-MM-DD) */
+function getTodayParisDate(): string {
+  const now = new Date();
+  const parisTime = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const year = parisTime.find((p) => p.type === "year")?.value ?? "";
+  const month = parisTime.find((p) => p.type === "month")?.value ?? "";
+  const day = parisTime.find((p) => p.type === "day")?.value ?? "";
+  return `${year}-${month}-${day}`;
+}
+
+/** Get MM-DD format from Paris date (for historical anecdotes) */
+function getTodayParisMMDD(): string {
+  const now = new Date();
+  const parisTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const month = parisTime.find((p) => p.type === "month")?.value ?? "";
+  const day = parisTime.find((p) => p.type === "day")?.value ?? "";
+  return `${month}-${day}`;
+}
+
+/** Get last 7 Paris dates (YYYY-MM-DD) */
+function getLast7ParisDays(): string[] {
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const parisTime = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Paris",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(d);
+    const year = parisTime.find((p) => p.type === "year")?.value ?? "";
+    const month = parisTime.find((p) => p.type === "month")?.value ?? "";
+    const day = parisTime.find((p) => p.type === "day")?.value ?? "";
+    dates.push(`${year}-${month}-${day}`);
+  }
+  return dates;
+}
+
+/** Simple hash for deterministic selection */
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+// ============ MIROIR: SENTENCE POOLS ============
+
+/** BLOC A — Premières phrases fondatrices (rare, initiation) */
+const BLOC_A_FOUNDATION = [
+  "La ville commence par un regard.",
+  "Paris n'est pas un lieu. C'est une présence qui attend.",
+  "Chaque pas creuse une mémoire qui n'existait pas avant.",
+  "La pierre garde ce que l'œil oublie.",
+  "On n'habite pas Paris. On s'y laisse habiter.",
+  "Le silence des rues est une langue ancienne.",
+  "La ville se souvient de ceux qui l'ont traversée.",
+  "Paris est un miroir qui renvoie ce qu'on lui donne.",
+];
+
+/** BLOC B — Phrases centrales (quotidiennes) */
+const BLOC_B_CORE = [
+  "Aujourd'hui, la ville respire autrement.",
+  "Le temps s'écoule différemment selon les arrondissements.",
+  "Chaque coin de rue garde une trace invisible.",
+  "La lumière change la texture des souvenirs.",
+  "Paris se révèle par fragments, jamais tout à fait.",
+  "Les pas s'accumulent et créent un rythme propre.",
+  "La ville murmure des histoires à qui sait écouter.",
+  "Chaque jour ajoute une couche à la mémoire collective.",
+  "Les façades racontent ce que les bouches taisent.",
+  "Paris existe autant dans l'absence que dans la présence.",
+  "Le regard transforme l'ordinaire en signe.",
+  "La ville se construit dans l'espace entre les choses.",
+  "Chaque passage laisse une empreinte légère.",
+  "Paris se donne à ceux qui savent attendre.",
+  "La mémoire habite les interstices.",
+];
+
+/** BLOC C — Échos (activité, cooldown) */
+const BLOC_C_ECHO = [
+  "L'écho d'un pas résonne dans le vide.",
+  "Ce qui fut gravé réapparaît à l'improviste.",
+  "La trace appelle la trace.",
+  "L'activité réveille des mémoires endormies.",
+  "Chaque action crée un écho qui se propage.",
+  "Le présent fait écho au passé.",
+  "L'empreinte appelle sa résonance.",
+  "L'activité révèle ce qui était caché.",
+];
+
+/** Determine kind from sentence (A/B/C) */
+function sentenceToKind(sentence: string): "foundation" | "core" | "echo" {
+  if (BLOC_A_FOUNDATION.includes(sentence)) return "foundation";
+  if (BLOC_C_ECHO.includes(sentence)) return "echo";
+  return "core";
+}
+
+/** Compute which kind to use today (deterministic rules) */
+async function computeKind(
+  supabase: ReturnType<typeof createClient>,
+  cardId: string
+): Promise<"foundation" | "core" | "echo"> {
+  const last7Days = getLast7ParisDays();
+  
+  // Get last 7 days of mirror_daily
+  const { data: recent } = await supabase
+    .from("mirror_daily")
+    .select("sentence, date_paris")
+    .eq("card_id", cardId)
+    .in("date_paris", last7Days)
+    .order("date_paris", { ascending: false });
+
+  const recentSentences = recent?.map((r) => r.sentence) ?? [];
+  const recentKinds = recentSentences.map(sentenceToKind);
+
+  // Check for activity (inscriptions in last 7 days)
+  const { count: activityCount } = await supabase
+    .from("inscriptions")
+    .select("*", { count: "exact", head: true })
+    .eq("card_id", cardId)
+    .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+  const hasActivity = (activityCount ?? 0) > 0;
+  const hasRecentEcho = recentKinds.includes("echo");
+  const daysSinceLastEcho = recentKinds.indexOf("echo");
+
+  // Rule: C (echo) if activity AND no echo in last 2 days
+  if (hasActivity && (!hasRecentEcho || daysSinceLastEcho >= 2)) {
+    return "echo";
+  }
+
+  // Rule: A (foundation) if no entries in last 7 days (rare/initiation)
+  if (recentSentences.length === 0) {
+    return "foundation";
+  }
+
+  // Default: B (core)
+  return "core";
+}
+
+// ============ MIROIR: HISTORICAL ANECDOTES ============
+
+/** Historical anecdotes keyed by MM-DD (subset from histoire-quotidienne.ts) */
+const HISTORICAL_ANECDOTES: Record<string, string> = {
+  "11-06": "Ce matin-là, dans un atelier proche du Louvre, les ouvriers démontent une façade promise à disparaître. Les plans ont changé. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue étroite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracé subsiste.",
+  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides résonnent encore des voix du monde entier. Un gardien ramasse un programme froissé.\n\nParis apprend qu'elle peut être internationale sans cesser d'être elle-même.",
+  "11-08": "Le Louvre ouvre comme musée public pour la première fois. Les toiles de maîtres, autrefois réservées au regard royal, sont maintenant offertes à tous. Un menuisier entre, hésite, lève les yeux.\n\nLa beauté n'a plus de porte fermée.",
+  "11-09": "On inaugure la première ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une énergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'échelle.\n\nLa ville devient un point de départ, pas seulement une destination.",
+  "11-10": "Dans un café de Montparnasse, un groupe d'artistes américains discute jusqu'à l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge créatif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
+  "11-11": "Pour la première fois, Paris dépose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumée. Le silence est total.\n\nLa mémoire collective trouve son ancrage géométrique au centre de l'Étoile.",
+  "11-12": "On pose la première pierre du Palais du Luxembourg, commandé par Marie de Médicis. Elle veut recréer Florence à Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction végétale.",
+  "11-13": "Dans les premières semaines de la Révolution, les passages couverts deviennent des lieux de débat improvisé. On y discute, on y conspire, on y espère. L'architecture crée des zones grises entre public et privé.\n\nLa ville trouve de nouveaux espaces de parole.",
+  "11-14": "La première ligne de métro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers découvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-même pour mieux se déployer.",
+  "11-15": "Les Halles déménagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis à la démolition. Un dernier marché se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son âme.",
+  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumière change la texture des souvenirs.",
+  "02-10": "Paris se révèle par fragments, jamais tout à fait. Les pas s'accumulent et créent un rythme propre. La ville murmure des histoires à qui sait écouter.",
+};
+
+/** Get historical anecdote for today (from histoire-quotidienne.ts data) */
+function getHistoricalAnecdote(): string | null {
+  const mmdd = getTodayParisMMDD();
+  return HISTORICAL_ANECDOTES[mmdd] ?? null;
+}
+
+// ============ MIROIR ENDPOINTS ============
+
+// ----- GET /mirror/today -----
+app.get("/mirror/today", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitJournal(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  const cardId = payload.card_id;
+  const todayParis = getTodayParisDate();
+
+  // Check cache (existing entry for today)
+  const { data: existing } = await supabase
+    .from("mirror_daily")
+    .select("sentence, anecdote, date_paris")
+    .eq("card_id", cardId)
+    .eq("date_paris", todayParis)
+    .maybeSingle();
+
+  if (existing) {
+    // Cache hit: return existing with computed kind
+    return c.json({
+      date: existing.date_paris,
+      sentence: existing.sentence,
+      anecdote: existing.anecdote ?? null,
+      kind: sentenceToKind(existing.sentence),
+    });
+  }
+
+  // Cache miss: compute kind and select sentence
+  const kind = await computeKind(supabase, cardId);
+  const pool = kind === "foundation" ? BLOC_A_FOUNDATION : kind === "echo" ? BLOC_C_ECHO : BLOC_B_CORE;
+
+  // Get recent sentences to avoid immediate repeats
+  const last7Days = getLast7ParisDays();
+  const { data: recent } = await supabase
+    .from("mirror_daily")
+    .select("sentence")
+    .eq("card_id", cardId)
+    .in("date_paris", last7Days)
+    .order("date_paris", { ascending: false })
+    .limit(7);
+
+  const recentSentences = new Set(recent?.map((r) => r.sentence) ?? []);
+  const available = pool.filter((s) => !recentSentences.has(s));
+  const candidates = available.length > 0 ? available : pool;
+
+  // Deterministic selection based on cardId + date
+  const seed = `${cardId}:${todayParis}`;
+  const index = simpleHash(seed) % candidates.length;
+  const selectedSentence = candidates[index];
+
+  // Get historical anecdote
+  const anecdote = getHistoricalAnecdote();
+
+  // Save to cache
+  await supabase.from("mirror_daily").insert({
+    card_id: cardId,
+    date_paris: todayParis,
+    sentence: selectedSentence,
+    anecdote: anecdote,
+  });
+
+  return c.json({
+    date: todayParis,
+    sentence: selectedSentence,
+    anecdote: anecdote,
+    kind: kind,
+  });
+});
+
+// ----- GET /mirror/kept -----
+app.get("/mirror/kept", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitJournal(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  const { data, error } = await supabase
+    .from("kept_sentences")
+    .select("id, sentence, created_at")
+    .eq("card_id", payload.card_id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[card-gate] mirror/kept:", error);
+    return c.json({ error: "Failed to load kept sentences" }, 500);
+  }
+
+  return c.json({ items: data ?? [] });
+});
+
+// ----- POST /mirror/keep -----
+app.post("/mirror/keep", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitJournal(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  let body: { sentence?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+
+  const sentence = body?.sentence?.trim();
+  if (!sentence || sentence.length === 0) {
+    return c.json({ error: "sentence required" }, 400);
+  }
+
+  const { error: insertError } = await supabase.from("kept_sentences").insert({
+    card_id: payload.card_id,
+    sentence: sentence,
+  });
+
+  if (insertError) {
+    console.error("[card-gate] mirror/keep:", insertError);
+    return c.json({ error: "Failed to keep sentence" }, 500);
+  }
+
+  return c.json({ ok: true });
+});
+
 // ----- Map: POST /inscriptions -----
 const RUE_HEURE_REGEX = /^Rue\s+.+\s*[—\-]\s*\d{1,2}:\d{2}/i;
 function wordCount(s: string): number {

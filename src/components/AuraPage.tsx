@@ -7,15 +7,17 @@
 import { useState } from 'react';
 import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
+import { MiroirSurface } from './MiroirSurface';
 import { loadCompanion } from '../utils/companion-service';
 import { getCompanionWord } from '../data/oracle';
-import { getAuraMemorySentence, getReflectiveQuestion } from '../data/oracle';
+import { getReflectiveQuestion } from '../data/oracle';
 import { sealingStub } from '../utils/sealing-stub';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
 
 interface AuraPageProps {
   onBack: () => void;
   cardId?: string | null;
+  onOpenKept?: () => void;
 }
 
 /** Opacity by companion level (0=Quiet → 3=Bright). No animation. */
@@ -23,14 +25,13 @@ function glyphOpacity(level: 0 | 1 | 2 | 3): number {
   return 0.4 + level * 0.2; // 0.4, 0.6, 0.8, 1.0
 }
 
-export function AuraPage({ onBack, cardId }: AuraPageProps) {
+export function AuraPage({ onBack, cardId, onOpenKept }: AuraPageProps) {
   const [sealOpen, setSealOpen] = useState(false);
   const [sealContent, setSealContent] = useState('');
   const [sealSaved, setSealSaved] = useState(false);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
-  const memorySentence = getAuraMemorySentence();
 
   return (
     <div
@@ -98,22 +99,8 @@ export function AuraPage({ onBack, cardId }: AuraPageProps) {
         {word}
       </p>
 
-      {/* Memory / weight — one short sentence */}
-      <p
-        style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: 'clamp(14px, 3vw, 16px)',
-          fontStyle: 'italic',
-          color: '#1A1A1A',
-          opacity: 0.6,
-          textAlign: 'center',
-          maxWidth: 280,
-          marginBottom: 'clamp(40px, 10vw, 72px)',
-          lineHeight: 1.5
-        }}
-      >
-        {memorySentence}
-      </p>
+      {/* Miroir — daily sentence with historical anecdote */}
+      <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
 
       {/* Optional: Graver un moment */}
       <button

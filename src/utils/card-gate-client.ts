@@ -684,3 +684,50 @@ export async function forceUnpairDevice(cardId: string, password: string): Promi
     return { ok: false, message: 'Erreur réseau. Réessayez.' };
   }
 }
+
+// ============ MIROIR ============
+
+export interface MirrorToday {
+  date: string;
+  sentence: string;
+  anecdote: string | null;
+  kind: 'foundation' | 'core' | 'echo';
+}
+
+export interface KeptSentenceItem {
+  id: string;
+  sentence: string;
+  created_at: string;
+}
+
+/**
+ * Load today's Miroir sentence (cached per day, Paris timezone)
+ */
+export async function loadMirrorToday(cardId: string): Promise<MirrorToday> {
+  const res = await gateFetch(cardId, '/mirror/today');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Load mirror today failed: ${res.status}`);
+  return data as MirrorToday;
+}
+
+/**
+ * Load kept sentences (saved by user)
+ */
+export async function loadMirrorKept(cardId: string): Promise<KeptSentenceItem[]> {
+  const res = await gateFetch(cardId, '/mirror/kept');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Load mirror kept failed: ${res.status}`);
+  return (data?.items as KeptSentenceItem[]) ?? [];
+}
+
+/**
+ * Keep (save) a sentence
+ */
+export async function keepMirrorSentence(cardId: string, sentence: string): Promise<void> {
+  const res = await gateFetch(cardId, '/mirror/keep', {
+    method: 'POST',
+    body: JSON.stringify({ sentence }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Keep sentence failed: ${res.status}`);
+}
