@@ -13,6 +13,8 @@
  */
 
 const CARD_GATE_BASE = (() => {
+  // Production: use same-origin proxy to avoid Supabase gateway CORS (*)
+  if (import.meta.env.PROD) return '/api/card-gate';
   const projectId = import.meta.env?.VITE_SUPABASE_PROJECT_ID ?? '';
   return projectId ? `https://${projectId}.supabase.co/functions/v1/card-gate` : '';
 })();
