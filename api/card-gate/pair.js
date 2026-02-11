@@ -1,5 +1,5 @@
 /**
- * Test: https.request that aborts
+ * Real proxy - no abort, async callback
  */
 
 module.exports = function handler(req, res) {
@@ -12,10 +12,21 @@ module.exports = function handler(req, res) {
     hostname: 'qvyrpzgxsppkwfvqvgcn.supabase.co',
     port: 443,
     path: '/functions/v1/card-gate/pair',
-    method: 'POST'
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  }, function(proxyRes) {
+    var d = '';
+    proxyRes.on('data', function(c) { d += c; });
+    proxyRes.on('end', function() {
+      res.status(proxyRes.statusCode).send(d);
+    });
   });
-  proxyReq.on('error', function() {});
-  proxyReq.abort();
 
-  return res.status(200).json({ status: 'aborted request works' });
+  proxyReq.on('error', function(e) {
+    res.status(500).json({ err: e.message });
+  });
+
+  proxyReq.write('{}');
+  proxyReq.end();
+  // No return - let callback handle response
 };
