@@ -4,6 +4,11 @@
  * with path in query param so we forward to Supabase.
  */
 
+// Vercel Edge Runtime config — required for named exports (GET, POST, etc.)
+export const config = {
+  runtime: 'edge',
+};
+
 const SUPABASE_PROJECT_ID = process.env.SUPABASE_PROJECT_ID ?? process.env.VITE_SUPABASE_PROJECT_ID ?? '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
 
