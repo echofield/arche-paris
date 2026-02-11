@@ -4,15 +4,12 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/edge"
+    }
+  },
   "rewrites": [
-    {
-      "source": "/api/card-gate",
-      "destination": "/api/card-gate-proxy"
-    },
-    {
-      "source": "/api/card-gate/:path*",
-      "destination": "/api/card-gate-proxy?path=:path*"
-    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
