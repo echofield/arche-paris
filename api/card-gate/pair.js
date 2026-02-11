@@ -1,9 +1,10 @@
 /**
- * Real proxy - no abort, async callback
+ * Test: with both abort flag and write/end
  */
 
 module.exports = function handler(req, res) {
   var https = require('https');
+  var doAbort = false; // flag to control
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -26,7 +27,11 @@ module.exports = function handler(req, res) {
     res.status(500).json({ err: e.message });
   });
 
+  if (doAbort) {
+    proxyReq.abort();
+    return res.status(200).json({ aborted: true });
+  }
+
   proxyReq.write('{}');
   proxyReq.end();
-  // No return - let callback handle response
 };
