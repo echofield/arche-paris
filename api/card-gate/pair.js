@@ -1,9 +1,10 @@
 /**
- * Simplest proxy test
+ * Proxy with require inside handler
  */
-var https = require('https');
 
 module.exports = function handler(req, res) {
+  var https = require('https');
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
