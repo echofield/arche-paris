@@ -1,48 +1,23 @@
 /**
  * ARCHÉ — Card Gate proxy base route
- * Uses global fetch (Node 18+)
+ * Diagnostic version
  */
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
 
-  const projectId = process.env.SUPABASE_PROJECT_ID || process.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const diagnostics = {
+    nodeVersion: process.version,
+    hasFetch: typeof fetch !== 'undefined',
+    hasGlobalFetch: typeof globalThis.fetch !== 'undefined',
+    route: 'index',
+    method: req.method,
+    hasProjectId: !!(process.env.SUPABASE_PROJECT_ID || process.env.VITE_SUPABASE_PROJECT_ID),
+  };
 
-  if (!projectId) {
-    return res.status(500).json({ error: 'SUPABASE_PROJECT_ID not set' });
-  }
-
-  const url = `https://${projectId}.supabase.co/functions/v1/card-gate`;
-
-  try {
-    const response = await fetch(url, {
-      method: req.method || 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': req.headers.authorization || `Bearer ${anonKey}`,
-        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie } : {}),
-      },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-    });
-
-    const data = await response.text();
-
-    const setCookie = response.headers.get('set-cookie');
-    if (setCookie) {
-      res.setHeader('Set-Cookie', setCookie);
-    }
-
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
-    return res.status(response.status).send(data);
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || String(err) });
-  }
+  return res.status(200).json(diagnostics);
 }
