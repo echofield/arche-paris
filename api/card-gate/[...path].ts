@@ -2,6 +2,8 @@
  * ARCHÉ — Card Gate proxy (Vercel Serverless).
  * Forwards browser requests to Supabase card-gate to avoid CORS (gateway returns *).
  * Reflects Set-Cookie to our domain so refresh token works.
+ *
+ * Vercel expects named exports (GET, POST, etc.) for api/ routes.
  */
 
 const SUPABASE_PROJECT_ID = process.env.SUPABASE_PROJECT_ID ?? process.env.VITE_SUPABASE_PROJECT_ID ?? '';
@@ -23,7 +25,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-function getPathFromRequest(req: { url?: string }): string {
+function getPathFromRequest(req: Request): string {
   try {
     const url = new URL(req.url ?? '', 'https://x');
     const pathname = url.pathname || '';
@@ -36,7 +38,14 @@ function getPathFromRequest(req: { url?: string }): string {
   return '';
 }
 
-export default async function handler(req: Request): Promise<Response> {
+function json500(origin: string | null, message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 500,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+  });
+}
+
+async function handleRequest(req: Request): Promise<Response> {
   const origin = req.headers.get('Origin');
 
   if (req.method === 'OPTIONS') {
@@ -47,13 +56,13 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   if (!SUPABASE_BASE) {
-    return new Response(JSON.stringify({ error: 'Card Gate proxy not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-    });
+    return json500(
+      origin,
+      'Card Gate proxy not configured. Set SUPABASE_PROJECT_ID and SUPABASE_ANON_KEY in Vercel (Production).'
+    );
   }
 
-  const path = getPathFromRequest({ url: req.url });
+  const path = getPathFromRequest(req);
   const url = new URL(req.url ?? '', 'https://x');
   const target = new URL(`${SUPABASE_BASE}/${path}`);
   target.search = url.search;
@@ -64,20 +73,25 @@ export default async function handler(req: Request): Promise<Response> {
   const authHeader = req.headers.get('Authorization');
   const authorization = authHeader || (SUPABASE_ANON_KEY ? `Bearer ${SUPABASE_ANON_KEY}` : '');
 
-  const upstream = await fetch(target.toString(), {
-    method,
-    headers: {
-      'Content-Type': req.headers.get('Content-Type') ?? 'application/json',
-      ...(authorization ? { Authorization: authorization } : {}),
-      ...(incomingCookie ? { Cookie: incomingCookie } : {}),
-    },
-    body: hasBody ? await req.text() : undefined,
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(target.toString(), {
+      method,
+      headers: {
+        'Content-Type': req.headers.get('Content-Type') ?? 'application/json',
+        ...(authorization ? { Authorization: authorization } : {}),
+        ...(incomingCookie ? { Cookie: incomingCookie } : {}),
+      },
+      body: hasBody ? await req.text() : undefined,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(origin, `Proxy upstream error: ${msg}`);
+  }
 
   const text = await upstream.text();
   const res = new Response(text, { status: upstream.status });
 
-  // Set CORS ourselves (do not forward Supabase headers; they may contain *)
   for (const [k, v] of Object.entries(corsHeaders(origin))) {
     res.headers.set(k, v);
   }
@@ -85,7 +99,6 @@ export default async function handler(req: Request): Promise<Response> {
   const ct = upstream.headers.get('Content-Type');
   if (ct) res.headers.set('Content-Type', ct);
 
-  // Reflect Set-Cookie from Supabase to our domain (so browser sends it back to proxy)
   const setCookie = upstream.headers.get('Set-Cookie');
   if (setCookie) {
     const hardened = setCookie
@@ -97,4 +110,58 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   return res;
+}
+
+export async function GET(request: Request) {
+  try {
+    return await handleRequest(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    return await handleRequest(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    return await handleRequest(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    return await handleRequest(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    return await handleRequest(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  }
+}
+
+export async function OPTIONS(request: Request) {
+  try {
+    return await handleRequest(request);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  }
 }
