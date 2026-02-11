@@ -1,5 +1,5 @@
 /**
- * /api/card-gate/refresh - proxy to Supabase using https module
+ * /api/card-gate/refresh - proxy to Supabase
  */
 
 module.exports = function handler(req, res) {
@@ -20,29 +20,37 @@ module.exports = function handler(req, res) {
   }
 
   var https = require('https');
-  var body = req.method !== 'GET' && req.body ? JSON.stringify(req.body) : null;
+  var bodyStr = null;
+  if (req.method !== 'GET' && req.body) {
+    bodyStr = JSON.stringify(req.body);
+  }
+
+  var reqHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': req.headers.authorization || ('Bearer ' + anonKey)
+  };
+  if (req.headers.cookie) {
+    reqHeaders['Cookie'] = req.headers.cookie;
+  }
+  if (bodyStr) {
+    reqHeaders['Content-Length'] = Buffer.byteLength(bodyStr);
+  }
 
   var options = {
     hostname: projectId + '.supabase.co',
     port: 443,
     path: '/functions/v1/card-gate/refresh',
     method: req.method || 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': req.headers.authorization || ('Bearer ' + anonKey)
-    }
+    headers: reqHeaders
   };
-  if (req.headers.cookie) {
-    options.headers['Cookie'] = req.headers.cookie;
-  }
-  if (body) {
-    options.headers['Content-Length'] = Buffer.byteLength(body);
-  }
 
   var proxyReq = https.request(options, function(proxyRes) {
-    var data = '';
-    proxyRes.on('data', function(chunk) { data += chunk; });
+    var chunks = [];
+    proxyRes.on('data', function(chunk) {
+      chunks.push(chunk);
+    });
     proxyRes.on('end', function() {
+      var data = Buffer.concat(chunks).toString();
       var setCookie = proxyRes.headers['set-cookie'];
       if (setCookie) {
         res.setHeader('Set-Cookie', setCookie);
@@ -56,8 +64,8 @@ module.exports = function handler(req, res) {
     res.status(500).json({ error: err.message });
   });
 
-  if (body) {
-    proxyReq.write(body);
+  if (bodyStr) {
+    proxyReq.write(bodyStr);
   }
   proxyReq.end();
 };
