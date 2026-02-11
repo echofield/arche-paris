@@ -1,31 +1,36 @@
 /**
- * Proxy test in new file
+ * Proxy using Promise wrapper
  */
 
-module.exports = function handler(req, res) {
-  var https = require('https');
+function makeRequest(options, body) {
+  return new Promise(function(resolve, reject) {
+    var https = require('https');
+    var req = https.request(options, function(res) {
+      var d = '';
+      res.on('data', function(c) { d += c; });
+      res.on('end', function() {
+        resolve({ status: res.statusCode, body: d, headers: res.headers });
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
 
+module.exports = function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  var proxyReq = https.request({
+  return makeRequest({
     hostname: 'qvyrpzgxsppkwfvqvgcn.supabase.co',
     port: 443,
     path: '/functions/v1/card-gate/pair',
     method: 'POST',
     headers: { 'Content-Type': 'application/json' }
-  }, function(proxyRes) {
-    var d = '';
-    proxyRes.on('data', function(c) { d += c; });
-    proxyRes.on('end', function() {
-      res.status(proxyRes.statusCode).send(d);
-    });
+  }, '{}').then(function(result) {
+    res.status(result.status).send(result.body);
+  }).catch(function(err) {
+    res.status(500).json({ err: err.message });
   });
-
-  proxyReq.on('error', function(e) {
-    res.status(500).json({ err: e.message });
-  });
-
-  proxyReq.write('{}');
-  proxyReq.end();
 };
