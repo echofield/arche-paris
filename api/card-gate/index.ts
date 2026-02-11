@@ -1,79 +1,51 @@
 /**
- * ARCHÉ — Card Gate proxy base route (Vercel Serverless - Node.js runtime).
- * Handles /api/card-gate (no subpath)
+ * ARCHÉ — Card Gate proxy base route
+ * Minimal version to debug BOOT_ERROR
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const SUPABASE_PROJECT_ID = process.env.SUPABASE_PROJECT_ID ?? process.env.VITE_SUPABASE_PROJECT_ID ?? '';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
-
-const SUPABASE_BASE = SUPABASE_PROJECT_ID
-  ? `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/card-gate`
-  : '';
-
-const ALLOWED_ORIGIN = 'https://www.xn--arch-paris-e7a.com';
-
-function setCorsHeaders(res: VercelResponse, origin: string | undefined): void {
-  const allowedOrigin = origin === ALLOWED_ORIGIN ? origin : ALLOWED_ORIGIN;
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Vary', 'Origin');
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const origin = req.headers.origin as string | undefined;
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    setCorsHeaders(res, origin);
     return res.status(204).end();
   }
 
-  setCorsHeaders(res, origin);
+  const projectId = process.env.SUPABASE_PROJECT_ID || process.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-  if (!SUPABASE_BASE) {
-    return res.status(500).json({
-      error: 'Proxy not configured',
-      hint: 'Set SUPABASE_PROJECT_ID and SUPABASE_ANON_KEY in Vercel env vars',
-    });
+  if (!projectId) {
+    return res.status(500).json({ error: 'SUPABASE_PROJECT_ID not set' });
   }
 
-  const method = req.method || 'GET';
-  const hasBody = !['GET', 'HEAD'].includes(method);
-  const authHeader = req.headers.authorization;
-  const authorization = authHeader || (SUPABASE_ANON_KEY ? `Bearer ${SUPABASE_ANON_KEY}` : '');
-  const cookie = req.headers.cookie || '';
+  const supabaseUrl = `https://${projectId}.supabase.co/functions/v1/card-gate`;
 
   try {
-    const upstream = await fetch(SUPABASE_BASE, {
-      method,
+    const response = await fetch(supabaseUrl, {
+      method: req.method || 'POST',
       headers: {
-        'Content-Type': req.headers['content-type'] || 'application/json',
-        ...(authorization ? { Authorization: authorization } : {}),
-        ...(cookie ? { Cookie: cookie } : {}),
+        'Content-Type': 'application/json',
+        'Authorization': req.headers.authorization || `Bearer ${anonKey}`,
+        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie } : {}),
       },
-      body: hasBody ? JSON.stringify(req.body) : undefined,
+      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
     });
 
-    const text = await upstream.text();
-    const ct = upstream.headers.get('Content-Type');
-    if (ct) res.setHeader('Content-Type', ct);
+    const data = await response.text();
 
-    const setCookie = upstream.headers.get('Set-Cookie');
+    // Forward Set-Cookie
+    const setCookie = response.headers.get('set-cookie');
     if (setCookie) {
-      const hardened = setCookie
-        .replace(/;\s*Domain=[^;]+/gi, '')
-        .replace(/;\s*SameSite=None/gi, '; SameSite=Lax')
-        + (setCookie.toLowerCase().includes('httponly') ? '' : '; HttpOnly')
-        + (setCookie.toLowerCase().includes('secure') ? '' : '; Secure');
-      res.setHeader('Set-Cookie', hardened);
+      res.setHeader('Set-Cookie', setCookie);
     }
 
-    return res.status(upstream.status).send(text);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return res.status(500).json({ error: `Upstream error: ${msg}` });
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
+    return res.status(response.status).send(data);
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
   }
 }
