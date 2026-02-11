@@ -1,8 +1,9 @@
 /**
  * ARCHÉ — Card Gate proxy catch-all route
- * Handles /api/card-gate/*
- * No imports version to debug BOOT_ERROR
+ * Uses https module (works in all Node.js versions)
  */
+
+import https from 'https';
 
 export default async function handler(req: any, res: any) {
   // CORS
@@ -22,32 +23,49 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'SUPABASE_PROJECT_ID not set' });
   }
 
-  // Get subpath from catch-all param
   const pathParam = req.query.path;
   const subPath = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
-  const supabaseUrl = `https://${projectId}.supabase.co/functions/v1/card-gate/${subPath}`;
 
-  try {
-    const response = await fetch(supabaseUrl, {
+  const body = req.method !== 'GET' && req.body ? JSON.stringify(req.body) : null;
+
+  return new Promise((resolve) => {
+    const options = {
+      hostname: `${projectId}.supabase.co`,
+      port: 443,
+      path: `/functions/v1/card-gate/${subPath}`,
       method: req.method || 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': req.headers.authorization || `Bearer ${anonKey}`,
-        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie as string } : {}),
+        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie } : {}),
+        ...(body ? { 'Content-Length': Buffer.byteLength(body) } : {}),
       },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+    };
+
+    const proxyReq = https.request(options, (proxyRes) => {
+      let data = '';
+      proxyRes.on('data', (chunk) => { data += chunk; });
+      proxyRes.on('end', () => {
+        // Forward Set-Cookie
+        const setCookie = proxyRes.headers['set-cookie'];
+        if (setCookie) {
+          res.setHeader('Set-Cookie', setCookie);
+        }
+
+        res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'application/json');
+        res.status(proxyRes.statusCode || 500).send(data);
+        resolve(undefined);
+      });
     });
 
-    const data = await response.text();
+    proxyReq.on('error', (err) => {
+      res.status(500).json({ error: err.message });
+      resolve(undefined);
+    });
 
-    const setCookie = response.headers.get('set-cookie');
-    if (setCookie) {
-      res.setHeader('Set-Cookie', setCookie);
+    if (body) {
+      proxyReq.write(body);
     }
-
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
-    return res.status(response.status).send(data);
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || String(err) });
-  }
+    proxyReq.end();
+  });
 }
