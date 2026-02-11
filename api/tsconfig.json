@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": ".vercel/output/functions",
+    "lib": ["ES2020"]
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}

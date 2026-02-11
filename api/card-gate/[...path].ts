@@ -1,11 +1,10 @@
 /**
  * ARCHÉ — Card Gate proxy catch-all route
  * Handles /api/card-gate/*
+ * No imports version to debug BOOT_ERROR
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -34,14 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': req.headers.authorization || `Bearer ${anonKey}`,
-        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie } : {}),
+        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie as string } : {}),
       },
       body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
     });
 
     const data = await response.text();
 
-    // Forward Set-Cookie
     const setCookie = response.headers.get('set-cookie');
     if (setCookie) {
       res.setHeader('Set-Cookie', setCookie);
@@ -49,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
     return res.status(response.status).send(data);
-  } catch (err) {
-    return res.status(500).json({ error: String(err) });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || String(err) });
   }
 }
