@@ -2,7 +2,7 @@
  * /api/card-gate - base route
  */
 
-export default function handler(req: any, res: any) {
+module.exports = function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   if (req.method === 'OPTIONS') {
@@ -10,9 +10,7 @@ export default function handler(req: any, res: any) {
   }
 
   return res.status(200).json({
-    boot: 'ok',
-    route: 'index',
-    method: req.method,
+    status: 'Card Gate proxy active',
     nodeVersion: process.version,
   });
-}
+};

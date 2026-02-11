@@ -1,8 +1,8 @@
 /**
- * /api/card-gate/pair - proxy to Supabase (no async/await)
+ * /api/card-gate/refresh - proxy to Supabase
  */
 
-export default function handler(req: any, res: any) {
+module.exports = function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -19,7 +19,7 @@ export default function handler(req: any, res: any) {
     return res.status(500).json({ error: 'SUPABASE_PROJECT_ID not set' });
   }
 
-  const url = `https://${projectId}.supabase.co/functions/v1/card-gate/pair`;
+  const url = `https://${projectId}.supabase.co/functions/v1/card-gate/refresh`;
 
   fetch(url, {
     method: req.method || 'POST',
@@ -30,8 +30,8 @@ export default function handler(req: any, res: any) {
     },
     body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
   })
-    .then((response: any) => {
-      return response.text().then((data: string) => {
+    .then(function(response) {
+      return response.text().then(function(data) {
         const setCookie = response.headers.get('set-cookie');
         if (setCookie) {
           res.setHeader('Set-Cookie', setCookie);
@@ -40,7 +40,7 @@ export default function handler(req: any, res: any) {
         res.status(response.status).send(data);
       });
     })
-    .catch((err: any) => {
-      res.status(500).json({ error: err?.message || String(err) });
+    .catch(function(err) {
+      res.status(500).json({ error: err.message || String(err) });
     });
-}
+};
