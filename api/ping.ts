@@ -1,11 +1,6 @@
-// Simple test endpoint to verify Vercel Edge functions work
-export const config = {
-  runtime: 'edge',
-};
+// Simple test endpoint to verify Vercel functions work
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export function GET() {
-  return new Response(JSON.stringify({ ok: true, time: new Date().toISOString() }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
+export default function handler(_req: VercelRequest, res: VercelResponse) {
+  return res.status(200).json({ ok: true, time: new Date().toISOString() });
 }
