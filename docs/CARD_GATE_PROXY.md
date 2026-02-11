@@ -22,7 +22,8 @@ The proxy also reads `VITE_SUPABASE_PROJECT_ID` and `VITE_SUPABASE_ANON_KEY` as 
 
 ## Files
 
-- `api/card-gate/[...path].ts` — Vercel serverless proxy (OPTIONS, forward, Set-Cookie reflection).
+- `api/card-gate-proxy.ts` — Single Vercel serverless function. Rewrites in `vercel.json` send `/api/card-gate` and `/api/card-gate/*` here (path in query).
+- `vercel.json` — Rewrites: `/api/card-gate` → `/api/card-gate-proxy`, `/api/card-gate/:path*` → `/api/card-gate-proxy?path=:path*`.
 - `src/utils/card-gate-client.ts` — Uses `/api/card-gate` when `import.meta.env.PROD` is true.
 
 ## vercel.json

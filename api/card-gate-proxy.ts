@@ -1,9 +1,7 @@
 /**
  * ARCHÉ — Card Gate proxy (Vercel Serverless).
- * Forwards browser requests to Supabase card-gate to avoid CORS (gateway returns *).
- * Reflects Set-Cookie to our domain so refresh token works.
- *
- * Vercel expects named exports (GET, POST, etc.) for api/ routes.
+ * Single file at /api/card-gate-proxy. Rewrites send /api/card-gate and /api/card-gate/* here
+ * with path in query param so we forward to Supabase.
  */
 
 const SUPABASE_PROJECT_ID = process.env.SUPABASE_PROJECT_ID ?? process.env.VITE_SUPABASE_PROJECT_ID ?? '';
@@ -25,16 +23,19 @@ function corsHeaders(origin: string | null): Record<string, string> {
   };
 }
 
-function getPathFromRequest(req: Request): string {
-  try {
-    const url = new URL(req.url ?? '', 'https://x');
-    const pathname = url.pathname || '';
-    const prefix = '/api/card-gate';
-    if (pathname.startsWith(prefix)) {
-      const rest = pathname.slice(prefix.length).replace(/^\//, '');
-      return rest;
-    }
-  } catch (_) {}
+/** Path from query (rewrite) or from pathname (/api/card-gate/xxx). */
+function getPath(request: Request): string {
+  const url = new URL(request.url ?? '', 'https://x');
+  const fromQuery = url.searchParams.get('path');
+  if (fromQuery != null && fromQuery !== '') return fromQuery;
+  const pathname = url.pathname || '';
+  const prefix = '/api/card-gate';
+  if (pathname.startsWith(prefix)) {
+    const rest = pathname.slice(prefix.length).replace(/^\//, '');
+    return rest;
+  }
+  const prefixProxy = '/api/card-gate-proxy';
+  if (pathname.startsWith(prefixProxy)) return '';
   return '';
 }
 
@@ -45,10 +46,10 @@ function json500(origin: string | null, message: string): Response {
   });
 }
 
-async function handleRequest(req: Request): Promise<Response> {
-  const origin = req.headers.get('Origin');
+async function handleRequest(request: Request): Promise<Response> {
+  const origin = request.headers.get('Origin');
 
-  if (req.method === 'OPTIONS') {
+  if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
       headers: corsHeaders(origin),
@@ -62,15 +63,17 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  const path = getPathFromRequest(req);
-  const url = new URL(req.url ?? '', 'https://x');
-  const target = new URL(`${SUPABASE_BASE}/${path}`);
-  target.search = url.search;
+  const path = getPath(request);
+  const url = new URL(request.url ?? '', 'https://x');
+  const target = new URL(path ? `${SUPABASE_BASE}/${path}` : SUPABASE_BASE);
+  const forwardParams = new URLSearchParams(url.searchParams);
+  forwardParams.delete('path');
+  target.search = forwardParams.toString();
 
-  const method = req.method.toUpperCase();
+  const method = request.method.toUpperCase();
   const hasBody = !['GET', 'HEAD'].includes(method);
-  const incomingCookie = req.headers.get('Cookie') ?? '';
-  const authHeader = req.headers.get('Authorization');
+  const incomingCookie = request.headers.get('Cookie') ?? '';
+  const authHeader = request.headers.get('Authorization');
   const authorization = authHeader || (SUPABASE_ANON_KEY ? `Bearer ${SUPABASE_ANON_KEY}` : '');
 
   let upstream: Response;
@@ -78,11 +81,11 @@ async function handleRequest(req: Request): Promise<Response> {
     upstream = await fetch(target.toString(), {
       method,
       headers: {
-        'Content-Type': req.headers.get('Content-Type') ?? 'application/json',
+        'Content-Type': request.headers.get('Content-Type') ?? 'application/json',
         ...(authorization ? { Authorization: authorization } : {}),
         ...(incomingCookie ? { Cookie: incomingCookie } : {}),
       },
-      body: hasBody ? await req.text() : undefined,
+      body: hasBody ? await request.text() : undefined,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -112,56 +115,28 @@ async function handleRequest(req: Request): Promise<Response> {
   return res;
 }
 
+function withCatch(request: Request, fn: () => Promise<Response>): Promise<Response> {
+  return fn().catch((e) => {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
+  });
+}
+
 export async function GET(request: Request) {
-  try {
-    return await handleRequest(request);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
-  }
+  return withCatch(request, () => handleRequest(request));
 }
-
 export async function POST(request: Request) {
-  try {
-    return await handleRequest(request);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
-  }
+  return withCatch(request, () => handleRequest(request));
 }
-
 export async function PUT(request: Request) {
-  try {
-    return await handleRequest(request);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
-  }
+  return withCatch(request, () => handleRequest(request));
 }
-
 export async function PATCH(request: Request) {
-  try {
-    return await handleRequest(request);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
-  }
+  return withCatch(request, () => handleRequest(request));
 }
-
 export async function DELETE(request: Request) {
-  try {
-    return await handleRequest(request);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
-  }
+  return withCatch(request, () => handleRequest(request));
 }
-
 export async function OPTIONS(request: Request) {
-  try {
-    return await handleRequest(request);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json500(request.headers.get('Origin'), `Proxy error: ${msg}`);
-  }
+  return withCatch(request, () => handleRequest(request));
 }

@@ -6,7 +6,15 @@
   "installCommand": "npm install",
   "rewrites": [
     {
-      "source": "/((?!api/card-gate).*)",
+      "source": "/api/card-gate",
+      "destination": "/api/card-gate-proxy"
+    },
+    {
+      "source": "/api/card-gate/:path*",
+      "destination": "/api/card-gate-proxy?path=:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
