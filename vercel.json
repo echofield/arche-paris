@@ -4,11 +4,6 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "@vercel/edge"
-    }
-  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",
