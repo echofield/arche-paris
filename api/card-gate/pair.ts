@@ -1,8 +1,8 @@
 /**
- * /api/card-gate/pair - proxy to Supabase
+ * /api/card-gate/pair - proxy to Supabase (no async/await)
  */
 
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -21,27 +21,26 @@ export default async function handler(req: any, res: any) {
 
   const url = `https://${projectId}.supabase.co/functions/v1/card-gate/pair`;
 
-  try {
-    const response = await fetch(url, {
-      method: req.method || 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': req.headers.authorization || `Bearer ${anonKey}`,
-        ...(req.headers.cookie ? { 'Cookie': req.headers.cookie } : {}),
-      },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+  fetch(url, {
+    method: req.method || 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': req.headers.authorization || `Bearer ${anonKey}`,
+      ...(req.headers.cookie ? { 'Cookie': req.headers.cookie } : {}),
+    },
+    body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+  })
+    .then((response: any) => {
+      return response.text().then((data: string) => {
+        const setCookie = response.headers.get('set-cookie');
+        if (setCookie) {
+          res.setHeader('Set-Cookie', setCookie);
+        }
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
+        res.status(response.status).send(data);
+      });
+    })
+    .catch((err: any) => {
+      res.status(500).json({ error: err?.message || String(err) });
     });
-
-    const data = await response.text();
-
-    const setCookie = response.headers.get('set-cookie');
-    if (setCookie) {
-      res.setHeader('Set-Cookie', setCookie);
-    }
-
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
-    return res.status(response.status).send(data);
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || String(err) });
-  }
 }
