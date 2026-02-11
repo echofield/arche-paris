@@ -1,9 +1,12 @@
 /**
- * /api/card-gate - base route
+ * /api/card-gate/refresh - specific route
  */
 
 export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -11,7 +14,7 @@ export default function handler(req: any, res: any) {
 
   return res.status(200).json({
     boot: 'ok',
-    route: 'index',
+    route: 'refresh',
     method: req.method,
     nodeVersion: process.version,
   });
