@@ -19,6 +19,9 @@ import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
 import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
+import { QuetesHub } from './components/QuetesHub';
+import { ChurchQuestsList } from './components/ChurchQuestsList';
+import { ChurchQuestRun } from './components/ChurchQuestRun';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -47,6 +50,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
+  const [churchQuestRunQuestId, setChurchQuestRunQuestId] = useState<string | null>(null);
   const [showSilencePrompt, setShowSilencePrompt] = useState(false);
 
   // Force-unpair state (when session expired but card still paired on server)
@@ -59,26 +63,15 @@ export default function App() {
   // Initialize card on mount
   useEffect(() => {
     async function init() {
-      // Dev mode: skip all authentication, go directly to ready state
-      // Check dev mode FIRST, even if ?card= is present
-      const urlParams = new URLSearchParams(window.location.search);
-      const devMode = urlParams.get('dev') === 'true' || urlParams.get('skipAuth') === 'true';
-      
-      if (devMode) {
-        console.log('[ARCHÉ] Dev mode enabled - skipping authentication');
-        // Remove ?card= from URL if present to avoid confusion
-        const url = new URL(window.location.href);
-        url.searchParams.delete('card');
-        window.history.replaceState({}, '', url.toString());
-        
+      const isDemo = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo');
+      if (isDemo) {
         const demoStatus: CardStatus = {
           valid: true,
           status: 'DEMO',
-          message: 'Mode développement.',
+          message: 'Mode démo.',
           cardId: 'DEMO-DEV',
         };
         setCardStatus(demoStatus);
-        // Skip welcome screen, go directly to ready
         setAppState('ready');
         return;
       }
@@ -278,7 +271,15 @@ export default function App() {
       } else if (hash === 'etudes') {
         setCurrentScreen('etudes');
       } else if (hash === 'quetes') {
+        setCurrentScreen('quetesHub');
+      } else if (hash === 'quetes/marches') {
         setCurrentScreen('quetes');
+      } else if (hash === 'church-quests') {
+        setCurrentScreen('churchQuestsList');
+      } else if (hash.startsWith('church-quest-run/')) {
+        const questId = hash.slice('church-quest-run/'.length).trim() || null;
+        setChurchQuestRunQuestId(questId);
+        setCurrentScreen('churchQuestRun');
       } else if (hash === 'etudes') {
         setCurrentScreen('etudes');
       } else if (hash.startsWith('quete/')) {
@@ -322,6 +323,14 @@ export default function App() {
       window.location.hash = `quete/${queteId}`;
     } else if (screen === 'questRun' && queteId) {
       window.location.hash = `quest-run/${queteId}`;
+    } else if (screen === 'quetesHub') {
+      window.location.hash = 'quetes';
+    } else if (screen === 'churchQuestsList') {
+      window.location.hash = 'church-quests';
+    } else if (screen === 'churchQuestRun' && queteId) {
+      window.location.hash = `church-quest-run/${queteId}`;
+    } else if (screen === 'quetes') {
+      window.location.hash = 'quetes/marches';
     } else {
       window.location.hash = screen;
     }
@@ -339,7 +348,7 @@ export default function App() {
               markSilencePromptShown();
               setShowSilencePrompt(false);
             }}
-            onEnterQuetes={() => navigateTo('quetes')}
+            onEnterQuetes={() => navigateTo('quetesHub')}
             onEnterCarnet={() => navigateTo('carnet')}
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
@@ -358,8 +367,37 @@ export default function App() {
       case 'quetes':
         return (
           <QuetesV1
-            onBack={() => navigateTo('homepage')}
+            onBack={() => navigateTo('quetesHub')}
             onSelectQuete={(id) => navigateTo('detail', id)}
+          />
+        );
+      case 'quetesHub':
+        return (
+          <QuetesHub
+            onBack={() => navigateTo('homepage')}
+            onEnterMeridiens={() => navigateTo('meridiens')}
+            onEnterLieux={() => navigateTo('churchQuestsList')}
+            onEnterMarches={() => navigateTo('quetes')}
+          />
+        );
+      case 'churchQuestsList':
+        return (
+          <ChurchQuestsList
+            onBack={() => navigateTo('quetesHub')}
+            onSelectQuest={(questId) => navigateTo('churchQuestRun', questId)}
+          />
+        );
+      case 'churchQuestRun':
+        if (!churchQuestRunQuestId) {
+          navigateTo('churchQuestsList');
+          return null;
+        }
+        return (
+          <ChurchQuestRun
+            questId={churchQuestRunQuestId}
+            cardId={cardStatus?.cardId ?? null}
+            onBack={() => { setChurchQuestRunQuestId(null); navigateTo('churchQuestsList'); }}
+            onComplete={() => { setChurchQuestRunQuestId(null); navigateTo('churchQuestsList'); }}
           />
         );
       case 'detail':

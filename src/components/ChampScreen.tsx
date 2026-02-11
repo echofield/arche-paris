@@ -28,8 +28,8 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     setLoading(true);
 
     // Dev mode: skip API calls, show empty map immediately
-    const isDevMode = cardId === 'DEMO-DEV' || cardId === 'unknown';
-    if (isDevMode) {
+    const isDemoMode = cardId === 'DEMO-DEV' || cardId === 'unknown';
+    if (isDemoMode) {
       console.log('[ChampScreen] Dev mode - skipping API call, showing empty map');
       setItems([]);
       setFullItems([]);
