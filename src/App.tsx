@@ -19,9 +19,6 @@ import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
 import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
-import { QuetesHub } from './components/QuetesHub';
-import { ChurchQuestsList } from './components/ChurchQuestsList';
-import { ChurchQuestRun } from './components/ChurchQuestRun';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -50,7 +47,6 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
-  const [churchQuestRunQuestId, setChurchQuestRunQuestId] = useState<string | null>(null);
   const [showSilencePrompt, setShowSilencePrompt] = useState(false);
 
   // Force-unpair state (when session expired but card still paired on server)
@@ -287,15 +283,9 @@ export default function App() {
       } else if (hash === 'etudes') {
         setCurrentScreen('etudes');
       } else if (hash === 'quetes') {
-        setCurrentScreen('quetesHub');
+        setCurrentScreen('quetes');
       } else if (hash === 'quetes/marches') {
         setCurrentScreen('quetes');
-      } else if (hash === 'church-quests') {
-        setCurrentScreen('churchQuestsList');
-      } else if (hash.startsWith('church-quest-run/')) {
-        const questId = hash.slice('church-quest-run/'.length).trim() || null;
-        setChurchQuestRunQuestId(questId);
-        setCurrentScreen('churchQuestRun');
       } else if (hash === 'etudes') {
         setCurrentScreen('etudes');
       } else if (hash.startsWith('quete/')) {
@@ -339,14 +329,8 @@ export default function App() {
       window.location.hash = `quete/${queteId}`;
     } else if (screen === 'questRun' && queteId) {
       window.location.hash = `quest-run/${queteId}`;
-    } else if (screen === 'quetesHub') {
-      window.location.hash = 'quetes';
-    } else if (screen === 'churchQuestsList') {
-      window.location.hash = 'church-quests';
-    } else if (screen === 'churchQuestRun' && queteId) {
-      window.location.hash = `church-quest-run/${queteId}`;
     } else if (screen === 'quetes') {
-      window.location.hash = 'quetes/marches';
+      window.location.hash = 'quetes';
     } else {
       window.location.hash = screen;
     }
@@ -364,7 +348,7 @@ export default function App() {
               markSilencePromptShown();
               setShowSilencePrompt(false);
             }}
-            onEnterQuetes={() => navigateTo('quetesHub')}
+            onEnterQuetes={() => navigateTo('quetes')}
             onEnterCarnet={() => navigateTo('carnet')}
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
@@ -384,37 +368,8 @@ export default function App() {
       case 'quetes':
         return (
           <QuetesV1
-            onBack={() => navigateTo('quetesHub')}
-            onSelectQuete={(id) => navigateTo('detail', id)}
-          />
-        );
-      case 'quetesHub':
-        return (
-          <QuetesHub
             onBack={() => navigateTo('homepage')}
-            onEnterMeridiens={() => navigateTo('meridiens')}
-            onEnterLieux={() => navigateTo('churchQuestsList')}
-            onEnterMarches={() => navigateTo('quetes')}
-          />
-        );
-      case 'churchQuestsList':
-        return (
-          <ChurchQuestsList
-            onBack={() => navigateTo('quetesHub')}
-            onSelectQuest={(questId) => navigateTo('churchQuestRun', questId)}
-          />
-        );
-      case 'churchQuestRun':
-        if (!churchQuestRunQuestId) {
-          navigateTo('churchQuestsList');
-          return null;
-        }
-        return (
-          <ChurchQuestRun
-            questId={churchQuestRunQuestId}
-            cardId={cardStatus?.cardId ?? null}
-            onBack={() => { setChurchQuestRunQuestId(null); navigateTo('churchQuestsList'); }}
-            onComplete={() => { setChurchQuestRunQuestId(null); navigateTo('churchQuestsList'); }}
+            onSelectQuete={(id) => navigateTo('detail', id)}
           />
         );
       case 'detail':
