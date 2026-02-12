@@ -4,6 +4,18 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
+  "redirects": [
+    {
+      "source": "/dev",
+      "destination": "/demo",
+      "permanent": false
+    },
+    {
+      "source": "/dev/:path*",
+      "destination": "/demo/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/).*)",

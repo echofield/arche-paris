@@ -63,7 +63,17 @@ export default function App() {
   // Initialize card on mount
   useEffect(() => {
     async function init() {
-      const isDemo = typeof window !== 'undefined' && window.location.pathname.startsWith('/demo');
+      const isBrowser = typeof window !== 'undefined';
+      const pathname = isBrowser ? window.location.pathname : '';
+      const isLegacyDevRoute = pathname === '/dev' || pathname.startsWith('/dev/');
+
+      // Keep /demo as the explicit demo surface and normalize legacy /dev links.
+      if (isLegacyDevRoute) {
+        const nextPath = pathname.replace(/^\/dev(?=\/|$)/, '/demo');
+        window.history.replaceState({}, '', `${nextPath}${window.location.search}${window.location.hash}`);
+      }
+
+      const isDemo = pathname.startsWith('/demo') || isLegacyDevRoute;
       if (isDemo) {
         const demoStatus: CardStatus = {
           valid: true,
@@ -177,6 +187,12 @@ export default function App() {
     setForceUnpairCardId(null);
     setForceUnpairPassword('');
     setForceUnpairError(null);
+  };
+
+  // From demo: show card entry so user can log in with a real card
+  const handleSwitchToLogin = () => {
+    setCardStatus(null);
+    setAppState('no_card');
   };
 
   // Manual card entry: show CardGate (check-card → activation or login)
@@ -357,7 +373,8 @@ export default function App() {
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
             onEnterMeridiens={() => navigateTo('meridiens')}
-            onDisconnect={handleDisconnect}
+            onDisconnect={cardStatus?.cardId === 'DEMO-DEV' ? undefined : handleDisconnect}
+            onLogin={cardStatus?.cardId === 'DEMO-DEV' ? handleSwitchToLogin : undefined}
           />
         );
       case 'origine':
