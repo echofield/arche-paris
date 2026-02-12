@@ -55,7 +55,10 @@ export function CardActivation({ cardCode, onActivated, onBack }: CardActivation
         throw new Error('Configuration manquante. Vérifiez les variables d\'environnement.');
       }
 
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a/activate-card`;
+      const baseUrl = import.meta.env.PROD
+        ? '/api/card-auth'
+        : `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a`;
+      const url = `${baseUrl}/activate-card`;
       console.log('[CardActivation] Activating card:', cardCode, 'URL:', url);
 
       const response = await fetch(url, {

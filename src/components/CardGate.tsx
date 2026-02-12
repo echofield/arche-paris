@@ -42,7 +42,10 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
         return;
       }
 
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a/check-card`;
+      const baseUrl = import.meta.env.PROD
+        ? '/api/card-auth'
+        : `https://${projectId}.supabase.co/functions/v1/make-server-9060b10a`;
+      const url = `${baseUrl}/check-card`;
       console.log('[CardGate] Checking card:', cardCode, 'URL:', url);
 
       // Normalize card code (trim whitespace, uppercase)
