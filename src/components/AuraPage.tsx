@@ -15,6 +15,7 @@ import { sealingStub } from '../utils/sealing-stub';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
 import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
 import { useTranslation } from '../utils/i18n';
+import { api, type ZoneProgressData } from '../lib/api';
 
 interface AuraPageProps {
   onBack: () => void;
@@ -35,9 +36,19 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [sealSaved, setSealSaved] = useState(false);
   const [auraProfile, setAuraProfile] = useState<AuraProfileResult | null>(null);
   const [auraProfileLoading, setAuraProfileLoading] = useState(false);
+  const [zoneProgress, setZoneProgress] = useState<ZoneProgressData | null>(null);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
+
+  // Load ARCHÉ zone progress
+  useEffect(() => {
+    api.zoneProgress().then(result => {
+      if (result.data) {
+        setZoneProgress(result.data);
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
@@ -140,6 +151,194 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
       {/* Miroir — daily sentence with historical anecdote */}
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
+
+      {/* ARCHÉ State Dashboard */}
+      {zoneProgress && (
+        <div
+          style={{
+            marginTop: 'clamp(24px, 5vw, 40px)',
+            padding: '20px 24px',
+            background: 'rgba(0, 61, 44, 0.03)',
+            borderRadius: 8,
+            maxWidth: 320,
+            width: '100%',
+          }}
+        >
+          {/* Complexion (Presence / Wisdom / Shadow) */}
+          <div style={{ marginBottom: 20 }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                opacity: 0.5,
+                marginBottom: 12,
+              }}
+            >
+              Complexion
+            </p>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+              {/* Presence */}
+              <div style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: `conic-gradient(#007850 ${Math.min(100, zoneProgress.complexion.presence_points)}%, rgba(0,120,80,0.15) 0%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 6px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: '#FAF8F2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#007850',
+                    }}
+                  >
+                    {zoneProgress.complexion.presence_points}
+                  </span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455' }}>Présence</span>
+              </div>
+              {/* Wisdom */}
+              <div style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: `conic-gradient(#003D2C ${Math.min(100, zoneProgress.complexion.wisdom_points)}%, rgba(0,61,44,0.15) 0%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 6px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: '#FAF8F2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#003D2C',
+                    }}
+                  >
+                    {zoneProgress.complexion.wisdom_points}
+                  </span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455' }}>Sagesse</span>
+              </div>
+              {/* Shadow */}
+              <div style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: `conic-gradient(#1A1A1A ${Math.min(100, zoneProgress.complexion.shadow_points)}%, rgba(26,26,26,0.15) 0%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 6px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: '#FAF8F2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#1A1A1A',
+                    }}
+                  >
+                    {zoneProgress.complexion.shadow_points}
+                  </span>
+                </div>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455' }}>Ombre</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Zone Progress Stats */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              paddingTop: 16,
+              borderTop: '1px solid rgba(0, 61, 44, 0.08)',
+            }}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#003D2C', fontWeight: 500 }}>
+                {zoneProgress.stats.zones_complete}
+              </div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455', opacity: 0.7 }}>
+                Zones maîtrisées
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#003D2C', fontWeight: 500 }}>
+                {zoneProgress.stats.total_rituals}
+              </div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455', opacity: 0.7 }}>
+                Rituels
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#003D2C', fontWeight: 500 }}>
+                {zoneProgress.stats.total_engravings}
+              </div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455', opacity: 0.7 }}>
+                Gravures
+              </div>
+            </div>
+          </div>
+
+          {/* Revealed status */}
+          {zoneProgress.complexion.revealed && (
+            <p
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 12,
+                fontStyle: 'italic',
+                color: '#007850',
+                textAlign: 'center',
+                marginTop: 16,
+                opacity: 0.8,
+              }}
+            >
+              Complexion révélée
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Optional: Graver un moment */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>

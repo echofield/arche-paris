@@ -279,6 +279,13 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
           100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
         }
+        @keyframes zone-invite {
+          0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+        }
+        .zone-unexplored {
+          animation: zone-invite 3s ease-in-out infinite;
+        }
       `}</style>
 
       <div
@@ -661,48 +668,54 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             const progress = zoneProgressMap[zoneId];
             const objectivesComplete = progress?.objectives_complete ?? 0;
             const progressPct = objectivesComplete * 20; // 5 objectives = 100%
+            const isUnexplored = objectivesComplete === 0;
+            const isComplete = objectivesComplete === 5;
             return (
               <button
                 key={arr}
                 type="button"
                 aria-label={`${arr}e arrondissement - ${objectivesComplete}/5 objectifs`}
+                className={isUnexplored ? 'zone-unexplored' : ''}
                 style={{
                   position: 'absolute',
                   left: `${pos.x}%`,
                   top: `${pos.y}%`,
                   transform: 'translate(-50%, -50%)',
-                  width: 32,
-                  height: 32,
+                  width: isComplete ? 36 : 32,
+                  height: isComplete ? 36 : 32,
                   borderRadius: '50%',
-                  background: objectivesComplete > 0
-                    ? `conic-gradient(#003D2C ${progressPct}%, rgba(0,61,44,0.15) ${progressPct}%)`
-                    : 'rgba(0,61,44,0.1)',
-                  border: 'none',
+                  background: isComplete
+                    ? 'linear-gradient(135deg, #007850 0%, #003D2C 100%)'
+                    : objectivesComplete > 0
+                      ? `conic-gradient(#003D2C ${progressPct}%, rgba(0,61,44,0.15) ${progressPct}%)`
+                      : 'rgba(0,61,44,0.08)',
+                  border: isComplete ? '2px solid rgba(255,215,0,0.4)' : 'none',
                   cursor: 'pointer',
                   zIndex: 3,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
+                  boxShadow: isComplete ? '0 2px 8px rgba(0,61,44,0.3)' : 'none',
                 }}
                 onClick={() => setZoneDetailArr(arr)}
               >
                 <span
                   style={{
-                    width: 24,
-                    height: 24,
+                    width: isComplete ? 28 : 24,
+                    height: isComplete ? 28 : 24,
                     borderRadius: '50%',
-                    background: '#FAF8F2',
+                    background: isComplete ? 'transparent' : '#FAF8F2',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontFamily: 'var(--font-sans)',
-                    fontSize: 9,
-                    fontWeight: 500,
-                    color: objectivesComplete > 0 ? '#003D2C' : '#8E8982',
+                    fontSize: isComplete ? 12 : 9,
+                    fontWeight: isComplete ? 600 : 500,
+                    color: isComplete ? '#FAF8F2' : objectivesComplete > 0 ? '#003D2C' : '#8E8982',
                   }}
                 >
-                  {objectivesComplete === 5 ? '✓' : arr}
+                  {isComplete ? '✓' : isUnexplored ? '◯' : arr}
                 </span>
               </button>
             );
