@@ -103,3 +103,117 @@ export function getWhisperLine(): string {
   const index = (Date.now() / 1000) % WHISPER_LINES.length;
   return WHISPER_LINES[Math.floor(index)] ?? WHISPER_LINES[0];
 }
+
+// ============ Decision Node Whispers ============
+// Deterministic by dominant delta, not by choice label.
+// Player never sees the numerical delta - only poetic resonance.
+
+const DECISION_WHISPERS: Record<string, string[]> = {
+  // Presence increased (trusted the axis, aligned with system)
+  presence_up: [
+    'The axis holds.',
+    'Something aligns.',
+    'Your step was noted.',
+    'The line accepts.',
+    'Orientation confirmed.',
+  ],
+  // Shadow increased (resisted, deviated, trusted observation)
+  shadow_up: [
+    'Something in you resisted.',
+    'The line bends.',
+    'A different path opens.',
+    'The edge sharpens.',
+    'You carry what you saw.',
+  ],
+  // Wisdom increased (held complexity, observed both)
+  wisdom_up: [
+    'The depth increases.',
+    'Understanding settles.',
+    'The pattern reveals.',
+    'Both truths held.',
+    'Complexity accepted.',
+  ],
+  // No dominant delta (balanced or zero)
+  neutral: [
+    'The city watches.',
+    'Nothing changes, yet.',
+    'The moment passes.',
+    'Silence holds.',
+    'The axis waits.',
+  ],
+};
+
+/**
+ * Returns a deterministic whisper based on which Aura axis increased most.
+ * Stable per-day + delta-pattern combination.
+ */
+export function getDecisionWhisper(delta: {
+  d_presence: number;
+  d_wisdom: number;
+  d_shadow: number;
+}): string {
+  // Determine dominant axis
+  const { d_presence, d_wisdom, d_shadow } = delta;
+  let category: keyof typeof DECISION_WHISPERS;
+
+  if (d_presence > d_wisdom && d_presence > d_shadow && d_presence > 0) {
+    category = 'presence_up';
+  } else if (d_shadow > d_presence && d_shadow > d_wisdom && d_shadow > 0) {
+    category = 'shadow_up';
+  } else if (d_wisdom > d_presence && d_wisdom > d_shadow && d_wisdom > 0) {
+    category = 'wisdom_up';
+  } else {
+    category = 'neutral';
+  }
+
+  const lines = DECISION_WHISPERS[category];
+
+  // Deterministic selection: day seed + delta sum
+  const now = new Date();
+  const daySeed = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
+  const deltaSeed = Math.abs(d_presence) + Math.abs(d_wisdom) * 2 + Math.abs(d_shadow) * 3;
+  const index = (daySeed + deltaSeed) % lines.length;
+
+  return lines[index] ?? lines[0];
+}
+
+// ============ Aura Interpretation Lines ============
+// For AuraPage - poetic description of dominant axis
+
+const AURA_INTERPRETATIONS: Record<string, string[]> = {
+  presence: [
+    'You are oriented by the axis.',
+    'The meridian runs through you.',
+    'Your path follows the line.',
+  ],
+  shadow: [
+    'You walk the edge of the line.',
+    'The city reveals its contradictions to you.',
+    'You see what the instrument cannot.',
+  ],
+  wisdom: [
+    'You hold multiple truths.',
+    'The paradox does not trouble you.',
+    'Between system and sense, you navigate.',
+  ],
+  none: [
+    'Your complexion is forming.',
+    'The axes wait for your passage.',
+    'Nothing has yet taken shape.',
+  ],
+};
+
+/**
+ * Returns a poetic interpretation for the dominant Aura axis.
+ * Stable per-day.
+ */
+export function getAuraInterpretation(dominant: 'presence' | 'wisdom' | 'shadow' | null): string {
+  const category = dominant ?? 'none';
+  const lines = AURA_INTERPRETATIONS[category];
+
+  const now = new Date();
+  const daySeed = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
+  const index = daySeed % lines.length;
+
+  return lines[index] ?? lines[0];
+}

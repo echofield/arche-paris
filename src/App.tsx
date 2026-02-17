@@ -28,6 +28,7 @@ import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-r
 import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
+import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
@@ -455,6 +456,7 @@ export default function App() {
 
   return (
     <LanguageProvider>
+      <WhisperProvider>
       <SyncStateProvider>
       <div style={{ minHeight: '100vh', width: '100%', maxWidth: '100%', overflowX: 'hidden', background: '#FAF8F2', position: 'relative' }}>
         {appState !== 'ready' ? (
@@ -615,8 +617,11 @@ export default function App() {
             </div>
           </div>
         )}
+        {/* Global whisper overlay for poetic feedback */}
+        <Whisper />
       </div>
       </SyncStateProvider>
+      </WhisperProvider>
     </LanguageProvider>
   );
 }

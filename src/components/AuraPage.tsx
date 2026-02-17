@@ -9,8 +9,7 @@ import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
 import { loadCompanion } from '../utils/companion-service';
-import { getCompanionWord } from '../data/oracle';
-import { getReflectiveQuestion } from '../data/oracle';
+import { getCompanionWord, getReflectiveQuestion, getAuraInterpretation } from '../data/oracle';
 import { sealingStub } from '../utils/sealing-stub';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
 import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
@@ -164,126 +163,162 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             width: '100%',
           }}
         >
-          {/* Complexion (Presence / Wisdom / Shadow) */}
-          <div style={{ marginBottom: 20 }}>
-            <p
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 10,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: '#003D2C',
-                opacity: 0.5,
-                marginBottom: 12,
-              }}
-            >
-              Complexion
-            </p>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
-              {/* Presence */}
-              <div style={{ textAlign: 'center' }}>
-                <div
+          {/* Complexion (Presence / Wisdom / Shadow) - No raw numbers */}
+          {(() => {
+            const { presence_points, wisdom_points, shadow_points } = zoneProgress.complexion;
+            const total = presence_points + wisdom_points + shadow_points;
+
+            // Determine dominant axis
+            let dominant: 'presence' | 'wisdom' | 'shadow' | null = null;
+            if (total > 0) {
+              if (presence_points >= wisdom_points && presence_points >= shadow_points) {
+                dominant = 'presence';
+              } else if (shadow_points >= presence_points && shadow_points >= wisdom_points) {
+                dominant = 'shadow';
+              } else {
+                dominant = 'wisdom';
+              }
+            }
+
+            // Calculate proportions for rings (without showing actual numbers)
+            const maxPoints = Math.max(presence_points, wisdom_points, shadow_points, 1);
+            const presencePct = (presence_points / maxPoints) * 100;
+            const wisdomPct = (wisdom_points / maxPoints) * 100;
+            const shadowPct = (shadow_points / maxPoints) * 100;
+
+            return (
+              <div style={{ marginBottom: 20 }}>
+                <p
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '50%',
-                    background: `conic-gradient(#007850 ${Math.min(100, zoneProgress.complexion.presence_points)}%, rgba(0,120,80,0.15) 0%)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 6px',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 10,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    opacity: 0.5,
+                    marginBottom: 12,
                   }}
                 >
-                  <span
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      background: '#FAF8F2',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                  Complexion
+                </p>
+                <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+                  {/* Presence */}
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: `conic-gradient(#007850 ${presencePct}%, rgba(0,120,80,0.15) 0%)`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 6px',
+                        opacity: dominant === 'presence' ? 1 : 0.6,
+                        transition: 'opacity 0.3s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          background: '#FAF8F2',
+                        }}
+                      />
+                    </div>
+                    <span style={{
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#007850',
-                    }}
-                  >
-                    {zoneProgress.complexion.presence_points}
-                  </span>
+                      fontSize: 9,
+                      color: '#6B6455',
+                      fontWeight: dominant === 'presence' ? 600 : 400,
+                    }}>Présence</span>
+                  </div>
+                  {/* Wisdom */}
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: `conic-gradient(#003D2C ${wisdomPct}%, rgba(0,61,44,0.15) 0%)`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 6px',
+                        opacity: dominant === 'wisdom' ? 1 : 0.6,
+                        transition: 'opacity 0.3s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          background: '#FAF8F2',
+                        }}
+                      />
+                    </div>
+                    <span style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 9,
+                      color: '#6B6455',
+                      fontWeight: dominant === 'wisdom' ? 600 : 400,
+                    }}>Sagesse</span>
+                  </div>
+                  {/* Shadow */}
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: `conic-gradient(#1A1A1A ${shadowPct}%, rgba(26,26,26,0.15) 0%)`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 6px',
+                        opacity: dominant === 'shadow' ? 1 : 0.6,
+                        transition: 'opacity 0.3s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          background: '#FAF8F2',
+                        }}
+                      />
+                    </div>
+                    <span style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 9,
+                      color: '#6B6455',
+                      fontWeight: dominant === 'shadow' ? 600 : 400,
+                    }}>Ombre</span>
+                  </div>
                 </div>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455' }}>Présence</span>
-              </div>
-              {/* Wisdom */}
-              <div style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '50%',
-                    background: `conic-gradient(#003D2C ${Math.min(100, zoneProgress.complexion.wisdom_points)}%, rgba(0,61,44,0.15) 0%)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 6px',
-                  }}
-                >
-                  <span
+                {/* Poetic interpretation based on dominant */}
+                {total > 0 && (
+                  <p
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      background: '#FAF8F2',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: '#003D2C',
-                    }}
-                  >
-                    {zoneProgress.complexion.wisdom_points}
-                  </span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455' }}>Sagesse</span>
-              </div>
-              {/* Shadow */}
-              <div style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '50%',
-                    background: `conic-gradient(#1A1A1A ${Math.min(100, zoneProgress.complexion.shadow_points)}%, rgba(26,26,26,0.15) 0%)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 6px',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      background: '#FAF8F2',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: 11,
-                      fontWeight: 600,
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: 13,
+                      fontStyle: 'italic',
                       color: '#1A1A1A',
+                      textAlign: 'center',
+                      marginTop: 16,
+                      opacity: 0.7,
+                      lineHeight: 1.5,
                     }}
                   >
-                    {zoneProgress.complexion.shadow_points}
-                  </span>
-                </div>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455' }}>Ombre</span>
+                    {getAuraInterpretation(dominant)}
+                  </p>
+                )}
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Zone Progress Stats */}
           <div

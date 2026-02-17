@@ -298,6 +298,21 @@ export const api = {
 
   inscriptionsList: (zone_id: string, limit?: number, offset?: number) =>
     invoke<InscriptionListData>('inscriptions-list', { zone_id, limit, offset }),
+
+  // Decision Nodes (silent Aura modification)
+  decisionMade: (params: {
+    zone_id?: string;
+    node_id: string;
+    choice: string;
+    d_presence?: number;
+    d_wisdom?: number;
+    d_shadow?: number;
+    lat?: number;
+    lng?: number;
+    accuracy_m?: number;
+    client_ts?: string;
+    idempotency_key: string;
+  }) => invoke<{ ok: boolean; event_id?: string; isNew?: boolean }>('decision-made', params),
 };
 
 // ============ Helpers ============
