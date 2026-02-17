@@ -33,6 +33,7 @@ import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, EngravedSegment } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
 import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
+import { useGeolocation } from '../hooks/useGeolocation';
 import { ZoneEntryFeedback } from './ZoneEntryFeedback';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
 import { api, type ZoneProgressItem } from '../lib/api';
@@ -108,6 +109,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneEntryPromptArr, setZoneEntryPromptArr] = useState<number | null>(null);
   const [zoneDetailArr, setZoneDetailArr] = useState<number | null>(null);
   const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
+  // GPS location for "You are here" marker
+  const geo = useGeolocation();
 
   // Load zone progress on mount
   useEffect(() => {
@@ -271,6 +274,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         }
         .my-paris-map-breathe {
           animation: my-paris-breathe 8s ease-in-out infinite;
+        }
+        @keyframes you-are-here-pulse {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+          100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
         }
       `}</style>
 
@@ -700,6 +707,52 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               </button>
             );
           })}
+          {/* "You are here" marker */}
+          {geo.lat !== null && geo.lng !== null && (() => {
+            const userPos = project(geo.lat, geo.lng);
+            const xPct = (userPos.x / VIEWBOX_WIDTH) * 100;
+            const yPct = (userPos.y / VIEWBOX_HEIGHT) * 100;
+            // Only show if within reasonable bounds (Paris area)
+            if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return null;
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${xPct}%`,
+                  top: `${yPct}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                }}
+              >
+                {/* Pulsing ring */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    background: 'rgba(0, 120, 80, 0.15)',
+                    transform: 'translate(-50%, -50%)',
+                    left: '50%',
+                    top: '50%',
+                    animation: 'you-are-here-pulse 2s ease-out infinite',
+                  }}
+                />
+                {/* Center dot */}
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: '#007850',
+                    border: '2px solid #FAF8F2',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  }}
+                />
+              </div>
+            );
+          })()}
         </div>
 
         {/* Absence (Unmarked) — arrondissements with 0 symbols: tappable → "Is this choice?" → refused */}
