@@ -1,10 +1,10 @@
 /**
  * ARCHÉ — Aura page
- * Calm, breathing space. Phenomenological mirror. No metrics, scores, or progression.
- * Not a dashboard. Not gamified. Not instructional.
+ * Calm, breathing space. Phenomenological mirror.
+ * Shows AURA profile from church quests (status, seals) when available.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
@@ -13,6 +13,8 @@ import { getCompanionWord } from '../data/oracle';
 import { getReflectiveQuestion } from '../data/oracle';
 import { sealingStub } from '../utils/sealing-stub';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
+import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
+import { useTranslation } from '../utils/i18n';
 
 interface AuraPageProps {
   onBack: () => void;
@@ -27,12 +29,26 @@ function glyphOpacity(level: 0 | 1 | 2 | 3): number {
 }
 
 export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageProps) {
+  const { t } = useTranslation();
   const [sealOpen, setSealOpen] = useState(false);
   const [sealContent, setSealContent] = useState('');
   const [sealSaved, setSealSaved] = useState(false);
+  const [auraProfile, setAuraProfile] = useState<AuraProfileResult | null>(null);
+  const [auraProfileLoading, setAuraProfileLoading] = useState(false);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
+
+  useEffect(() => {
+    if (!cardId || cardId === 'DEMO-DEV') return;
+    let cancelled = false;
+    setAuraProfileLoading(true);
+    getAuraProfile(cardId)
+      .then((p) => { if (!cancelled) setAuraProfile(p); })
+      .catch(() => { if (!cancelled) setAuraProfile(null); })
+      .finally(() => { if (!cancelled) setAuraProfileLoading(false); });
+    return () => { cancelled = true; };
+  }, [cardId]);
 
   return (
     <div
@@ -70,11 +86,33 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
           color: '#003D2C',
           opacity: 0.5,
           letterSpacing: '0.1em',
-          marginBottom: 'clamp(32px, 8vw, 56px)'
+          marginBottom: 8
         }}
       >
-        Présence
+        {auraProfileLoading ? '…' : auraProfile?.status ?? 'Présence'}
       </p>
+      {auraProfile && auraProfile.seals.length > 0 && (
+        <p
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            color: '#003D2C',
+            opacity: 0.5,
+            letterSpacing: '0.06em',
+            marginBottom: 'clamp(24px, 6vw, 48px)'
+          }}
+        >
+          {auraProfile.seals.length === 1
+            ? t('aura.oneMark')
+            : t('aura.marks', { count: auraProfile.seals.length })}
+          {auraProfile.seals.length > 0 && (
+            <> — {t('aura.lastSeal', { seal: auraProfile.seals[auraProfile.seals.length - 1] })}</>
+          )}
+        </p>
+      )}
+      {(!auraProfile || auraProfile.seals.length === 0) && !auraProfileLoading && (
+        <div style={{ marginBottom: 'clamp(24px, 6vw, 48px)' }} />
+      )}
 
       {/* Central visual — ArcheSymbol, opacity by companion level */}
       <div

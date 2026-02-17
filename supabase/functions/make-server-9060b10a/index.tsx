@@ -5,7 +5,6 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Hono } from "npm:hono@4.6.14";
-import { cors } from "npm:hono@4.6.14/cors";
 
 const app = new Hono().basePath("/make-server-9060b10a");
 
@@ -16,7 +15,7 @@ const ALLOWED_ORIGINS = [
   "https://www.xn--arch-paris-e7a.com",
 ];
 
-function isOriginAllowed(origin) {
+function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   if (origin === "http://localhost:5173" || origin === "http://localhost:3000" || origin.startsWith("http://127.0.0.1:")) return true;
@@ -26,21 +25,39 @@ function isOriginAllowed(origin) {
   return false;
 }
 
-app.use("*", async (c, next) => {
-  const origin = c.req.header("Origin");
-  if (origin && !isOriginAllowed(origin)) {
-    return c.json({ error: "Origin not allowed" }, 403);
+/** Set CORS headers: always echo allowed origin (never '*') */
+function setCorsHeaders(headers: Headers, origin: string | undefined): void {
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey");
+  headers.set("Access-Control-Allow-Credentials", "false"); // This endpoint doesn't use cookies
+
+  if (origin && isOriginAllowed(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
   }
+  // If origin not allowed, do NOT set Access-Control-Allow-Origin (not even '*')
+}
+
+// Logging middleware only (no CORS manipulation)
+app.use("*", async (c, next) => {
+  console.log("[make-server]", c.req.method, c.req.path, "Origin:", c.req.header("Origin") ?? "(none)");
   await next();
 });
 
-// CORS middleware: explicitly set origin (never '*') to avoid conflicts
-app.use("*", cors({
-  origin: (o) => (o && isOriginAllowed(o) ? o : null),
-  allowMethods: ["GET", "POST", "OPTIONS"],
-  allowHeaders: ["Content-Type", "Authorization"],
-  credentials: false, // This endpoint doesn't use cookies
-}));
+// Origin validation middleware (returns error response if needed)
+app.use("*", async (c, next) => {
+  const origin = c.req.header("Origin");
+  if (origin && !isOriginAllowed(origin)) {
+    console.log("[make-server] Origin not allowed:", origin);
+    const errorHeaders = new Headers();
+    errorHeaders.set("Content-Type", "application/json");
+    setCorsHeaders(errorHeaders, origin);
+    return new Response(JSON.stringify({ error: "Origin not allowed" }), {
+      status: 403,
+      headers: errorHeaders,
+    });
+  }
+  await next();
+});
 
 function getSupabase() {
   return createClient(
@@ -242,17 +259,72 @@ app.post("/login-card", async (c) => {
 
 // Wrap to ensure CORS headers are always explicit (never '*')
 Deno.serve(async (req: Request) => {
-  const res = await app.fetch(req);
-  const origin = req.headers.get("Origin");
-  const nh = new Headers(res.headers);
-  
-  // Remove any wildcard that might have been set
-  nh.delete("Access-Control-Allow-Origin");
-  
-  // Only set specific origin if allowed (never '*')
-  if (origin && isOriginAllowed(origin)) {
-    nh.set("Access-Control-Allow-Origin", origin);
+  const origin = req.headers.get("Origin") ?? undefined;
+  const debugId = globalThis.crypto.randomUUID().slice(0, 8);
+
+  console.log(`[DEBUG-${debugId}] Incoming request: ${req.method} ${req.url}`);
+  console.log(`[DEBUG-${debugId}] Origin header: ${origin}`);
+  console.log(`[DEBUG-${debugId}] isOriginAllowed: ${isOriginAllowed(origin)}`);
+
+  try {
+    // Handle preflight OPTIONS requests
+    if (req.method === "OPTIONS") {
+      const headers = new Headers();
+      setCorsHeaders(headers, origin);
+      headers.set("X-Debug-Id", debugId);
+
+      // Verify no wildcard
+      const acao = headers.get("Access-Control-Allow-Origin");
+      if (acao === "*") {
+        console.error(`[DEBUG-${debugId}] BUG DETECTED: '*' was set somehow!`);
+      }
+
+      console.log(`[DEBUG-${debugId}] OPTIONS response headers:`, JSON.stringify(Object.fromEntries(headers)));
+      return new Response(null, { status: 204, headers });
+    }
+
+    // Handle actual requests
+    const res = await app.fetch(req);
+    const newHeaders = new Headers();
+
+    // Copy all non-CORS headers from response
+    res.headers.forEach((value, key) => {
+      const lowerKey = key.toLowerCase();
+      if (!lowerKey.startsWith("access-control-")) {
+        newHeaders.set(key, value);
+      }
+    });
+
+    // Set proper CORS headers explicitly
+    setCorsHeaders(newHeaders, origin);
+
+    // Verify no wildcard was set
+    const finalAcao = newHeaders.get("Access-Control-Allow-Origin");
+    if (finalAcao === "*") {
+      console.error(`[DEBUG-${debugId}] BUG DETECTED: '*' was set in final headers!`);
+    }
+
+    console.log(`[DEBUG-${debugId}] Request response - Origin: ${origin}, ACAO: ${finalAcao ?? "(not set)"}`);
+
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: newHeaders });
+
+  } catch (error) {
+    // CRITICAL: Handle errors with proper CORS headers (prevents Supabase from adding '*')
+    console.error(`[DEBUG-${debugId}] Error:`, error);
+
+    const errorHeaders = new Headers();
+    errorHeaders.set("Content-Type", "application/json");
+    setCorsHeaders(errorHeaders, origin);
+
+    // Verify no wildcard in error response
+    const errorAcao = errorHeaders.get("Access-Control-Allow-Origin");
+    if (errorAcao === "*") {
+      console.error(`[DEBUG-${debugId}] BUG DETECTED: '*' was set in error headers!`);
+    }
+
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: errorHeaders }
+    );
   }
-  
-  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
 });

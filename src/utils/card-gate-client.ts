@@ -560,6 +560,81 @@ export async function loadChampItems(cardId: string): Promise<FieldItem[]> {
   return (data?.items as FieldItem[]) ?? [];
 }
 
+// ============ CHURCH QUESTS + AURA ============
+
+export interface ChurchQuestStartResult {
+  runId: string;
+  expiresAt: string;
+  questions: Array<{ id: string; prompt: string; type: string; choices?: string[] }>;
+}
+
+export async function startChurchQuest(cardId: string, questId: string, onsiteCode: string): Promise<ChurchQuestStartResult> {
+  const res = await gateFetch(cardId, '/quest/start', {
+    method: 'POST',
+    body: JSON.stringify({ questId, onsiteCode }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Start failed: ${res.status}`);
+  return {
+    runId: data.runId,
+    expiresAt: data.expiresAt,
+    questions: data.questions ?? [],
+  };
+}
+
+export async function answerChurchQuestion(cardId: string, runId: string, questionId: string, answer: string): Promise<{ ok: boolean; remainingSec: number }> {
+  const res = await gateFetch(cardId, '/quest/answer', {
+    method: 'POST',
+    body: JSON.stringify({ runId, questionId, answer }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Answer failed: ${res.status}`);
+  return { ok: true, remainingSec: data.remainingSec ?? 0 };
+}
+
+export interface ChurchQuestCompleteResult {
+  score: number;
+  earnedSeal: boolean;
+  newStatus: string;
+  auraPointsTotal: number;
+}
+
+export async function completeChurchQuest(cardId: string, runId: string): Promise<ChurchQuestCompleteResult> {
+  const res = await gateFetch(cardId, '/quest/complete', {
+    method: 'POST',
+    body: JSON.stringify({ runId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Complete failed: ${res.status}`);
+  return {
+    score: data.score ?? 0,
+    earnedSeal: data.earnedSeal ?? false,
+    newStatus: data.newStatus ?? 'Quiet',
+    auraPointsTotal: data.auraPointsTotal ?? 0,
+  };
+}
+
+export interface AuraProfileResult {
+  auraLevel: number;
+  auraPoints: number;
+  status: string;
+  lastQuestAt?: string;
+  seals: string[];
+}
+
+export async function getAuraProfile(cardId: string): Promise<AuraProfileResult> {
+  const res = await gateFetch(cardId, '/aura/profile');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Aura profile failed: ${res.status}`);
+  return {
+    auraLevel: data.auraLevel ?? 0,
+    auraPoints: data.auraPoints ?? 0,
+    status: data.status ?? 'Quiet',
+    lastQuestAt: data.lastQuestAt,
+    seals: Array.isArray(data.seals) ? data.seals : [],
+  };
+}
+
 // ============ LOGOUT / UNPAIR ============
 
 /**

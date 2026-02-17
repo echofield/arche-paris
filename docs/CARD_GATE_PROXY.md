@@ -35,7 +35,7 @@ The SPA rewrite is limited so `/api/card-gate` and `/api/card-gate/*` are **not*
 ## After deploy
 
 1. Ensure `SUPABASE_PROJECT_ID` and `SUPABASE_ANON_KEY` (or the `VITE_*` fallbacks) are set in Vercel.
-2. Open the site **without** `?dev=true` and try card activation/login.
+2. Open the site **without** `/demo` and try card activation/login.
 3. If you still see CORS errors, check that the request goes to `/api/card-gate/...` (Network tab) and that the proxy responds with `Access-Control-Allow-Origin: https://www.xn--arch-paris-e7a.com`.
 
 **Full test plan (curl + browser):** see [CARD_GATE_PROXY_TEST_PLAN.md](./CARD_GATE_PROXY_TEST_PLAN.md).

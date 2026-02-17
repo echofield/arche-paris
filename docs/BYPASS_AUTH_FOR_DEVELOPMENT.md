@@ -1,9 +1,22 @@
 # Bypass Authentication for Development - While Waiting for Supabase CORS Fix
 
-## Option 1: Use DEMO Mode (Recommended)
+## Option 1: Skip Auth Completely (Easiest - NEW!)
 
 ### How to Use
-Simply add `?card=DEMO-001` (or any code starting with `DEMO`) to your URL:
+Simply add `/demo` or `/demo` to your URL:
+
+```
+https://www.xn--arch-paris-e7a.com//demo
+```
+
+**C'est tout !** L'application s'ouvre directement sans login, sans CardGate, rien. Accès immédiat pour tester.
+
+---
+
+## Option 2: Use DEMO Mode
+
+### How to Use
+Add `?card=DEMO-001` (or any code starting with `DEMO`) to your URL:
 
 ```
 https://www.xn--arch-paris-e7a.com/?card=DEMO-001
@@ -37,7 +50,7 @@ https://www.xn--arch-paris-e7a.com/?card=DEMO-001
 
 ---
 
-## Option 2: Test Locally (localhost)
+## Option 3: Test Locally (localhost)
 
 If you run locally, CORS might work differently:
 
@@ -51,7 +64,7 @@ Then access: `http://localhost:5173/?card=PS-0001`
 
 ---
 
-## Option 3: Continue Development on Non-Auth Features
+## Option 4: Continue Development on Non-Auth Features
 
 ### What You Can Validate Right Now
 
@@ -83,7 +96,12 @@ Then access: `http://localhost:5173/?card=PS-0001`
 ## Recommended Approach
 
 ### Short Term (Now)
-1. **Use DEMO mode** to validate UI/UX:
+1. **Use dev mode** (easiest - no login at all):
+   ```
+   https://www.xn--arch-paris-e7a.com//demo
+   ```
+
+   Or use DEMO mode:
    ```
    https://www.xn--arch-paris-e7a.com/?card=DEMO-001
    ```
@@ -110,18 +128,17 @@ Then access: `http://localhost:5173/?card=PS-0001`
 
 ## Quick Test Commands
 
+### Test Dev Mode (No Login)
+```
+https://www.xn--arch-paris-e7a.com//demo
+https://www.xn--arch-paris-e7a.com//demo#champ
+https://www.xn--arch-paris-e7a.com//demo#aura
+```
+
 ### Test DEMO Mode
 ```
 https://www.xn--arch-paris-e7a.com/?card=DEMO-001
-```
-
-### Test Le Champ Map
-```
 https://www.xn--arch-paris-e7a.com/?card=DEMO-001#champ
-```
-
-### Test Aura Page
-```
 https://www.xn--arch-paris-e7a.com/?card=DEMO-001#aura
 ```
 
@@ -140,4 +157,4 @@ https://www.xn--arch-paris-e7a.com/?card=DEMO-001#aura
 - ❌ Saving data
 - ❌ End-to-end flows
 
-**Action**: Use `?card=DEMO-001` and continue development while Supabase fixes the CORS issue!
+**Action**: Use `/demo` (easiest - no login!) or `?card=DEMO-001` and continue development while Supabase fixes the CORS issue!

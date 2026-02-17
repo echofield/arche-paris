@@ -2,7 +2,7 @@
  * Script de diagnostic pour la carte Paris
  * 
  * Instructions:
- * 1. Ouvrez https://www.xn--arch-paris-e7a.com/?dev=true#champ
+ * 1. Ouvrez https://www.xn--arch-paris-e7a.com//demo#champ
  * 2. Ouvrez DevTools (F12)
  * 3. Allez dans l'onglet "Console"
  * 4. Copiez-collez ce script entier

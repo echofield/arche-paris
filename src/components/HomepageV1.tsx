@@ -24,6 +24,8 @@ interface HomepageV1Props {
   onEnterMeridiens?: () => void;
   /** Déconnecter la carte sur cet appareil (pour utiliser la même carte sur un autre, ex. téléphone) */
   onDisconnect?: () => void;
+  /** En mode démo : afficher « Se connecter » pour passer à l’écran de saisie de carte */
+  onLogin?: () => void;
 }
 
 export function HomepageV1({
@@ -39,6 +41,7 @@ export function HomepageV1({
   onEnterSeuil,
   onEnterMeridiens,
   onDisconnect,
+  onLogin,
   onOpenKept
 }: HomepageV1Props) {
   const { t } = useTranslation();
@@ -307,9 +310,10 @@ export function HomepageV1({
               <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.etudes')}</button>
               <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-gold">{t('nav.seuil')}</button>
             </div>
-            {onDisconnect && (
+            {(onLogin || onDisconnect) && (
               <div className="homepage-nav-drawer-footer">
-                <button type="button" onClick={() => { onDisconnect(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-muted">{t('nav.disconnect')}</button>
+                {onLogin && <button type="button" onClick={() => { onLogin(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-muted">{t('nav.login')}</button>}
+                {onDisconnect && <button type="button" onClick={() => { onDisconnect(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-muted">{t('nav.disconnect')}</button>}
               </div>
             )}
           </div>

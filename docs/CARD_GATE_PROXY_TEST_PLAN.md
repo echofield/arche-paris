@@ -47,7 +47,7 @@ curl -v -X POST "https://YOUR_VERCEL_DOMAIN/api/card-gate/refresh" \
 
 ## 3. Browser — full flow (activation / login)
 
-1. Open **https://www.xn--arch-paris-e7a.com** (no `?dev=true`).
+1. Open **https://www.xn--arch-paris-e7a.com** (no `/demo`).
 2. Enter a card code (e.g. test card), activate or login.
 3. Open DevTools → **Network**.
 4. Filter by `card-gate` or `api`.

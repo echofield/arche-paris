@@ -60,7 +60,7 @@ Un script de diagnostic complet a été créé dans `docs/DIAGNOSTIC_CARTE_PARIS
 
 ### Comment l'utiliser :
 
-1. **Ouvrez la page** : `https://www.xn--arch-paris-e7a.com/?dev=true#champ`
+1. **Ouvrez la page** : `https://www.xn--arch-paris-e7a.com//demo#champ`
 2. **Ouvrez DevTools** : `F12` ou `Ctrl+Shift+I`
 3. **Allez dans l'onglet "Console"**
 4. **Copiez-collez le script** depuis `docs/DIAGNOSTIC_CARTE_PARIS.js`
@@ -82,7 +82,7 @@ Un script de diagnostic complet a été créé dans `docs/DIAGNOSTIC_CARTE_PARIS
 
 ### Test 1 : Vérifier que la carte apparaît
 
-1. Accédez à `https://www.xn--arch-paris-e7a.com/?dev=true#champ`
+1. Accédez à `https://www.xn--arch-paris-e7a.com//demo#champ`
 2. La carte devrait être visible immédiatement (même sans animation)
 
 ### Test 2 : Vérifier l'animation
@@ -146,7 +146,7 @@ Un script de diagnostic complet a été créé dans `docs/DIAGNOSTIC_CARTE_PARIS
 - [ ] Test local (`npm run dev`)
 - [ ] Build de production (`npm run build`)
 - [ ] Déploiement sur Vercel
-- [ ] Test sur production (`?dev=true#champ`)
+- [ ] Test sur production (`/demo#champ`)
 - [ ] Exécution du script de diagnostic
 - [ ] Vérification que la carte est visible
 
@@ -156,7 +156,7 @@ Un script de diagnostic complet a été créé dans `docs/DIAGNOSTIC_CARTE_PARIS
 
 1. **Commit et push** les changements
 2. **Attendre le déploiement** Vercel (quelques minutes)
-3. **Tester** sur `https://www.xn--arch-paris-e7a.com/?dev=true#champ`
+3. **Tester** sur `https://www.xn--arch-paris-e7a.com//demo#champ`
 4. **Exécuter le script de diagnostic** si problème persiste
 5. **Partager les résultats** pour analyse plus poussée
 

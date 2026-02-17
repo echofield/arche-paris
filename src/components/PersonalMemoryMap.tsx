@@ -32,6 +32,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, EngravedSegment } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
+import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
+import { ZoneEntryFeedback } from './ZoneEntryFeedback';
+import { ZoneDetailSheet } from './ZoneDetailSheet';
+import { api, type ZoneProgressItem } from '../lib/api';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 
@@ -99,6 +103,22 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [ecrireSaving, setEcrireSaving] = useState(false);
   const [ecrireError, setEcrireError] = useState<string | null>(null);
   const [ecrireOptInField, setEcrireOptInField] = useState(false); // Share to Le Champ
+  // ARCHÉ zone entry
+  const zoneEntry = useZoneEntry();
+  const [zoneEntryPromptArr, setZoneEntryPromptArr] = useState<number | null>(null);
+  const [zoneDetailArr, setZoneDetailArr] = useState<number | null>(null);
+  const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
+
+  // Load zone progress on mount
+  useEffect(() => {
+    api.zoneProgress().then(result => {
+      if (result.data) {
+        const map: Record<string, ZoneProgressItem> = {};
+        result.data.zones.forEach(z => { map[z.zone_id] = z; });
+        setZoneProgressMap(map);
+      }
+    }).catch(() => {});
+  }, []);
 
   const collection = getCollection();
   const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
@@ -626,30 +646,58 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               )}
             </div>
           ))}
-          {/* Clickable arrondissement zones — open Écrire sheet */}
+          {/* Clickable arrondissement zones with progress rings */}
           {ARRONDISSEMENTS.map((arr) => {
             const pos = ARRONDISSEMENT_MAP_POSITION[arr];
             if (!pos) return null;
+            const zoneId = arrToZoneId(arr);
+            const progress = zoneProgressMap[zoneId];
+            const objectivesComplete = progress?.objectives_complete ?? 0;
+            const progressPct = objectivesComplete * 20; // 5 objectives = 100%
             return (
               <button
                 key={arr}
                 type="button"
-                aria-label={`${arr}e — Écrire`}
+                aria-label={`${arr}e arrondissement - ${objectivesComplete}/5 objectifs`}
                 style={{
                   position: 'absolute',
                   left: `${pos.x}%`,
                   top: `${pos.y}%`,
                   transform: 'translate(-50%, -50%)',
-                  width: 28,
-                  height: 28,
+                  width: 32,
+                  height: 32,
                   borderRadius: '50%',
-                  background: 'transparent',
+                  background: objectivesComplete > 0
+                    ? `conic-gradient(#003D2C ${progressPct}%, rgba(0,61,44,0.15) ${progressPct}%)`
+                    : 'rgba(0,61,44,0.1)',
                   border: 'none',
                   cursor: 'pointer',
-                  zIndex: 3
+                  zIndex: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
                 }}
-                onClick={() => setEcrireSheetArr(arr)}
-              />
+                onClick={() => setZoneDetailArr(arr)}
+              >
+                <span
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    background: '#FAF8F2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 9,
+                    fontWeight: 500,
+                    color: objectivesComplete > 0 ? '#003D2C' : '#8E8982',
+                  }}
+                >
+                  {objectivesComplete === 5 ? '✓' : arr}
+                </span>
+              </button>
             );
           })}
         </div>
@@ -710,6 +758,26 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             )}
           </div>
         )}
+
+        {/* Zone detail sheet (replaces old entry prompt) */}
+        <ZoneDetailSheet
+          arrondissement={zoneDetailArr}
+          onClose={() => {
+            setZoneDetailArr(null);
+            // Reload progress after closing
+            api.zoneProgress().then(result => {
+              if (result.data) {
+                const map: Record<string, ZoneProgressItem> = {};
+                result.data.zones.forEach(z => { map[z.zone_id] = z; });
+                setZoneProgressMap(map);
+              }
+            }).catch(() => {});
+          }}
+          onOpenEcrire={(arr) => {
+            setZoneDetailArr(null);
+            setEcrireSheetArr(arr);
+          }}
+        />
 
         {/* Refusal prompt modal */}
         {unmarkedPromptArr != null && (

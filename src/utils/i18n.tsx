@@ -20,6 +20,7 @@ import frMap from '../locales/fr/map.json';
 import frTreasure from '../locales/fr/treasure.json';
 import frSeuil from '../locales/fr/seuil.json';
 import frMeridiens from '../locales/fr/meridiens.json';
+import frChurch from '../locales/fr/church.json';
 
 import enHome from '../locales/en/home.json';
 import enHistory from '../locales/en/history.json';
@@ -28,11 +29,12 @@ import enMap from '../locales/en/map.json';
 import enTreasure from '../locales/en/treasure.json';
 import enSeuil from '../locales/en/seuil.json';
 import enMeridiens from '../locales/en/meridiens.json';
+import enChurch from '../locales/en/church.json';
 
 // Merge all translations per language
 const translations: Record<Language, Record<string, any>> = {
-  fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure, ...frSeuil, ...frMeridiens },
-  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil, ...enMeridiens }
+  fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure, ...frSeuil, ...frMeridiens, ...frChurch },
+  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil, ...enMeridiens, ...enChurch }
 };
 
 // Storage key

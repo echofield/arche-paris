@@ -19,6 +19,7 @@ import { CompanionBlock } from './components/CompanionBlock';
 import { AuraPage } from './components/AuraPage';
 import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
+import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -28,7 +29,7 @@ import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -312,6 +313,8 @@ export default function App() {
         setCurrentScreen('champ');
       } else if (hash === 'kept') {
         setCurrentScreen('kept');
+      } else if (hash === 'zone-test') {
+        setCurrentScreen('zone-test');
       } else {
         setCurrentScreen('homepage');
       }
@@ -436,6 +439,12 @@ export default function App() {
         return (
           <ChampScreen
             cardId={cardStatus?.cardId || 'unknown'}
+            onBack={() => navigateTo('homepage')}
+          />
+        );
+      case 'zone-test':
+        return (
+          <ZoneTestPanel
             onBack={() => navigateTo('homepage')}
           />
         );

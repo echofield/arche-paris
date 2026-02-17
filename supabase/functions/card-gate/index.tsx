@@ -36,54 +36,52 @@ function isOriginAllowed(origin: string | undefined): boolean {
   return false;
 }
 
-/** CORS headers: always echo allowed origin (never '*') so credentials: 'include' works. */
-function getCorsHeaders(c: { req: { header: (n: string) => string | undefined } }): Record<string, string> {
-  const origin = c.req.header("Origin");
-  const h: Record<string, string> = {
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Credentials": "true",
-  };
+/** Set CORS headers: always echo allowed origin (never '*') so credentials: 'include' works. */
+function setCorsHeaders(headers: Headers, origin: string | undefined): void {
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey");
+  headers.set("Access-Control-Allow-Credentials", "true");
+  headers.set("Access-Control-Max-Age", "600");
+
   if (origin && isOriginAllowed(origin)) {
-    h["Access-Control-Allow-Origin"] = origin;
+    headers.set("Access-Control-Allow-Origin", origin);
   }
-  return h;
+  // If origin not allowed, do NOT set Access-Control-Allow-Origin (not even '*')
 }
 
+/** Get CORS headers as object (for compatibility with existing code) */
+function getCorsHeaders(c: { req: { header: (n: string) => string | undefined } }): Record<string, string> {
+  const origin = c.req.header("Origin");
+  const headers = new Headers();
+  setCorsHeaders(headers, origin);
+  const result: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    result[key] = value;
+  });
+  return result;
+}
+
+// Logging middleware only (no CORS manipulation)
 app.use("*", async (c, next) => {
   console.log("[card-gate]", c.req.method, c.req.path, "Origin:", c.req.header("Origin") ?? "(none)");
   await next();
-  const origin = c.req.header("Origin");
-  if (origin && isOriginAllowed(origin)) {
-    const res = c.res;
-    const nh = new Headers(res.headers);
-    nh.set("Access-Control-Allow-Origin", origin);
-    nh.set("Access-Control-Allow-Credentials", "true");
-    nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    c.res = new Response(res.body, { status: res.status, statusText: res.statusText, headers: nh });
-  }
 });
 
+// Origin validation middleware (returns error response if needed)
 app.use("*", async (c, next) => {
   const origin = c.req.header("Origin");
   if (origin && !isOriginAllowed(origin)) {
     console.log("[card-gate] Origin not allowed:", origin);
+    const errorHeaders = new Headers();
+    errorHeaders.set("Content-Type", "application/json");
+    setCorsHeaders(errorHeaders, origin); // Set CORS for error response too
     return new Response(JSON.stringify({ error: "Origin not allowed" }), {
       status: 403,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
+      headers: errorHeaders,
     });
   }
   await next();
 });
-
-// OPTIONS requests are handled by Deno.serve wrapper to ensure proper CORS
 
 const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
@@ -1576,6 +1574,211 @@ app.get("/map-state", async (c) => {
   });
 });
 
+// ============ CHURCH QUESTS + AURA ============
+
+const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: number; questions: { id: string; prompt: string; type: string; choices?: string[]; answer: string | string[]; points: number }[]; rewards: { aura_xp: number; seals: string[]; status_unlock?: string } }> = {
+  stlouis_ihs: {
+    onsite_code: "IHS",
+    duration_sec: 210,
+    questions: [
+      { id: "q1", prompt: "Entre les trois lettres sur le triangle.", type: "text", answer: "IHS", points: 1 },
+      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["Trinité", "Royalty", "Ordre militaire"], answer: "Trinité", points: 1 },
+      { id: "q3", prompt: "Sur la plaque : quel jour / mois / année ?", type: "text", answer: "10 MARS 1805", points: 1 },
+    ],
+    rewards: { aura_xp: 10, seals: ["IHS"], status_unlock: "Lecteur de signes" },
+  },
+  st_sulpice_seuil: {
+    onsite_code: "MERIDIEN",
+    duration_sec: 210,
+    questions: [
+      { id: "q1", prompt: "Entre le mot trouvé sur place.", type: "text", answer: "MERIDIEN", points: 1 },
+      { id: "q2", prompt: "Cette ligne sert à :", type: "mcq", choices: ["Mesurer le temps", "Définir le nord", "Marquer le méridien"], answer: "Marquer le méridien", points: 1 },
+      { id: "q3", prompt: "En une phrase : qu'as-tu observé ?", type: "text", answer: "*", points: 1 },
+    ],
+    rewards: { aura_xp: 12, seals: ["SEUIL"], status_unlock: "Habitant du seuil" },
+  },
+};
+
+function normaliseAnswer(s: string): string {
+  return s.replace(/\s+/g, " ").trim().toUpperCase();
+}
+
+function checkAnswer(userAnswer: string, correct: string | string[]): boolean {
+  const u = normaliseAnswer(userAnswer);
+  if (Array.isArray(correct)) return correct.some((c) => normaliseAnswer(c) === u);
+  if (correct === "*") return u.length > 0;
+  return normaliseAnswer(correct) === u;
+}
+
+async function rateLimitQuest(supabase: ReturnType<typeof createClient>, cardId: string, ip: string): Promise<boolean> {
+  const k1 = `quest:${cardId}`;
+  const k2 = `quest_ip:${ip}`;
+  return (await dbRateLimit(supabase, k1, 30, 3600)) && (await dbRateLimit(supabase, k2, 100, 3600));
+}
+
+app.post("/quest/start", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitQuest(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  let body: { questId: string; onsiteCode?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const { questId, onsiteCode } = body;
+  if (!questId) return c.json({ error: "questId required" }, 400);
+  const def = CHURCH_QUEST_DEFS[questId];
+  if (!def) return c.json({ error: "Unknown quest" }, 400);
+  const code = (onsiteCode ?? "").replace(/\s+/g, "").toUpperCase();
+  if (code !== def.onsite_code.toUpperCase()) return c.json({ error: "Code incorrect" }, 400);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + def.duration_sec * 1000);
+  const { data: run, error } = await supabase
+    .from("church_quest_runs")
+    .insert({
+      card_id: payload.card_id,
+      quest_id: questId,
+      started_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      state: "running",
+      answers: {},
+    })
+    .select("id, expires_at")
+    .single();
+  if (error) {
+    console.error("[card-gate] quest/start insert:", error);
+    return c.json({ error: "Failed to start quest" }, 500);
+  }
+  const questions = def.questions.map((q) => ({ id: q.id, prompt: q.prompt, type: q.type, choices: q.choices }));
+  return c.json({ runId: run.id, expiresAt: run.expires_at, questions });
+});
+
+app.post("/quest/answer", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitQuest(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  let body: { runId: string; questionId: string; answer: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const { runId, questionId, answer } = body;
+  if (!runId || !questionId) return c.json({ error: "runId and questionId required" }, 400);
+  const { data: run, error: fetchErr } = await supabase
+    .from("church_quest_runs")
+    .select("id, expires_at, answers, card_id, state")
+    .eq("id", runId)
+    .eq("card_id", payload.card_id)
+    .single();
+  if (fetchErr || !run) return c.json({ error: "Run not found" }, 404);
+  if ((run as { state?: string }).state !== "running") return c.json({ error: "Run not active" }, 400);
+  if (new Date(run.expires_at) < new Date()) return c.json({ error: "Run expired" }, 400);
+  const answers = (run.answers as Record<string, string>) ?? {};
+  answers[questionId] = answer ?? "";
+  const { error: updateErr } = await supabase.from("church_quest_runs").update({ answers }).eq("id", runId).eq("card_id", payload.card_id);
+  if (updateErr) return c.json({ error: "Failed to save answer" }, 500);
+  const remainingSec = Math.max(0, Math.floor((new Date(run.expires_at).getTime() - Date.now()) / 1000));
+  return c.json({ ok: true, remainingSec });
+});
+
+app.post("/quest/complete", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitQuest(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  let body: { runId: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const { runId } = body;
+  if (!runId) return c.json({ error: "runId required" }, 400);
+  const { data: run, error: fetchErr } = await supabase
+    .from("church_quest_runs")
+    .select("id, quest_id, expires_at, answers, card_id")
+    .eq("id", runId)
+    .eq("card_id", payload.card_id)
+    .single();
+  if (fetchErr || !run) return c.json({ error: "Run not found" }, 404);
+  if (run.state !== "running") return c.json({ error: "Run already completed" }, 400);
+  const def = CHURCH_QUEST_DEFS[run.quest_id];
+  if (!def) return c.json({ error: "Unknown quest" }, 500);
+  const now = new Date();
+  const expired = new Date(run.expires_at) < now;
+  const answers = (run.answers as Record<string, string>) ?? {};
+  let score = 0;
+  for (const q of def.questions) {
+    const userAns = answers[q.id];
+    if (checkAnswer(userAns ?? "", q.answer)) score += q.points;
+  }
+  const earnedSeal = !expired && score >= def.questions.length;
+  const { error: updateRunErr } = await supabase
+    .from("church_quest_runs")
+    .update({
+      state: "completed",
+      completed_at: now.toISOString(),
+      score,
+      earned_seal: earnedSeal,
+    })
+    .eq("id", runId)
+    .eq("card_id", payload.card_id);
+  if (updateRunErr) return c.json({ error: "Failed to complete run" }, 500);
+
+  const { data: profile } = await supabase.from("aura_profiles").select("*").eq("card_id", payload.card_id).single();
+  const seals: string[] = Array.isArray(profile?.seals) ? profile.seals : [];
+  if (earnedSeal && def.rewards.seals?.[0]) seals.push(def.rewards.seals[0]);
+  const addPoints = expired ? 0 : def.rewards.aura_xp;
+  const newPoints = (profile?.aura_points ?? 0) + addPoints;
+  const { data: completedRuns } = await supabase.from("church_quest_runs").select("id, earned_seal").eq("card_id", payload.card_id).eq("state", "completed");
+  const totalSeals = (completedRuns ?? []).filter((r) => r.earned_seal).length;
+  let newStatus = profile?.status ?? "Quiet";
+  if (newPoints > 0) newStatus = "Marcheur";
+  if (totalSeals >= 1) newStatus = "Lecteur de signes";
+  if (totalSeals >= 3) newStatus = "Habitant du seuil";
+  if (totalSeals >= 7) newStatus = "Gardien discret";
+  const { error: upsertErr } = await supabase.from("aura_profiles").upsert(
+    {
+      card_id: payload.card_id,
+      aura_level: Math.min(3, Math.floor(newPoints / 30)),
+      aura_points: newPoints,
+      status: newStatus,
+      last_quest_at: now.toISOString(),
+      seals,
+    },
+    { onConflict: "card_id" }
+  );
+  if (upsertErr) console.error("[card-gate] aura_profiles upsert:", upsertErr);
+  return c.json({ score, earnedSeal, newStatus, auraPointsTotal: newPoints });
+});
+
+app.get("/aura/profile", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const { data, error } = await supabase.from("aura_profiles").select("aura_level, aura_points, status, last_quest_at, seals").eq("card_id", payload.card_id).single();
+  if (error && error.code !== "PGRST116") {
+    console.error("[card-gate] aura/profile:", error);
+    return c.json({ error: "Failed to load profile" }, 500);
+  }
+  return c.json({
+    auraLevel: data?.aura_level ?? 0,
+    auraPoints: data?.aura_points ?? 0,
+    status: data?.status ?? "Quiet",
+    lastQuestAt: data?.last_quest_at ?? undefined,
+    seals: Array.isArray(data?.seals) ? data.seals : [],
+  });
+});
+
 // ============ PARIS TIMEZONE HELPERS ============
 
 const PARIS_TZ = "Europe/Paris";
@@ -1997,65 +2200,82 @@ function corsHeadersFromRequest(req: Request): Record<string, string> {
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin") ?? undefined;
-  
-  // Handle preflight OPTIONS requests FIRST - before Hono can interfere
-  if (req.method === "OPTIONS") {
-    // Create headers object - explicitly avoid any wildcard
-    const headers = new Headers();
-    headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    headers.set("Access-Control-Allow-Credentials", "true");
-    headers.set("Access-Control-Max-Age", "600"); // Cache preflight for 10 minutes
-    
-    // CRITICAL: Echo the exact origin if allowed (NEVER '*')
-    if (origin && isOriginAllowed(origin)) {
-      headers.set("Access-Control-Allow-Origin", origin);
-      console.log("[card-gate] OPTIONS preflight - Allowed origin:", origin);
-      console.log("[card-gate] OPTIONS response headers:", Object.fromEntries(headers));
-    } else {
-      console.log("[card-gate] OPTIONS preflight - Origin not allowed:", origin);
-      // Do NOT set Access-Control-Allow-Origin if origin not allowed
-      // Browser will reject, but that's better than wildcard
+  const debugId = globalThis.crypto.randomUUID().slice(0, 8);
+
+  console.log(`[DEBUG-${debugId}] Incoming request: ${req.method} ${req.url}`);
+  console.log(`[DEBUG-${debugId}] Origin header: ${origin}`);
+  console.log(`[DEBUG-${debugId}] isOriginAllowed: ${isOriginAllowed(origin)}`);
+
+  try {
+    // Handle preflight OPTIONS requests FIRST - before Hono can interfere
+    if (req.method === "OPTIONS") {
+      const headers = new Headers();
+      setCorsHeaders(headers, origin);
+      headers.set("X-Debug-Id", debugId); // For tracing
+
+      // LOG CRITICAL: Verify that '*' is NOT in headers
+      const acao = headers.get("Access-Control-Allow-Origin");
+      if (acao === "*") {
+        console.error(`[DEBUG-${debugId}] BUG DETECTED: '*' was set somehow!`);
+      }
+
+      console.log(`[DEBUG-${debugId}] OPTIONS response headers:`, JSON.stringify(Object.fromEntries(headers)));
+
+      return new Response(null, { 
+        status: 204, 
+        headers: headers,
+      });
     }
-    
-    return new Response(null, { 
-      status: 204, 
-      headers: headers,
+
+    // Handle actual requests
+    const res = await app.fetch(req);
+
+    // Create completely new Headers object to avoid any defaults
+    const newHeaders = new Headers();
+
+    // Copy all non-CORS headers from response
+    res.headers.forEach((value, key) => {
+      const lowerKey = key.toLowerCase();
+      // Skip any existing CORS headers - we'll set our own
+      if (!lowerKey.startsWith("access-control-")) {
+        newHeaders.set(key, value);
+      }
     });
-  }
-  
-  // Handle actual requests
-  const res = await app.fetch(req);
-  
-  // Create completely new Headers object to avoid any defaults
-  const nh = new Headers();
-  
-  // Copy all non-CORS headers from response
-  res.headers.forEach((value, key) => {
-    const lowerKey = key.toLowerCase();
-    // Skip any existing CORS headers - we'll set our own
-    if (!lowerKey.startsWith("access-control-")) {
-      nh.set(key, value);
+
+    // Set proper CORS headers explicitly
+    setCorsHeaders(newHeaders, origin);
+
+    // Verify no wildcard was set
+    const finalAcao = newHeaders.get("Access-Control-Allow-Origin");
+    if (finalAcao === "*") {
+      console.error(`[DEBUG-${debugId}] BUG DETECTED: '*' was set in final headers!`);
     }
-  });
-  
-  // Set proper CORS headers explicitly
-  nh.set("Access-Control-Allow-Credentials", "true");
-  nh.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  nh.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-  
-  // Echo the exact origin if allowed (never '*')
-  if (origin && isOriginAllowed(origin)) {
-    nh.set("Access-Control-Allow-Origin", origin);
-    console.log("[card-gate] Request response - Allowed origin:", origin);
-  } else {
-    console.log("[card-gate] Request response - Origin not allowed:", origin);
-    // Do NOT set Access-Control-Allow-Origin if origin not allowed
+
+    console.log(`[DEBUG-${debugId}] Request response - Origin: ${origin}, ACAO: ${finalAcao ?? "(not set)"}`);
+
+    return new Response(res.body, { 
+      status: res.status, 
+      statusText: res.statusText, 
+      headers: newHeaders 
+    });
+
+  } catch (error) {
+    // CRITICAL: Handle errors with proper CORS headers (prevents Supabase from adding '*')
+    console.error(`[DEBUG-${debugId}] Error:`, error);
+
+    const errorHeaders = new Headers();
+    errorHeaders.set("Content-Type", "application/json");
+    setCorsHeaders(errorHeaders, origin);
+
+    // Verify no wildcard in error response
+    const errorAcao = errorHeaders.get("Access-Control-Allow-Origin");
+    if (errorAcao === "*") {
+      console.error(`[DEBUG-${debugId}] BUG DETECTED: '*' was set in error headers!`);
+    }
+
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: errorHeaders }
+    );
   }
-  
-  return new Response(res.body, { 
-    status: res.status, 
-    statusText: res.statusText, 
-    headers: nh 
-  });
 });
