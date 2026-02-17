@@ -1,37 +1,71 @@
 /**
- * Test: with both abort flag and write/end
+ * /api/card-gate/pair - proxy to Supabase
  */
 
 module.exports = function handler(req, res) {
-  var https = require('https');
-  var doAbort = false; // flag to control
-
   res.setHeader('Access-Control-Allow-Origin', '*');
-  if (req.method === 'OPTIONS') return res.status(204).end();
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  var proxyReq = https.request({
-    hostname: 'qvyrpzgxsppkwfvqvgcn.supabase.co',
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  var projectId = process.env.SUPABASE_PROJECT_ID || process.env.VITE_SUPABASE_PROJECT_ID;
+  var anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!projectId) {
+    return res.status(500).json({ error: 'SUPABASE_PROJECT_ID not set' });
+  }
+
+  var https = require('https');
+  var bodyStr = null;
+  if (req.method !== 'GET' && req.body) {
+    bodyStr = JSON.stringify(req.body);
+  }
+
+  var reqHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': req.headers.authorization || ('Bearer ' + anonKey),
+  };
+  if (req.headers.cookie) {
+    reqHeaders['Cookie'] = req.headers.cookie;
+  }
+  if (bodyStr) {
+    reqHeaders['Content-Length'] = Buffer.byteLength(bodyStr);
+  }
+
+  var options = {
+    hostname: projectId + '.supabase.co',
     port: 443,
     path: '/functions/v1/card-gate/pair',
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
-  }, function(proxyRes) {
-    var d = '';
-    proxyRes.on('data', function(c) { d += c; });
+    method: req.method || 'POST',
+    headers: reqHeaders,
+  };
+
+  var proxyReq = https.request(options, function(proxyRes) {
+    var chunks = [];
+    proxyRes.on('data', function(chunk) {
+      chunks.push(chunk);
+    });
     proxyRes.on('end', function() {
-      res.status(proxyRes.statusCode).send(d);
+      var data = Buffer.concat(chunks).toString();
+      var setCookie = proxyRes.headers['set-cookie'];
+      if (setCookie) {
+        res.setHeader('Set-Cookie', setCookie);
+      }
+      res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'application/json');
+      res.status(proxyRes.statusCode || 500).send(data);
     });
   });
 
-  proxyReq.on('error', function(e) {
-    res.status(500).json({ err: e.message });
+  proxyReq.on('error', function(err) {
+    res.status(500).json({ error: err.message });
   });
 
-  if (doAbort) {
-    proxyReq.abort();
-    return res.status(200).json({ aborted: true });
+  if (bodyStr) {
+    proxyReq.write(bodyStr);
   }
-
-  proxyReq.write('{}');
   proxyReq.end();
 };

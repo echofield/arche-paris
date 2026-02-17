@@ -1,5 +1,5 @@
-/**
- * ARCHÉ — Card Gate Edge Function (V1)
+﻿/**
+ * ARCHÃ‰ â€” Card Gate Edge Function (V1)
  *
  * INVARIANTS (documented):
  * 1) Activation requires non-enumerable proof (code+password via activate-card).
@@ -20,7 +20,7 @@ import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 const app = new Hono().basePath("/card-gate");
 
 // Allowed origins only (no random site can use visitor's browser as relay).
-// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.arché-paris.com).
+// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.archÃ©-paris.com).
 const ALLOWED_ORIGINS = [
   "https://arche-paris.com",
   "https://www.arche-paris.com",
@@ -459,7 +459,7 @@ app.post("/unpair-session", async (c) => {
         return new Response(JSON.stringify({
           ok: false,
           code: "COOKIE_MISSING_CARD_PAIRED",
-          message: "Session expirée. Utilisez votre mot de passe pour déconnecter."
+          message: "Session expirÃ©e. Utilisez votre mot de passe pour dÃ©connecter."
         }), {
           status: 401,
           headers: {
@@ -967,8 +967,8 @@ app.post("/trace/leave", async (c) => {
   }
   const { quest_id, etape_id, content, idempotency_key } = body;
   const trimmed = (content ?? "").trim();
-  if (trimmed.length < 3) return c.json({ error: "TOO_SHORT", message: "Trop court. Au moins 3 caractères." }, 400);
-  if (trimmed.length > 140) return c.json({ error: "TOO_LONG", message: "Trop long. Maximum 140 caractères." }, 400);
+  if (trimmed.length < 3) return c.json({ error: "TOO_SHORT", message: "Trop court. Au moins 3 caractÃ¨res." }, 400);
+  if (trimmed.length > 140) return c.json({ error: "TOO_LONG", message: "Trop long. Maximum 140 caractÃ¨res." }, 400);
   if (!quest_id || !etape_id) return c.json({ error: "quest_id and etape_id required" }, 400);
 
   const { count } = await supabase
@@ -978,7 +978,7 @@ app.post("/trace/leave", async (c) => {
     .eq("quest_id", quest_id)
     .eq("etape_id", etape_id);
   if ((count ?? 0) > 0) {
-    return c.json({ error: "ALREADY_LEFT_TRACE", message: "Vous avez déjà laissé une trace ici." }, 400);
+    return c.json({ error: "ALREADY_LEFT_TRACE", message: "Vous avez dÃ©jÃ  laissÃ© une trace ici." }, 400);
   }
 
   const row: Record<string, unknown> = {
@@ -990,10 +990,10 @@ app.post("/trace/leave", async (c) => {
   if (typeof idempotency_key === "string" && idempotency_key.length > 0) row.idempotency_key = idempotency_key;
   const { error } = await supabase.from("traces").insert(row);
   if (error) {
-    if (error.code === "23505") return c.json({ success: true, message: "Trace laissée." });
+    if (error.code === "23505") return c.json({ success: true, message: "Trace laissÃ©e." });
     return c.json({ error: "DB_ERROR", message: "Impossible de laisser une trace." }, 500);
   }
-  return c.json({ success: true, message: "Trace laissée." });
+  return c.json({ success: true, message: "Trace laissÃ©e." });
 });
 
 // ----- /trace/check -----
@@ -1081,47 +1081,47 @@ function simpleHash(str: string): number {
 
 // ============ MIROIR: SENTENCE POOLS ============
 
-/** BLOC A — Premières phrases fondatrices (rare, initiation) */
+/** BLOC A â€” PremiÃ¨res phrases fondatrices (rare, initiation) */
 const BLOC_A_FOUNDATION = [
   "La ville commence par un regard.",
-  "Paris n'est pas un lieu. C'est une présence qui attend.",
-  "Chaque pas creuse une mémoire qui n'existait pas avant.",
-  "La pierre garde ce que l'œil oublie.",
+  "Paris n'est pas un lieu. C'est une prÃ©sence qui attend.",
+  "Chaque pas creuse une mÃ©moire qui n'existait pas avant.",
+  "La pierre garde ce que l'Å“il oublie.",
   "On n'habite pas Paris. On s'y laisse habiter.",
   "Le silence des rues est une langue ancienne.",
-  "La ville se souvient de ceux qui l'ont traversée.",
+  "La ville se souvient de ceux qui l'ont traversÃ©e.",
   "Paris est un miroir qui renvoie ce qu'on lui donne.",
 ];
 
-/** BLOC B — Phrases centrales (quotidiennes) */
+/** BLOC B â€” Phrases centrales (quotidiennes) */
 const BLOC_B_CORE = [
   "Aujourd'hui, la ville respire autrement.",
-  "Le temps s'écoule différemment selon les arrondissements.",
+  "Le temps s'Ã©coule diffÃ©remment selon les arrondissements.",
   "Chaque coin de rue garde une trace invisible.",
-  "La lumière change la texture des souvenirs.",
-  "Paris se révèle par fragments, jamais tout à fait.",
-  "Les pas s'accumulent et créent un rythme propre.",
-  "La ville murmure des histoires à qui sait écouter.",
-  "Chaque jour ajoute une couche à la mémoire collective.",
-  "Les façades racontent ce que les bouches taisent.",
-  "Paris existe autant dans l'absence que dans la présence.",
+  "La lumiÃ¨re change la texture des souvenirs.",
+  "Paris se rÃ©vÃ¨le par fragments, jamais tout Ã  fait.",
+  "Les pas s'accumulent et crÃ©ent un rythme propre.",
+  "La ville murmure des histoires Ã  qui sait Ã©couter.",
+  "Chaque jour ajoute une couche Ã  la mÃ©moire collective.",
+  "Les faÃ§ades racontent ce que les bouches taisent.",
+  "Paris existe autant dans l'absence que dans la prÃ©sence.",
   "Le regard transforme l'ordinaire en signe.",
   "La ville se construit dans l'espace entre les choses.",
-  "Chaque passage laisse une empreinte légère.",
-  "Paris se donne à ceux qui savent attendre.",
-  "La mémoire habite les interstices.",
+  "Chaque passage laisse une empreinte lÃ©gÃ¨re.",
+  "Paris se donne Ã  ceux qui savent attendre.",
+  "La mÃ©moire habite les interstices.",
 ];
 
-/** BLOC C — Échos (activité, cooldown) */
+/** BLOC C â€” Ã‰chos (activitÃ©, cooldown) */
 const BLOC_C_ECHO = [
-  "L'écho d'un pas résonne dans le vide.",
-  "Ce qui fut gravé réapparaît à l'improviste.",
+  "L'Ã©cho d'un pas rÃ©sonne dans le vide.",
+  "Ce qui fut gravÃ© rÃ©apparaÃ®t Ã  l'improviste.",
   "La trace appelle la trace.",
-  "L'activité réveille des mémoires endormies.",
-  "Chaque action crée un écho qui se propage.",
-  "Le présent fait écho au passé.",
-  "L'empreinte appelle sa résonance.",
-  "L'activité révèle ce qui était caché.",
+  "L'activitÃ© rÃ©veille des mÃ©moires endormies.",
+  "Chaque action crÃ©e un Ã©cho qui se propage.",
+  "Le prÃ©sent fait Ã©cho au passÃ©.",
+  "L'empreinte appelle sa rÃ©sonance.",
+  "L'activitÃ© rÃ©vÃ¨le ce qui Ã©tait cachÃ©.",
 ];
 
 /** Determine kind from sentence (A/B/C) */
@@ -1178,18 +1178,18 @@ async function computeKind(
 
 /** Historical anecdotes keyed by MM-DD (subset from histoire-quotidienne.ts) */
 const HISTORICAL_ANECDOTES: Record<string, string> = {
-  "11-06": "Ce matin-là, dans un atelier proche du Louvre, les ouvriers démontent une façade promise à disparaître. Les plans ont changé. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue étroite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracé subsiste.",
-  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides résonnent encore des voix du monde entier. Un gardien ramasse un programme froissé.\n\nParis apprend qu'elle peut être internationale sans cesser d'être elle-même.",
-  "11-08": "Le Louvre ouvre comme musée public pour la première fois. Les toiles de maîtres, autrefois réservées au regard royal, sont maintenant offertes à tous. Un menuisier entre, hésite, lève les yeux.\n\nLa beauté n'a plus de porte fermée.",
-  "11-09": "On inaugure la première ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une énergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'échelle.\n\nLa ville devient un point de départ, pas seulement une destination.",
-  "11-10": "Dans un café de Montparnasse, un groupe d'artistes américains discute jusqu'à l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge créatif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
-  "11-11": "Pour la première fois, Paris dépose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumée. Le silence est total.\n\nLa mémoire collective trouve son ancrage géométrique au centre de l'Étoile.",
-  "11-12": "On pose la première pierre du Palais du Luxembourg, commandé par Marie de Médicis. Elle veut recréer Florence à Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction végétale.",
-  "11-13": "Dans les premières semaines de la Révolution, les passages couverts deviennent des lieux de débat improvisé. On y discute, on y conspire, on y espère. L'architecture crée des zones grises entre public et privé.\n\nLa ville trouve de nouveaux espaces de parole.",
-  "11-14": "La première ligne de métro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers découvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-même pour mieux se déployer.",
-  "11-15": "Les Halles déménagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis à la démolition. Un dernier marché se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son âme.",
-  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumière change la texture des souvenirs.",
-  "02-10": "Paris se révèle par fragments, jamais tout à fait. Les pas s'accumulent et créent un rythme propre. La ville murmure des histoires à qui sait écouter.",
+  "11-06": "Ce matin-lÃ , dans un atelier proche du Louvre, les ouvriers dÃ©montent une faÃ§ade promise Ã  disparaÃ®tre. Les plans ont changÃ©. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue Ã©troite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracÃ© subsiste.",
+  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides rÃ©sonnent encore des voix du monde entier. Un gardien ramasse un programme froissÃ©.\n\nParis apprend qu'elle peut Ãªtre internationale sans cesser d'Ãªtre elle-mÃªme.",
+  "11-08": "Le Louvre ouvre comme musÃ©e public pour la premiÃ¨re fois. Les toiles de maÃ®tres, autrefois rÃ©servÃ©es au regard royal, sont maintenant offertes Ã  tous. Un menuisier entre, hÃ©site, lÃ¨ve les yeux.\n\nLa beautÃ© n'a plus de porte fermÃ©e.",
+  "11-09": "On inaugure la premiÃ¨re ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une Ã©nergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'Ã©chelle.\n\nLa ville devient un point de dÃ©part, pas seulement une destination.",
+  "11-10": "Dans un cafÃ© de Montparnasse, un groupe d'artistes amÃ©ricains discute jusqu'Ã  l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge crÃ©atif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
+  "11-11": "Pour la premiÃ¨re fois, Paris dÃ©pose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumÃ©e. Le silence est total.\n\nLa mÃ©moire collective trouve son ancrage gÃ©omÃ©trique au centre de l'Ã‰toile.",
+  "11-12": "On pose la premiÃ¨re pierre du Palais du Luxembourg, commandÃ© par Marie de MÃ©dicis. Elle veut recrÃ©er Florence Ã  Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction vÃ©gÃ©tale.",
+  "11-13": "Dans les premiÃ¨res semaines de la RÃ©volution, les passages couverts deviennent des lieux de dÃ©bat improvisÃ©. On y discute, on y conspire, on y espÃ¨re. L'architecture crÃ©e des zones grises entre public et privÃ©.\n\nLa ville trouve de nouveaux espaces de parole.",
+  "11-14": "La premiÃ¨re ligne de mÃ©tro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers dÃ©couvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-mÃªme pour mieux se dÃ©ployer.",
+  "11-15": "Les Halles dÃ©mÃ©nagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis Ã  la dÃ©molition. Un dernier marchÃ© se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son Ã¢me.",
+  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumiÃ¨re change la texture des souvenirs.",
+  "02-10": "Paris se rÃ©vÃ¨le par fragments, jamais tout Ã  fait. Les pas s'accumulent et crÃ©ent un rythme propre. La ville murmure des histoires Ã  qui sait Ã©couter.",
 };
 
 /** Get historical anecdote for today (from histoire-quotidienne.ts data) */
@@ -1333,7 +1333,7 @@ app.post("/mirror/keep", async (c) => {
 });
 
 // ----- Map: POST /inscriptions -----
-const RUE_HEURE_REGEX = /^Rue\s+.+\s*[—\-]\s*\d{1,2}:\d{2}/i;
+const RUE_HEURE_REGEX = /^Rue\s+.+\s*[â€”\-]\s*\d{1,2}:\d{2}/i;
 function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -1362,7 +1362,7 @@ app.post("/inscriptions", async (c) => {
     return c.json({ error: "Doit contenir entre 80 et 120 mots." }, 400);
   }
   if (!RUE_HEURE_REGEX.test(text)) {
-    return c.json({ error: "Le texte doit commencer par « Rue … — HH:MM »." }, 400);
+    return c.json({ error: "Le texte doit commencer par Â« Rue â€¦ â€” HH:MM Â»." }, 400);
   }
   const now = new Date().toISOString();
   const row: Record<string, unknown> = {
@@ -1582,8 +1582,8 @@ const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: num
     duration_sec: 210,
     questions: [
       { id: "q1", prompt: "Entre les trois lettres sur le triangle.", type: "text", answer: "IHS", points: 1 },
-      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["Trinité", "Royalty", "Ordre militaire"], answer: "Trinité", points: 1 },
-      { id: "q3", prompt: "Sur la plaque : quel jour / mois / année ?", type: "text", answer: "10 MARS 1805", points: 1 },
+      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["TrinitÃ©", "Royalty", "Ordre militaire"], answer: "TrinitÃ©", points: 1 },
+      { id: "q3", prompt: "Sur la plaque : quel jour / mois / annÃ©e ?", type: "text", answer: "10 MARS 1805", points: 1 },
     ],
     rewards: { aura_xp: 10, seals: ["IHS"], status_unlock: "Lecteur de signes" },
   },
@@ -1591,9 +1591,9 @@ const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: num
     onsite_code: "MERIDIEN",
     duration_sec: 210,
     questions: [
-      { id: "q1", prompt: "Entre le mot trouvé sur place.", type: "text", answer: "MERIDIEN", points: 1 },
-      { id: "q2", prompt: "Cette ligne sert à :", type: "mcq", choices: ["Mesurer le temps", "Définir le nord", "Marquer le méridien"], answer: "Marquer le méridien", points: 1 },
-      { id: "q3", prompt: "En une phrase : qu'as-tu observé ?", type: "text", answer: "*", points: 1 },
+      { id: "q1", prompt: "Entre le mot trouvÃ© sur place.", type: "text", answer: "MERIDIEN", points: 1 },
+      { id: "q2", prompt: "Cette ligne sert Ã  :", type: "mcq", choices: ["Mesurer le temps", "DÃ©finir le nord", "Marquer le mÃ©ridien"], answer: "Marquer le mÃ©ridien", points: 1 },
+      { id: "q3", prompt: "En une phrase : qu'as-tu observÃ© ?", type: "text", answer: "*", points: 1 },
     ],
     rewards: { aura_xp: 12, seals: ["SEUIL"], status_unlock: "Habitant du seuil" },
   },
@@ -1783,16 +1783,6 @@ app.get("/aura/profile", async (c) => {
 
 const PARIS_TZ = "Europe/Paris";
 
-function getTodayParisDate(): string {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: PARIS_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(now);
-}
 
 function getParisDateFromIso(iso: string): string {
   const date = new Date(iso);
@@ -1805,21 +1795,6 @@ function getParisDateFromIso(iso: string): string {
   return formatter.format(date);
 }
 
-function getLast7ParisDays(): string[] {
-  const days: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: PARIS_TZ,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    days.push(formatter.format(date));
-  }
-  return days;
-}
 
 function daysBetweenParisDates(parisDateA: string, parisDateB: string): number {
   const a = new Date(parisDateA + "T00:00:00+01:00");
@@ -1828,66 +1803,9 @@ function daysBetweenParisDates(parisDateA: string, parisDateB: string): number {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-function getTodayParisMMDD(): string {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: PARIS_TZ,
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(now);
-}
 
 // ============ MIROIR SENTENCE POOLS ============
 
-const BLOC_A_FOUNDATION = [
-  "Tu aurais voulu l'oublier, mais la pierre se souvient.",
-  "Les rues que tu piétines te soutiendront, même quand tout cède.",
-  "Il t'a fallu trois hivers pour remarquer ce visage.",
-  "Des rivières de vin coulaient ici, et tu passais sans t'arrêter.",
-];
-
-const BLOC_B_CORE = [
-  "Tu marches sur ce qui a résisté à pire que toi.",
-  "La pierre a vu passer ce que tu appelles encore nouveau.",
-  "Tu pensais traverser, mais c'est toi qui restes.",
-  "Certains visages attendent des années avant d'être reconnus.",
-  "Tu aurais pu partir plus tôt, mais quelque chose a retenu ton pas.",
-  "Ce lieu n'a rien promis, pourtant tu reviens.",
-  "La ville ne t'a rien dit, et c'est pour cela que tu écoutes.",
-  "Tu n'étais pas attendu, mais tu n'es pas de trop.",
-];
-
-const BLOC_C_ECHO = [
-  "Tu es passé là où quelque chose s'est déjà perdu, et pourtant tu continues.",
-  "La ville ne t'attend pas, mais elle remarque quand tu hésites.",
-  "Ce que tu n'as pas regardé aujourd'hui pèsera demain plus que le reste.",
-  "Tu marches dans une phrase commencée avant toi.",
-  "Rien ne t'oblige à rester, sauf ce que tu reconnais sans le nommer.",
-  "La distance n'est pas là où tu crois l'avoir parcourue.",
-  "Ce lieu a survécu à pire que ton passage — mais pas à ton oubli.",
-  "Tu es entré sans savoir ce que tu allais laisser derrière.",
-  "La ville ne se souvient pas de toi, mais elle se souvient avec toi.",
-  "Ce que tu appelles aujourd'hui ordinaire était autrefois une décision.",
-];
-
-// Helper: Map sentence to its pool kind
-function sentenceToKind(sentence: string): "foundation" | "core" | "echo" {
-  if (BLOC_A_FOUNDATION.includes(sentence)) return "foundation";
-  if (BLOC_C_ECHO.includes(sentence)) return "echo";
-  return "core";
-}
-
-// Simple hash for deterministic selection
-function simpleHash(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return Math.abs(hash);
-}
 
 // ============ MIROIR ENDPOINTS ============
 
@@ -2027,7 +1945,7 @@ app.get("/mirror/today", async (c) => {
   // Get anecdote (if available)
   const anecdotes: Record<string, string> = {
     // Add anecdotes here keyed by MM-DD format
-    // Example: "01-15": "Ce jour-là à Paris: ..."
+    // Example: "01-15": "Ce jour-lÃ  Ã  Paris: ..."
   };
   const anecdote = anecdotes[todayMMDD] ?? null;
 
@@ -2166,7 +2084,7 @@ app.get("/champ/items", async (c) => {
     // Excerpt for map dots (truncated)
     let textExcerpt = fullText;
     if (textExcerpt.length > 90) {
-      textExcerpt = textExcerpt.slice(0, 87).trim() + "…";
+      textExcerpt = textExcerpt.slice(0, 87).trim() + "â€¦";
     }
 
     return {
@@ -2182,7 +2100,7 @@ app.get("/champ/items", async (c) => {
   return c.json({ items });
 });
 
-// Wrap so we always send CORS with exact origin (never *) — Supabase or Hono may add * otherwise
+// Wrap so we always send CORS with exact origin (never *) â€” Supabase or Hono may add * otherwise
 function corsHeadersFromRequest(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? undefined;
   const h: Record<string, string> = {
