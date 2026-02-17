@@ -146,7 +146,7 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
           </SheetHeader>
 
           <div style={{ padding: '0 1rem 1rem', display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Progress Ring */}
+            {/* Progress Ring - No numeric display */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div
                 style={{
@@ -169,16 +169,17 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontFamily: 'var(--font-serif)',
-                    fontSize: 18,
+                    fontSize: 16,
                     color: '#003D2C',
                   }}
                 >
-                  {objectivesComplete}/5
+                  {/* Symbol instead of number */}
+                  {objectivesComplete === 5 ? '✓' : objectivesComplete === 0 ? '◯' : '◐'}
                 </div>
               </div>
               <div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                  Objectifs
+                  État
                 </div>
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, color: '#1A1A1A' }}>
                   {objectivesComplete === 5 ? 'Zone maîtrisée' : objectivesComplete === 0 ? 'Zone inexplorée' : 'En progression'}

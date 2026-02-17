@@ -808,6 +808,27 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
             {t('meridiens.gps.hint')}
           </p>
         )}
+
+        {/* Meridian Quest entry - the archetype quest */}
+        <button
+          type="button"
+          onClick={() => { window.location.hash = 'meridian-quest'; }}
+          style={{
+            marginTop: 32,
+            padding: '14px 28px',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            background: 'rgba(0, 61, 44, 0.06)',
+            border: '1px solid rgba(0, 61, 44, 0.2)',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+        >
+          Trouver la ligne
+        </button>
       </div>
     </div>
   );
