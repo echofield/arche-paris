@@ -20,6 +20,7 @@ import { AuraPage } from './components/AuraPage';
 import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
+import { MeridianQuest } from './components/MeridianQuest';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -30,7 +31,7 @@ import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 /**
@@ -316,6 +317,8 @@ export default function App() {
         setCurrentScreen('kept');
       } else if (hash === 'zone-test') {
         setCurrentScreen('zone-test');
+      } else if (hash === 'meridian-quest') {
+        setCurrentScreen('meridian-quest');
       } else {
         setCurrentScreen('homepage');
       }
@@ -447,6 +450,13 @@ export default function App() {
         return (
           <ZoneTestPanel
             onBack={() => navigateTo('homepage')}
+          />
+        );
+      case 'meridian-quest':
+        return (
+          <MeridianQuest
+            onBack={() => navigateTo('homepage')}
+            onComplete={() => navigateTo('aura')}
           />
         );
       default:
