@@ -44,11 +44,7 @@ module.exports = async function handler(req, res) {
     .filter((part) => part && !part.startsWith('path='))
     .join('&');
   const qs = filteredQuery ? `?${filteredQuery}` : '';
-  const isZoneProgressProxy = proxiedPath === 'zone-progress';
-  const upstreamPath = isZoneProgressProxy
-    ? `zone-progress${qs}`
-    : `card-gate/${proxiedPath}${qs}`;
-  const targetUrl = `${supabaseBase}/functions/v1/${upstreamPath}`;
+  const targetUrl = `${supabaseBase}/functions/v1/card-gate/${proxiedPath}${qs}`;
 
   const outgoingHeaders = {};
   const passHeaders = ['authorization', 'content-type', 'cookie', 'x-forwarded-for', 'user-agent'];

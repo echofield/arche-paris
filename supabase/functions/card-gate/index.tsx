@@ -1542,6 +1542,109 @@ app.post("/segments", async (c) => {
   return c.json({ ok: true });
 });
 
+// ----- Map: GET /zone-progress -----
+// Card-scoped progress surface for proxy parity.
+app.get("/zone-progress", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  const cardId = payload.card_id;
+  const [inscriptionsRes, segmentsRes, proofsRes] = await Promise.all([
+    supabase
+      .from("inscriptions")
+      .select("arrondissement, created_at")
+      .eq("card_id", cardId)
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("engraved_segments")
+      .select("from_arrondissement, to_arrondissement, created_at")
+      .eq("card_id", cardId)
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("meridian_proofs")
+      .select("created_at")
+      .eq("card_id", cardId)
+      .order("created_at", { ascending: false })
+      .limit(5000),
+  ]);
+
+  const zoneMap = new Map<number, { zone_id: string; entered_at: string | null; engraved: boolean; engraved_at: string | null }>();
+  const ensure = (arr: number) => {
+    if (!zoneMap.has(arr)) {
+      zoneMap.set(arr, {
+        zone_id: `paris-${arr}`,
+        entered_at: null,
+        engraved: false,
+        engraved_at: null,
+      });
+    }
+    return zoneMap.get(arr)!;
+  };
+
+  for (const ins of inscriptionsRes.data ?? []) {
+    const arr = ins.arrondissement as number | null;
+    if (typeof arr !== "number" || arr < 1 || arr > 20) continue;
+    const z = ensure(arr);
+    z.engraved = true;
+    if (!z.engraved_at || (ins.created_at && ins.created_at > z.engraved_at)) z.engraved_at = ins.created_at ?? null;
+    if (!z.entered_at || (ins.created_at && ins.created_at > z.entered_at)) z.entered_at = ins.created_at ?? null;
+  }
+
+  for (const seg of segmentsRes.data ?? []) {
+    const candidates = [seg.from_arrondissement, seg.to_arrondissement];
+    for (const raw of candidates) {
+      const arr = raw as number | null;
+      if (typeof arr !== "number" || arr < 1 || arr > 20) continue;
+      const z = ensure(arr);
+      if (!z.entered_at || (seg.created_at && seg.created_at > z.entered_at)) z.entered_at = seg.created_at ?? null;
+    }
+  }
+
+  const zones = Array.from(zoneMap.values()).map((z) => ({
+    zone_id: z.zone_id,
+    entered: z.entered_at != null,
+    entered_at: z.entered_at,
+    presence_ritual: false,
+    presence_ritual_at: null,
+    observation_ritual: false,
+    observation_ritual_at: null,
+    engraved: z.engraved,
+    engraved_at: z.engraved_at,
+    is_custodian: false,
+    custodian_since: null,
+    custody_expires_at: null,
+    objectives_complete: z.engraved ? 2 : (z.entered_at ? 1 : 0),
+    updated_at: z.engraved_at ?? z.entered_at ?? new Date().toISOString(),
+  }));
+
+  return c.json({
+    ok: true,
+    zones,
+    stats: {
+      total_zones_touched: zones.length,
+      total_objectives: zones.reduce((sum, z) => sum + (z.objectives_complete ?? 0), 0),
+      zones_complete: 0,
+      total_rituals: (proofsRes.data ?? []).length,
+      total_engravings: zones.filter((z) => z.engraved).length,
+      custodianships: 0,
+    },
+    complexion: {
+      presence_points: 0,
+      wisdom_points: 0,
+      shadow_points: 0,
+      completed_rituals_count: (proofsRes.data ?? []).length,
+      revealed: zones.length > 0,
+    },
+  });
+});
+
 // ----- Map: GET /map-state -----
 app.get("/map-state", async (c) => {
   const supabase = getSupabase();
