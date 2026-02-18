@@ -3,6 +3,7 @@ import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 import { useIsMobile } from './ui/use-mobile';
+import { LivingQuest } from './LivingQuest';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.5;
@@ -371,11 +372,24 @@ export function HomepageV1({
             textTransform: 'uppercase',
             color: '#003D2C',
             opacity: 0.4,
-            marginBottom: '48px'
+            marginBottom: '24px'
           }}
         >
           {t('home.place')}
         </p>
+
+        {/* LivingQuest — "You are here" indicator */}
+        <div style={{ width: '100%', maxWidth: 'clamp(280px, 50vw, 400px)' }}>
+          <LivingQuest
+            onNavigate={(screen, target) => {
+              if (screen === 'collection') {
+                if (onEnterCollection) onEnterCollection();
+              } else if (screen === 'meridiens') {
+                if (onEnterMeridiens) onEnterMeridiens();
+              }
+            }}
+          />
+        </div>
 
         <div
           className="homepage-map-wrap"

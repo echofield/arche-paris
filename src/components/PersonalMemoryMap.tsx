@@ -99,6 +99,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const previousMapStateRef = useRef<MapState | null>(null);
   const [showSegments, setShowSegments] = useState(true);
   const [showInscriptionsLayer, setShowInscriptionsLayer] = useState(true);
+  // Main map layer mode
+  type MapLayerMode = 'traces' | 'ville' | 'rituels';
+  const [mapMode, setMapMode] = useState<MapLayerMode>('traces');
   const [ecrireSheetArr, setEcrireSheetArr] = useState<number | null>(null);
   const [ecrireDraft, setEcrireDraft] = useState('');
   const [ecrireSaving, setEcrireSaving] = useState(false);
@@ -301,8 +304,38 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           alignItems: 'center'
         }}
       >
-        {/* Layer toggles: ARCHÉ pill toggles (no blue checkboxes) */}
-        {(() => {
+        {/* Main mode selector: Mes traces / La Ville / Rituels */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, justifyContent: 'center' }}>
+          {(['traces', 'ville', 'rituels'] as const).map((mode) => {
+            const labels = { traces: 'Mes traces', ville: 'La Ville', rituels: 'Rituels' };
+            const isActive = mapMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setMapMode(mode)}
+                style={{
+                  padding: '8px 16px',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: isActive ? '#FAF8F2' : '#003D2C',
+                  background: isActive ? '#003D2C' : 'transparent',
+                  border: `1px solid ${isActive ? '#003D2C' : 'rgba(0,61,44,0.2)'}`,
+                  borderRadius: mode === 'traces' ? '4px 0 0 4px' : mode === 'rituels' ? '0 4px 4px 0' : 0,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {labels[mode]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sub-layer toggles (only show in 'traces' mode) */}
+        {mapMode === 'traces' && (() => {
           const visuallyHidden: CSSProperties = {
             position: 'absolute',
             width: 1,
@@ -421,6 +454,24 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           );
         })()}
 
+        {/* Rituels legend */}
+        {mapMode === 'rituels' && (
+          <div style={{ display: 'flex', gap: 16, marginBottom: 12, justifyContent: 'center', fontSize: 10, fontFamily: 'var(--font-sans)', color: '#6B6455' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#e5e5e5', border: '1px solid #ccc' }} />
+              Inexploré
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#d4af37' }} />
+              Entré
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4a7c59' }} />
+              Scellé
+            </span>
+          </div>
+        )}
+
         {/* Map: homepage size or a bit bigger, then all content below */}
         <div
           style={{
@@ -444,8 +495,53 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               pointerEvents: 'none'
             }}
           />
+          {/* La Ville mode: placeholder for community traces */}
+          {mapMode === 'ville' && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(250,248,242,0.7)',
+                zIndex: 5,
+              }}
+            >
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: 24,
+                  maxWidth: 240,
+                }}
+              >
+                <p
+                  style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: 14,
+                    fontStyle: 'italic',
+                    color: '#6B6455',
+                    marginBottom: 8,
+                  }}
+                >
+                  Les traces de la ville apparaissent ici.
+                </p>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 10,
+                    color: '#8E8982',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Traces anonymes, effacées par le temps.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Layer 2 — Engraved segments (Card Gate) */}
-          {showSegments && mapState?.segments && mapState.segments.length > 0 && (
+          {mapMode === 'traces' && showSegments && mapState?.segments && mapState.segments.length > 0 && (
             <svg
               viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
               preserveAspectRatio="xMidYMid meet"
@@ -493,7 +589,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             </svg>
           )}
           {/* Layer 3 — Inscription marks (arrondissements with inscriptions) */}
-          {showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
+          {mapMode === 'traces' && showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
             const arrsWithInscriptions = new Set(
               mapState.inscriptions.map((i) => i.arrondissement).filter((a): a is number => a != null)
             );
@@ -524,7 +620,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             );
           })()}
           {/* Quest threads overlay — polylines + stamps (from getRuns). TODO: optionally unify with traces_v1 for selected trace highlight. */}
-          {showThreads && runs.length > 0 && (
+          {mapMode === 'traces' && showThreads && runs.length > 0 && (
             <svg
               viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
               preserveAspectRatio="xMidYMid meet"
@@ -613,7 +709,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               </button>
             </div>
           )}
-          {points.map(({ symbol, x, y }) => (
+          {mapMode === 'traces' && points.map(({ symbol, x, y }) => (
             <div
               key={symbol.id}
               style={{
@@ -660,8 +756,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               )}
             </div>
           ))}
-          {/* Clickable arrondissement zones with progress rings */}
-          {ARRONDISSEMENTS.map((arr) => {
+          {/* Clickable arrondissement zones with progress rings or ritual colors */}
+          {mapMode !== 'ville' && ARRONDISSEMENTS.map((arr) => {
             const pos = ARRONDISSEMENT_MAP_POSITION[arr];
             if (!pos) return null;
             const zoneId = arrToZoneId(arr);
@@ -670,11 +766,72 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             const progressPct = objectivesComplete * 20; // 5 objectives = 100%
             const isUnexplored = objectivesComplete === 0;
             const isComplete = objectivesComplete === 5;
+            const isCustodian = progress?.is_custodian === true;
+            const hasPresence = progress?.presence_ritual === true;
+            const hasObservation = progress?.observation_ritual === true;
+            const isSealed = hasPresence && hasObservation;
+            const hasEntered = progress?.entered === true;
+
+            // Rituels layer colors: grey (unexplored) / gold (entered) / green (sealed)
+            const getRituelFill = () => {
+              if (isSealed) return '#4a7c59'; // green
+              if (hasEntered) return '#d4af37'; // gold
+              return '#e5e5e5'; // grey
+            };
+
+            // Custody glow style
+            const custodyGlow = isCustodian ? {
+              boxShadow: '0 0 12px 4px rgba(212,175,55,0.5), 0 2px 8px rgba(0,0,0,0.15)',
+              border: '2px solid #d4af37',
+            } : {};
+
+            if (mapMode === 'rituels') {
+              // Rituels mode: simple colored circles
+              return (
+                <button
+                  key={arr}
+                  type="button"
+                  aria-label={`${arr}e arrondissement - ${isSealed ? 'Scellé' : hasEntered ? 'Entré' : 'Inexploré'}${isCustodian ? ' (Gardien)' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${pos.x}%`,
+                    top: `${pos.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    background: getRituelFill(),
+                    border: isCustodian ? '2px solid #d4af37' : '1px solid rgba(0,0,0,0.1)',
+                    cursor: 'pointer',
+                    zIndex: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    ...custodyGlow,
+                  }}
+                  onClick={() => setZoneDetailArr(arr)}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 9,
+                      fontWeight: 500,
+                      color: isSealed ? '#FAF8F2' : hasEntered ? '#1A1A1A' : '#8E8982',
+                    }}
+                  >
+                    {arr}
+                  </span>
+                </button>
+              );
+            }
+
+            // Traces mode: progress rings (existing behavior)
             return (
               <button
                 key={arr}
                 type="button"
-                aria-label={`${arr}e arrondissement - ${objectivesComplete}/5 objectifs`}
+                aria-label={`${arr}e arrondissement - ${objectivesComplete}/5 objectifs${isCustodian ? ' (Gardien)' : ''}`}
                 className={isUnexplored ? 'zone-unexplored' : ''}
                 style={{
                   position: 'absolute',
@@ -689,14 +846,16 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                     : objectivesComplete > 0
                       ? `conic-gradient(#003D2C ${progressPct}%, rgba(0,61,44,0.15) ${progressPct}%)`
                       : 'rgba(0,61,44,0.08)',
-                  border: isComplete ? '2px solid rgba(255,215,0,0.4)' : 'none',
                   cursor: 'pointer',
                   zIndex: 3,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: 0,
-                  boxShadow: isComplete ? '0 2px 8px rgba(0,61,44,0.3)' : 'none',
+                  ...(isCustodian ? custodyGlow : {
+                    border: isComplete ? '2px solid rgba(255,215,0,0.4)' : 'none',
+                    boxShadow: isComplete ? '0 2px 8px rgba(0,61,44,0.3)' : 'none',
+                  }),
                 }}
                 onClick={() => setZoneDetailArr(arr)}
               >

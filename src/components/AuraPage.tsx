@@ -4,7 +4,7 @@
  * Shows AURA profile from church quests (status, seals) when available.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
@@ -14,7 +14,68 @@ import { sealingStub } from '../utils/sealing-stub';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
 import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
 import { useTranslation } from '../utils/i18n';
-import { api, type ZoneProgressData } from '../lib/api';
+import { api, type ZoneProgressData, type ComplexionData } from '../lib/api';
+
+// Hint templates based on what changed (French)
+const COMPLEXION_HINTS: Record<string, string[]> = {
+  presence_up: [
+    'Ta présence s\'est affirmée.',
+    'Le méridien te reconnaît.',
+    'Tu t\'ancres dans la ligne.',
+  ],
+  wisdom_up: [
+    'Ta sagesse s\'est densifiée.',
+    'L\'étude porte ses fruits.',
+    'Tu vois plus loin.',
+  ],
+  shadow_up: [
+    'L\'ombre s\'est épaissie.',
+    'Tu explores les marges.',
+    'Le doute nourrit la clarté.',
+  ],
+  shadow_down: [
+    'L\'ombre recule.',
+    'La lumière gagne du terrain.',
+  ],
+  neutral: [
+    'Quelque chose a changé en toi.',
+    'Le chemin continue.',
+  ],
+};
+
+// Get hint based on last_delta
+function getComplexionHint(lastDelta: Record<string, unknown> | null | undefined): string | null {
+  if (!lastDelta) return null;
+
+  const dPresence = (lastDelta.d_presence as number) ?? 0;
+  const dWisdom = (lastDelta.d_wisdom as number) ?? 0;
+  const dShadow = (lastDelta.d_shadow as number) ?? 0;
+
+  // Check if anything changed
+  if (dPresence === 0 && dWisdom === 0 && dShadow === 0) return null;
+
+  let category: keyof typeof COMPLEXION_HINTS;
+
+  if (dPresence > dWisdom && dPresence > Math.abs(dShadow) && dPresence > 0) {
+    category = 'presence_up';
+  } else if (dWisdom > dPresence && dWisdom > Math.abs(dShadow) && dWisdom > 0) {
+    category = 'wisdom_up';
+  } else if (dShadow > 0 && dShadow > dPresence && dShadow > dWisdom) {
+    category = 'shadow_up';
+  } else if (dShadow < 0) {
+    category = 'shadow_down';
+  } else {
+    category = 'neutral';
+  }
+
+  const lines = COMPLEXION_HINTS[category];
+  // Deterministic: use today's date as seed
+  const now = new Date();
+  const daySeed = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
+  const index = daySeed % lines.length;
+
+  return lines[index] ?? lines[0];
+}
 
 interface AuraPageProps {
   onBack: () => void;
@@ -36,18 +97,38 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [auraProfile, setAuraProfile] = useState<AuraProfileResult | null>(null);
   const [auraProfileLoading, setAuraProfileLoading] = useState(false);
   const [zoneProgress, setZoneProgress] = useState<ZoneProgressData | null>(null);
+  const [complexion, setComplexion] = useState<ComplexionData | null>(null);
+  const [complexionHint, setComplexionHint] = useState<string | null>(null);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
 
-  // Load ARCHÉ zone progress
-  useEffect(() => {
-    api.zoneProgress().then(result => {
-      if (result.data) {
-        setZoneProgress(result.data);
+  // Load ARCHÉ zone progress + complexion (real backend data)
+  const loadComplexionData = useCallback(async () => {
+    try {
+      const [zoneResult, complexionResult] = await Promise.all([
+        api.zoneProgress(),
+        api.meComplexion(),
+      ]);
+
+      if (zoneResult.data) {
+        setZoneProgress(zoneResult.data);
       }
-    }).catch(() => {});
+
+      if (complexionResult.data) {
+        setComplexion(complexionResult.data);
+        // Generate hint from last_delta
+        const hint = getComplexionHint(complexionResult.data.last_delta);
+        setComplexionHint(hint);
+      }
+    } catch (err) {
+      console.error('[AuraPage] Failed to load complexion:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadComplexionData();
+  }, [loadComplexionData]);
 
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
@@ -151,8 +232,8 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       {/* Miroir — daily sentence with historical anecdote */}
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
 
-      {/* ARCHÉ State Dashboard */}
-      {zoneProgress && (
+      {/* ARCHÉ State Dashboard — Poetic dots, one rare number */}
+      {(zoneProgress || complexion) && (
         <div
           style={{
             marginTop: 'clamp(24px, 5vw, 40px)',
@@ -163,12 +244,50 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             width: '100%',
           }}
         >
-          {/* Complexion (Presence / Wisdom / Shadow) - No raw numbers */}
+          {/* Complexion hint — feedback after action */}
+          {complexionHint && (
+            <p
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 14,
+                fontStyle: 'italic',
+                color: '#B8860B',
+                textAlign: 'center',
+                marginBottom: 16,
+                padding: '8px 12px',
+                background: 'rgba(212,175,55,0.08)',
+                borderRadius: 4,
+              }}
+            >
+              {complexionHint}
+            </p>
+          )}
+
+          {/* Complexion with dots (●●●○○○) — driven by real backend data */}
           {(() => {
-            const { presence_points, wisdom_points, shadow_points } = zoneProgress.complexion;
+            // Use direct complexion data if available, fallback to zoneProgress
+            const data = complexion ?? zoneProgress?.complexion;
+            if (!data) return null;
+
+            const { presence_points, wisdom_points, shadow_points } = data;
             const total = presence_points + wisdom_points + shadow_points;
 
-            // Determine dominant axis
+            // Convert points to dots (6 max, thresholds: 0, 5, 15, 30, 50, 75)
+            const pointsToDots = (points: number): number => {
+              if (points >= 75) return 6;
+              if (points >= 50) return 5;
+              if (points >= 30) return 4;
+              if (points >= 15) return 3;
+              if (points >= 5) return 2;
+              if (points > 0) return 1;
+              return 0;
+            };
+
+            const presenceDots = pointsToDots(presence_points);
+            const wisdomDots = pointsToDots(wisdom_points);
+            const shadowDots = pointsToDots(shadow_points);
+
+            // Determine dominant
             let dominant: 'presence' | 'wisdom' | 'shadow' | null = null;
             if (total > 0) {
               if (presence_points >= wisdom_points && presence_points >= shadow_points) {
@@ -180,126 +299,63 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
               }
             }
 
-            // Calculate proportions for rings (without showing actual numbers)
-            const maxPoints = Math.max(presence_points, wisdom_points, shadow_points, 1);
-            const presencePct = (presence_points / maxPoints) * 100;
-            const wisdomPct = (wisdom_points / maxPoints) * 100;
-            const shadowPct = (shadow_points / maxPoints) * 100;
+            // Render dots
+            const renderDots = (filled: number, total: number = 6, color: string) => (
+              <div style={{ display: 'flex', gap: 3, justifyContent: 'center', marginTop: 4 }}>
+                {Array.from({ length: total }, (_, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: i < filled ? color : 'transparent',
+                      border: `1px solid ${i < filled ? color : 'rgba(0,0,0,0.15)'}`,
+                    }}
+                  />
+                ))}
+              </div>
+            );
 
             return (
               <div style={{ marginBottom: 20 }}>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 10,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: '#003D2C',
-                    opacity: 0.5,
-                    marginBottom: 12,
-                  }}
-                >
-                  Complexion
-                </p>
-                <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: 24, justifyContent: 'center' }}>
                   {/* Presence */}
-                  <div style={{ textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: `conic-gradient(#007850 ${presencePct}%, rgba(0,120,80,0.15) 0%)`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 6px',
-                        opacity: dominant === 'presence' ? 1 : 0.6,
-                        transition: 'opacity 0.3s ease',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: '#FAF8F2',
-                        }}
-                      />
-                    </div>
+                  <div style={{ textAlign: 'center', opacity: dominant === 'presence' ? 1 : 0.7 }}>
                     <span style={{
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 9,
+                      fontSize: 10,
                       color: '#6B6455',
                       fontWeight: dominant === 'presence' ? 600 : 400,
+                      letterSpacing: '0.05em',
                     }}>Présence</span>
+                    {renderDots(presenceDots, 6, '#007850')}
                   </div>
                   {/* Wisdom */}
-                  <div style={{ textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: `conic-gradient(#003D2C ${wisdomPct}%, rgba(0,61,44,0.15) 0%)`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 6px',
-                        opacity: dominant === 'wisdom' ? 1 : 0.6,
-                        transition: 'opacity 0.3s ease',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: '#FAF8F2',
-                        }}
-                      />
-                    </div>
+                  <div style={{ textAlign: 'center', opacity: dominant === 'wisdom' ? 1 : 0.7 }}>
                     <span style={{
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 9,
+                      fontSize: 10,
                       color: '#6B6455',
                       fontWeight: dominant === 'wisdom' ? 600 : 400,
+                      letterSpacing: '0.05em',
                     }}>Sagesse</span>
+                    {renderDots(wisdomDots, 6, '#003D2C')}
                   </div>
                   {/* Shadow */}
-                  <div style={{ textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: `conic-gradient(#1A1A1A ${shadowPct}%, rgba(26,26,26,0.15) 0%)`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 6px',
-                        opacity: dominant === 'shadow' ? 1 : 0.6,
-                        transition: 'opacity 0.3s ease',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '50%',
-                          background: '#FAF8F2',
-                        }}
-                      />
-                    </div>
+                  <div style={{ textAlign: 'center', opacity: dominant === 'shadow' ? 1 : 0.7 }}>
                     <span style={{
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 9,
+                      fontSize: 10,
                       color: '#6B6455',
                       fontWeight: dominant === 'shadow' ? 600 : 400,
+                      letterSpacing: '0.05em',
                     }}>Ombre</span>
+                    {renderDots(shadowDots, 6, '#1A1A1A')}
                   </div>
                 </div>
-                {/* Poetic interpretation based on dominant */}
+
+                {/* Poetic interpretation */}
                 {total > 0 && (
                   <p
                     style={{
@@ -320,44 +376,76 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             );
           })()}
 
-          {/* Zone Progress Stats */}
+          {/* One rare number: Zones éveillées */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 12,
               paddingTop: 16,
               borderTop: '1px solid rgba(0, 61, 44, 0.08)',
+              textAlign: 'center',
             }}
           >
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#003D2C', fontWeight: 500 }}>
-                {zoneProgress.stats.zones_complete}
-              </div>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455', opacity: 0.7 }}>
-                Zones maîtrisées
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#003D2C', fontWeight: 500 }}>
-                {zoneProgress.stats.total_rituals}
-              </div>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455', opacity: 0.7 }}>
-                Rituels
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: '#003D2C', fontWeight: 500 }}>
-                {zoneProgress.stats.total_engravings}
-              </div>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: '#6B6455', opacity: 0.7 }}>
-                Gravures
-              </div>
-            </div>
+            <p style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 12,
+              color: '#003D2C',
+              opacity: 0.8,
+            }}>
+              Zones éveillées: <strong>{zoneProgress.stats.zones_complete}/20</strong>
+            </p>
           </div>
 
+          {/* Next seal goal */}
+          {(() => {
+            const { total_rituals, zones_complete, custodianships } = zoneProgress.stats;
+            const seals = auraProfile?.seals ?? [];
+
+            // Calculate next goal
+            let nextGoal: string | null = null;
+            if (!seals.includes('lutece') && total_rituals < 5) {
+              nextGoal = `${5 - total_rituals} rituel${5 - total_rituals > 1 ? 's' : ''} pour Sceau de Lutèce`;
+            } else if (!seals.includes('meridien') && zones_complete < 3) {
+              nextGoal = `${3 - zones_complete} zone${3 - zones_complete > 1 ? 's' : ''} pour Sceau du Méridien`;
+            } else if (!seals.includes('gardien') && custodianships < 1) {
+              nextGoal = `Devenir gardien pour Sceau du Gardien`;
+            }
+
+            if (!nextGoal) return null;
+
+            return (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: '12px 16px',
+                  background: 'rgba(212,175,55,0.1)',
+                  borderRadius: 6,
+                  border: '1px solid rgba(212,175,55,0.2)',
+                }}
+              >
+                <p style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 10,
+                  color: '#B8860B',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  marginBottom: 4,
+                }}>
+                  Prochain seuil
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  color: '#1A1A1A',
+                  opacity: 0.8,
+                }}>
+                  {nextGoal}
+                </p>
+              </div>
+            );
+          })()}
+
           {/* Revealed status */}
-          {zoneProgress.complexion.revealed && (
+          {(complexion?.revealed || zoneProgress?.complexion?.revealed) && (
             <p
               style={{
                 fontFamily: 'var(--font-serif)',
