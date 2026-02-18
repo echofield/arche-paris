@@ -85,6 +85,33 @@ app.use("*", async (c, next) => {
 
 const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
 const REFRESH_TOKEN_EXPIRY_DAYS = 30;
+const MAP_READ_CACHE_TTL_MS = 60_000;
+const MAP_CACHE_CONTROL_PUBLIC = "public, s-maxage=60, stale-while-revalidate=600";
+const MAP_CACHE_CONTROL_PRIVATE = "private, no-store";
+
+type ReadCacheEntry = {
+  expiresAt: number;
+  body: unknown;
+};
+
+const mapReadCache = new Map<string, ReadCacheEntry>();
+
+function readMapCache<T>(key: string): T | null {
+  const hit = mapReadCache.get(key);
+  if (!hit) return null;
+  if (Date.now() >= hit.expiresAt) {
+    mapReadCache.delete(key);
+    return null;
+  }
+  return hit.body as T;
+}
+
+function writeMapCache(key: string, body: unknown, ttlMs = MAP_READ_CACHE_TTL_MS): void {
+  mapReadCache.set(key, {
+    expiresAt: Date.now() + ttlMs,
+    body,
+  });
+}
 
 // Cookie settings for refresh token
 function getRefreshCookieOptions(origin: string | undefined): string {
@@ -1674,6 +1701,13 @@ app.get("/zone-progress", async (c) => {
 app.get("/map-state", async (c) => {
   const supabase = getSupabase();
   const payload = await requireOptionalJwt(c);
+  const cacheKey = payload ? `map-state:card:${payload.card_id}` : "map-state:public";
+  const cached = readMapCache<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    c.header("Cache-Control", payload ? MAP_CACHE_CONTROL_PRIVATE : MAP_CACHE_CONTROL_PUBLIC);
+    if (payload) c.header("Vary", "X-ARCHE-CARD-CODE, Authorization");
+    return c.json(cached);
+  }
   const ip = getClientIp(c);
   const allowed = payload
     ? await rateLimitMap(supabase, payload.card_id, ip)
@@ -1683,11 +1717,14 @@ app.get("/map-state", async (c) => {
   }
   if (!payload) {
     // Public onboarding-safe response: no personal traces without card context.
-    return c.json({
+    const body = {
       inscriptions: [],
       segments: [],
       meridian_proofs: [],
-    });
+    };
+    writeMapCache(cacheKey, body);
+    c.header("Cache-Control", MAP_CACHE_CONTROL_PUBLIC);
+    return c.json(body);
   }
   const cardId = payload.card_id;
   const [inscriptionsRes, segmentsRes, proofsRes] = await Promise.all([
@@ -1698,7 +1735,7 @@ app.get("/map-state", async (c) => {
   const inscriptions = inscriptionsRes.data ?? [];
   const segments = segmentsRes.data ?? [];
   const meridian_proofs = proofsRes.data ?? [];
-  return c.json({
+  const body = {
     inscriptions: inscriptions.map((i) => ({
       id: i.id,
       kind: i.kind,
@@ -1725,7 +1762,11 @@ app.get("/map-state", async (c) => {
       createdAt: p.created_at,
       status: p.status,
     })),
-  });
+  };
+  writeMapCache(cacheKey, body);
+  c.header("Cache-Control", MAP_CACHE_CONTROL_PRIVATE);
+  c.header("Vary", "X-ARCHE-CARD-CODE, Authorization");
+  return c.json(body);
 });
 
 // ----- Map: GET /map-state/community -----
@@ -1746,7 +1787,20 @@ app.get("/map-state/community", async (c) => {
   const windowDaysRaw = c.req.query("window_days");
   const parsed = Number.parseInt(windowDaysRaw ?? "90", 10);
   const windowDays = Number.isFinite(parsed) ? Math.max(7, Math.min(365, parsed)) : 90;
+  const topNRaw = c.req.query("top_n");
+  const parsedTop = Number.parseInt(topNRaw ?? "12", 10);
+  const topN = Number.isFinite(parsedTop) ? Math.max(1, Math.min(20, parsedTop)) : 12;
   const sinceIso = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const communityCacheKey = `map-state:community:${windowDays}:${topN}`;
+  const cached = readMapCache<Record<string, unknown>>(communityCacheKey);
+  if (cached) {
+    c.header("Cache-Control", MAP_CACHE_CONTROL_PUBLIC);
+    return c.json(cached);
+  }
+
+  const inscriptionLimit = Math.max(600, topN * 80);
+  const segmentLimit = Math.max(900, topN * 120);
+  const maxSampleLines = isPublicRequest ? 1 : 2;
 
   const [inscriptionsRes, segmentsRes] = await Promise.all([
     supabase
@@ -1756,13 +1810,13 @@ app.get("/map-state/community", async (c) => {
       .not("arrondissement", "is", null)
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
-      .limit(3000),
+      .limit(inscriptionLimit),
     supabase
       .from("engraved_segments")
       .select("from_arrondissement, to_arrondissement, status, created_at")
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
-      .limit(5000),
+      .limit(segmentLimit),
   ]);
 
   if (inscriptionsRes.error || segmentsRes.error) {
@@ -1806,7 +1860,7 @@ app.get("/map-state/community", async (c) => {
     if (ins.status === "verified") b.verifiedInscriptions += 1;
     else b.pendingInscriptions += 1;
     pushLastActivity(b, ins.created_at ?? null);
-    if (b.sampleLines.length < 3 && typeof ins.text === "string") {
+    if (b.sampleLines.length < maxSampleLines && typeof ins.text === "string") {
       b.sampleLines.push(ins.text.slice(0, 96));
     }
   }
@@ -1822,7 +1876,7 @@ app.get("/map-state/community", async (c) => {
     }
   }
 
-  const arrondissements = Array.from(bucket.entries())
+  const allArrondissements = Array.from(bucket.entries())
     .map(([arrondissement, value]) => {
       const weighted =
         value.verifiedInscriptions * 1 +
@@ -1841,16 +1895,18 @@ app.get("/map-state/community", async (c) => {
       };
     })
     .sort((a, b) => b.signalStrength - a.signalStrength);
+  const arrondissements = allArrondissements.slice(0, topN);
 
-  if (isPublicRequest) {
-    // Short CDN cache for anonymous city signals to reduce cold-start perception.
-    c.header("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
-  }
-  return c.json({
+  const body = {
     generated_at: new Date().toISOString(),
     window_days: windowDays,
+    total_active_arrondissements: allArrondissements.length,
+    top_n: topN,
     arrondissements,
-  });
+  };
+  writeMapCache(communityCacheKey, body);
+  c.header("Cache-Control", MAP_CACHE_CONTROL_PUBLIC);
+  return c.json(body);
 });
 
 // ============ CHURCH QUESTS + AURA ============

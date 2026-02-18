@@ -19,7 +19,7 @@ function buildSupabaseBase() {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, apikey');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, apikey, X-ARCHE-CARD-CODE, X-ARCHE-SESSION');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
@@ -76,8 +76,39 @@ module.exports = async function handler(req, res) {
     });
     const setCookie = upstream.headers.get('set-cookie');
     const cacheControl = upstream.headers.get('cache-control');
-    if (setCookie) res.setHeader('Set-Cookie', setCookie);
-    if (cacheControl) res.setHeader('Cache-Control', cacheControl);
+    const methodUpper = (req.method || 'GET').toUpperCase();
+    const cacheEligibleRead = methodUpper === 'GET' && (proxiedPath === 'map-state' || proxiedPath === 'map-state/community');
+    if (setCookie && !cacheEligibleRead) res.setHeader('Set-Cookie', setCookie);
+    let effectiveCacheControl = cacheControl || null;
+    let cachePolicyLabel = 'upstream';
+    if (methodUpper === 'GET') {
+      if (proxiedPath === 'map-state/community') {
+        effectiveCacheControl = 'public, s-maxage=60, stale-while-revalidate=600';
+        cachePolicyLabel = 'proxy-public-community';
+        res.setHeader('CDN-Cache-Control', 's-maxage=60, stale-while-revalidate=600');
+        res.setHeader('Vercel-CDN-Cache-Control', 's-maxage=60, stale-while-revalidate=600');
+      } else if (proxiedPath === 'map-state') {
+        res.setHeader('Vary', 'Authorization, X-ARCHE-CARD-CODE, X-ARCHE-SESSION');
+        const hasRuntimeIdentity = Boolean(req.headers.authorization || req.headers['x-arche-card-code'] || req.headers['x-arche-session']);
+        if (hasRuntimeIdentity) {
+          effectiveCacheControl = 'private, no-store';
+          res.removeHeader('CDN-Cache-Control');
+          res.removeHeader('Vercel-CDN-Cache-Control');
+          cachePolicyLabel = 'proxy-private-map';
+        } else {
+          effectiveCacheControl = 'public, s-maxage=60, stale-while-revalidate=600';
+          res.setHeader('CDN-Cache-Control', 's-maxage=60, stale-while-revalidate=600');
+          res.setHeader('Vercel-CDN-Cache-Control', 's-maxage=60, stale-while-revalidate=600');
+          cachePolicyLabel = 'proxy-public-map';
+        }
+      }
+    }
+    if (effectiveCacheControl) {
+      res.removeHeader('Cache-Control');
+      res.setHeader('Cache-Control', effectiveCacheControl);
+    }
+    res.setHeader('X-Card-Gate-Proxy-Path', proxiedPath || '(root)');
+    res.setHeader('X-Card-Gate-Cache-Policy', cachePolicyLabel);
     res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json');
     const text = await upstream.text();
     return res.status(upstream.status).send(text);
