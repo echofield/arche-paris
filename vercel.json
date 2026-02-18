@@ -18,11 +18,24 @@
   ],
   "rewrites": [
     {
+      "source": "/api/card-gate/:path*",
+      "destination": "/api/card-gate?path=:path*"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/api/card-gate/map-state/community",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=120, stale-while-revalidate=600"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

@@ -719,6 +719,14 @@ async function requireJwt(c: { req: { header: (n: string) => string | undefined 
   return payload;
 }
 
+async function requireOptionalJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string } | null> {
+  const auth = c.req.header("Authorization");
+  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return null;
+  const payload = await verifyToken(token);
+  return payload ?? null;
+}
+
 async function rateLimitJournal(
   supabase: ReturnType<typeof createClient>,
   cardId: string,
@@ -747,6 +755,14 @@ async function rateLimitMap(
   const k1 = `map:${cardId}`;
   const k2 = `map_ip:${ip}`;
   return (await dbRateLimit(supabase, k1, 100, 3600)) && (await dbRateLimit(supabase, k2, 300, 3600));
+}
+
+async function rateLimitMapPublic(
+  supabase: ReturnType<typeof createClient>,
+  ip: string
+): Promise<boolean> {
+  const k = `map_public_ip:${ip}`;
+  return await dbRateLimit(supabase, k, 300, 3600);
 }
 
 // ----- /journal/list -----
@@ -1529,11 +1545,21 @@ app.post("/segments", async (c) => {
 // ----- Map: GET /map-state -----
 app.get("/map-state", async (c) => {
   const supabase = getSupabase();
-  const payload = await requireJwt(c);
-  if (payload instanceof Response) return payload;
+  const payload = await requireOptionalJwt(c);
   const ip = getClientIp(c);
-  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+  const allowed = payload
+    ? await rateLimitMap(supabase, payload.card_id, ip)
+    : await rateLimitMapPublic(supabase, ip);
+  if (!allowed) {
     return c.json({ error: "Too many requests" }, 429);
+  }
+  if (!payload) {
+    // Public onboarding-safe response: no personal traces without card context.
+    return c.json({
+      inscriptions: [],
+      segments: [],
+      meridian_proofs: [],
+    });
   }
   const cardId = payload.card_id;
   const [inscriptionsRes, segmentsRes, proofsRes] = await Promise.all([
@@ -1571,6 +1597,131 @@ app.get("/map-state", async (c) => {
       createdAt: p.created_at,
       status: p.status,
     })),
+  });
+});
+
+// ----- Map: GET /map-state/community -----
+// Anonymous-by-design world signals for "La Ville".
+// Uses only opt-in inscriptions + aggregated activity; no card_id exposure.
+app.get("/map-state/community", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireOptionalJwt(c);
+  const isPublicRequest = !payload;
+  const ip = getClientIp(c);
+  const allowed = payload
+    ? await rateLimitMap(supabase, payload.card_id, ip)
+    : await rateLimitMapPublic(supabase, ip);
+  if (!allowed) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  const windowDaysRaw = c.req.query("window_days");
+  const parsed = Number.parseInt(windowDaysRaw ?? "90", 10);
+  const windowDays = Number.isFinite(parsed) ? Math.max(7, Math.min(365, parsed)) : 90;
+  const sinceIso = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const [inscriptionsRes, segmentsRes] = await Promise.all([
+    supabase
+      .from("inscriptions")
+      .select("arrondissement, status, text, created_at")
+      .eq("opt_in_field", true)
+      .not("arrondissement", "is", null)
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(3000),
+    supabase
+      .from("engraved_segments")
+      .select("from_arrondissement, to_arrondissement, status, created_at")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(5000),
+  ]);
+
+  if (inscriptionsRes.error || segmentsRes.error) {
+    console.error("[card-gate] community map-state:", inscriptionsRes.error ?? segmentsRes.error);
+    return c.json({ error: "Failed to load community signals" }, 500);
+  }
+
+  const bucket = new Map<number, {
+    inscriptionCount: number;
+    verifiedInscriptions: number;
+    pendingInscriptions: number;
+    segmentCount: number;
+    lastActivityAt: string | null;
+    sampleLines: string[];
+  }>();
+
+  const ensure = (arr: number) => {
+    if (!bucket.has(arr)) {
+      bucket.set(arr, {
+        inscriptionCount: 0,
+        verifiedInscriptions: 0,
+        pendingInscriptions: 0,
+        segmentCount: 0,
+        lastActivityAt: null,
+        sampleLines: [],
+      });
+    }
+    return bucket.get(arr)!;
+  };
+
+  const pushLastActivity = (target: { lastActivityAt: string | null }, iso: string | null) => {
+    if (!iso) return;
+    if (!target.lastActivityAt || iso > target.lastActivityAt) target.lastActivityAt = iso;
+  };
+
+  for (const ins of inscriptionsRes.data ?? []) {
+    const arr = ins.arrondissement as number | null;
+    if (typeof arr !== "number" || arr < 1 || arr > 20) continue;
+    const b = ensure(arr);
+    b.inscriptionCount += 1;
+    if (ins.status === "verified") b.verifiedInscriptions += 1;
+    else b.pendingInscriptions += 1;
+    pushLastActivity(b, ins.created_at ?? null);
+    if (b.sampleLines.length < 3 && typeof ins.text === "string") {
+      b.sampleLines.push(ins.text.slice(0, 96));
+    }
+  }
+
+  for (const seg of segmentsRes.data ?? []) {
+    const from = seg.from_arrondissement as number | null;
+    const to = seg.to_arrondissement as number | null;
+    const targets = [from, to].filter((v): v is number => typeof v === "number" && v >= 1 && v <= 20);
+    for (const arr of targets) {
+      const b = ensure(arr);
+      b.segmentCount += 1;
+      pushLastActivity(b, seg.created_at ?? null);
+    }
+  }
+
+  const arrondissements = Array.from(bucket.entries())
+    .map(([arrondissement, value]) => {
+      const weighted =
+        value.verifiedInscriptions * 1 +
+        value.pendingInscriptions * 0.5 +
+        value.segmentCount * 0.35;
+      const signalStrength = Math.max(0, Math.min(1, weighted / 24));
+      return {
+        arrondissement,
+        signalStrength,
+        inscriptionCount: value.inscriptionCount,
+        verifiedInscriptions: value.verifiedInscriptions,
+        pendingInscriptions: value.pendingInscriptions,
+        segmentCount: value.segmentCount,
+        lastActivityAt: value.lastActivityAt,
+        sampleLines: value.sampleLines,
+      };
+    })
+    .sort((a, b) => b.signalStrength - a.signalStrength);
+
+  if (isPublicRequest) {
+    // Short CDN cache for anonymous city signals to reduce cold-start perception.
+    c.header("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+  }
+  return c.json({
+    generated_at: new Date().toISOString(),
+    window_days: windowDays,
+    arrondissements,
   });
 });
 
