@@ -86,6 +86,19 @@ function clearMemoryToken(): void {
   currentToken = null;
 }
 
+export function getSessionCardCode(): string | null {
+  try {
+    const raw = localStorage.getItem('arche_card_session');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { code?: string; card_id?: string };
+    if (typeof parsed?.code === 'string' && parsed.code.trim()) return parsed.code.trim();
+    if (typeof parsed?.card_id === 'string' && parsed.card_id.trim()) return parsed.card_id.trim();
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ============ PENDING WRITES QUEUE ============
 
 export interface PendingWrite {
@@ -301,15 +314,23 @@ async function gateFetch(
   path: string,
   options: { method?: string; body?: string; headers?: Record<string, string> } = {}
 ): Promise<Response> {
-  const token = await getCardToken(cardId);
+  let token: string | null = null;
+  try {
+    token = await getCardToken(cardId);
+  } catch {
+    token = null;
+  }
+  const sessionCode = getSessionCardCode() ?? cardId;
   const url = `${CARD_GATE_BASE}${path}`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (sessionCode) headers['X-ARCHE-CARD-CODE'] = sessionCode;
   return fetch(url, {
     method: options.method ?? 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
+    headers,
     credentials: 'include',
     body: options.body,
   });

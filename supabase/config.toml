@@ -8,3 +8,8 @@ verify_jwt = false
 
 [functions.make-server-9060b10a]
 entrypoint = "functions/make-server-9060b10a/index.tsx"
+
+[functions.zone-consciousness]
+entrypoint = "functions/zone-consciousness/index.ts"
+# Gateway JWT disabled: function enforces runtime auth (Bearer or card session headers).
+verify_jwt = false

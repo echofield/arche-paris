@@ -3,8 +3,15 @@
  * All writes go through Card Gate; client never writes directly to Supabase.
  */
 
-import { getCardGateBaseUrl, getCardToken } from "./card-gate-client";
-import type { MapState, MapInscription, EngravedSegment, MeridianProof } from "../types/map-engraving";
+import { getCardGateBaseUrl, getCardToken, getSessionCardCode } from "./card-gate-client";
+import type {
+  MapState,
+  MapInscription,
+  EngravedSegment,
+  MeridianProof,
+  CityMapState,
+  CityArrondissementSignal
+} from "../types/map-engraving";
 
 async function gateMapFetch(
   cardId: string,
@@ -13,13 +20,21 @@ async function gateMapFetch(
 ): Promise<Response> {
   const base = getCardGateBaseUrl();
   if (!base) throw new Error("Card Gate URL not configured");
-  const token = await getCardToken(cardId);
+  let token: string | null = null;
+  try {
+    token = await getCardToken(cardId);
+  } catch {
+    token = null;
+  }
+  const sessionCode = getSessionCardCode() ?? cardId;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (sessionCode) headers["X-ARCHE-CARD-CODE"] = sessionCode;
   return fetch(`${base}${path}`, {
     method: options.method ?? "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: options.body,
   });
 }
@@ -101,5 +116,17 @@ export async function getMapState(cardId: string): Promise<MapState> {
     inscriptions: (data?.inscriptions ?? []) as MapInscription[],
     segments: (data?.segments ?? []) as EngravedSegment[],
     meridian_proofs: (data?.meridian_proofs ?? []) as MeridianProof[],
+  };
+}
+
+export async function getCityMapState(cardId: string, windowDays = 90): Promise<CityMapState> {
+  const safeWindow = Number.isFinite(windowDays) ? Math.max(7, Math.min(365, Math.floor(windowDays))) : 90;
+  const res = await gateMapFetch(cardId, `/map-state/community?window_days=${safeWindow}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? `Community map state failed: ${res.status}`);
+  return {
+    generatedAt: typeof data?.generated_at === "string" ? data.generated_at : new Date().toISOString(),
+    windowDays: typeof data?.window_days === "number" ? data.window_days : safeWindow,
+    arrondissements: (data?.arrondissements ?? []) as CityArrondissementSignal[],
   };
 }

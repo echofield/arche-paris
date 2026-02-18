@@ -39,7 +39,7 @@ function isOriginAllowed(origin: string | undefined): boolean {
 /** Set CORS headers: always echo allowed origin (never '*') so credentials: 'include' works. */
 function setCorsHeaders(headers: Headers, origin: string | undefined): void {
   headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, apikey, X-ARCHE-CARD-CODE, X-ARCHE-SESSION");
   headers.set("Access-Control-Allow-Credentials", "true");
   headers.set("Access-Control-Max-Age", "600");
 
@@ -188,6 +188,20 @@ async function verifyToken(token: string): Promise<{ card_id: string } | null> {
   } catch {
     return null;
   }
+}
+
+async function resolveCardSession(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string; actor_hash: string } | null> {
+  const cardCode = (c.req.header("X-ARCHE-CARD-CODE") ?? c.req.header("X-ARCHE-SESSION") ?? "").trim();
+  if (!cardCode || cardCode.length > 128) return null;
+  const supabase = getSupabase();
+  const { data: card, error } = await supabase
+    .from("cards")
+    .select("id, activated_at")
+    .eq("id", cardCode)
+    .maybeSingle();
+  if (error || !card?.id || card.activated_at == null) return null;
+  const actorHash = await sha256Hex(new TextEncoder().encode(card.id));
+  return { card_id: card.id, actor_hash: actorHash.slice(0, 32) };
 }
 
 function b64urlEncode(bytes: Uint8Array): string {
@@ -709,22 +723,33 @@ app.post("/force-unpair", async (c) => {
 });
 
 // ----- Helper: require JWT -----
-async function requireJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string } | Response> {
+async function requireJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string; actor_hash?: string } | Response> {
   const auth = c.req.header("Authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
   const cors = getCorsHeaders(c);
-  if (!token) return new Response(JSON.stringify({ error: "Authorization required" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-  const payload = await verifyToken(token);
-  if (!payload) return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-  return payload;
+  if (token) {
+    const payload = await verifyToken(token);
+    if (payload) {
+      const actorHash = await sha256Hex(new TextEncoder().encode(payload.card_id));
+      return { ...payload, actor_hash: actorHash.slice(0, 32) };
+    }
+  }
+  const sessionPayload = await resolveCardSession(c);
+  if (sessionPayload) return sessionPayload;
+  return new Response(JSON.stringify({ error: "Authorization required" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-async function requireOptionalJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string } | null> {
+async function requireOptionalJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string; actor_hash?: string } | null> {
   const auth = c.req.header("Authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return null;
-  const payload = await verifyToken(token);
-  return payload ?? null;
+  if (token) {
+    const payload = await verifyToken(token);
+    if (payload) {
+      const actorHash = await sha256Hex(new TextEncoder().encode(payload.card_id));
+      return { ...payload, actor_hash: actorHash.slice(0, 32) };
+    }
+  }
+  return await resolveCardSession(c);
 }
 
 async function rateLimitJournal(
@@ -2359,7 +2384,7 @@ function corsHeadersFromRequest(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? undefined;
   const h: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-ARCHE-CARD-CODE, X-ARCHE-SESSION, apikey",
     "Access-Control-Allow-Credentials": "true",
   };
   // CRITICAL: Never use '*' when credentials are included. Always use specific origin or omit.

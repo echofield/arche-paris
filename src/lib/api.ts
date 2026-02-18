@@ -6,9 +6,26 @@ import { supabase } from '@/utils/supabase/client';
 
 type ApiResult<T> = { data: T; error: null } | { data: null; error: string };
 
+function getRuntimeCardCode(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('arche_card_session');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { code?: string; card_id?: string };
+    if (typeof parsed?.code === 'string' && parsed.code.trim()) return parsed.code.trim();
+    if (typeof parsed?.card_id === 'string' && parsed.card_id.trim()) return parsed.card_id.trim();
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function invoke<T>(fn: string, body?: Record<string, unknown>): Promise<ApiResult<T>> {
+  const cardCode = getRuntimeCardCode();
+  const headers = cardCode ? { 'X-ARCHE-CARD-CODE': cardCode } : undefined;
   const { data, error } = await supabase.functions.invoke(fn, {
     body: body ? JSON.stringify(body) : undefined,
+    headers,
   });
 
   if (error) {
@@ -16,6 +33,26 @@ async function invoke<T>(fn: string, body?: Record<string, unknown>): Promise<Ap
   }
 
   return { data: data as T, error: null };
+}
+
+async function invokeCardGate<T>(path: string): Promise<ApiResult<T>> {
+  try {
+    const cardCode = getRuntimeCardCode();
+    const headers: Record<string, string> = {};
+    if (cardCode) headers['X-ARCHE-CARD-CODE'] = cardCode;
+    const res = await fetch(`/api/card-gate/${path}`, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { data: null, error: data?.error ?? `Card Gate ${res.status}` };
+    }
+    return { data: data as T, error: null };
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : 'Card Gate request failed' };
+  }
 }
 
 // ============ Types ============
@@ -95,6 +132,8 @@ export interface ComplexionData {
   presence_points: number;
   wisdom_points: number;
   shadow_points: number;
+  study_points?: number;
+  student_rank?: number;
   total_points: number;
   completed_rituals_count: number;
   revealed: boolean;
@@ -112,6 +151,33 @@ export interface FeedNextData {
   requirements: string[];
 }
 
+export interface ZoneConsciousnessData {
+  ok: boolean;
+  h3: string;
+  zone_id: string;
+  derived_from: string;
+  metrics: {
+    entropy: number;
+    resonance: number;
+    unresolved_threads: number;
+    unresolved_ritual_threads: number;
+    unresolved_challenge_threads: number;
+    guardian_decay: number;
+  };
+  zone_state: {
+    phase: 'dormant' | 'stirring' | 'resonant' | 'volatile';
+    total_events: number;
+    last_event_at: string | null;
+    revealed_events: number;
+    awakened_events: number;
+    ritual_completion_ratio: number;
+    active_guardians: number;
+  };
+  replay: {
+    event_summary: Record<string, number>;
+  };
+}
+
 export interface ZoneProgressItem {
   zone_id: string;
   entered: boolean;
@@ -124,6 +190,7 @@ export interface ZoneProgressItem {
   engraved_at: string | null;
   is_custodian: boolean;
   custodian_since: string | null;
+  custody_expires_at?: string | null;
   objectives_complete: number;
   updated_at: string;
 }
@@ -284,8 +351,11 @@ export const api = {
   feedNext: (params?: { lat?: number; lng?: number }) =>
     invoke<FeedNextData>('feed-next', params),
 
+  zoneConsciousness: (h3: string) =>
+    invokeCardGate<ZoneConsciousnessData>(`zone-consciousness?h3=${encodeURIComponent(h3)}`),
+
   // Zone Progress
-  zoneProgress: () => invoke<ZoneProgressData>('zone-progress'),
+  zoneProgress: () => invokeCardGate<ZoneProgressData>('zone-progress'),
 
   // Inscriptions
   inscriptionsCreate: (params: {
