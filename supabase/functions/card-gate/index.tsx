@@ -845,6 +845,33 @@ const PROTECTED_INTENTS = new Set(["ritual.start"]);
 const PRESENCE_PULSE_COOLDOWN_MS = 30_000;
 const PRESENCE_PULSE_WINDOW_MINUTES = 20;
 const PRESENCE_PULSE_MIN_FOR_RITUAL = 3;
+const WHISPER_MIN_PRESENCE = 6;
+const WHISPER_ROTATION_MINUTES = 15;
+const WHISPER_COOLDOWN_MINUTES = 10;
+
+const DEFAULT_WHISPERS = [
+  "Measure is a kind of power.",
+  "Find the line that was never drawn.",
+  "Someone measured the world from here.",
+];
+
+const ZONE_WHISPERS: Record<string, string[]> = {
+  "PAR-01": [
+    "Measure is a kind of power.",
+    "Find the line that was never drawn.",
+    "Stand still for 20 seconds.",
+  ],
+  "PAR-05": [
+    "Books remember what footsteps forget.",
+    "Knowledge also leaves a trace.",
+    "The question arrives before the answer.",
+  ],
+  "PAR-10": [
+    "Crossing is a form of memory.",
+    "Listen for the line beneath the noise.",
+    "The city moves before you do.",
+  ],
+};
 
 function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_id: string } | null {
   if (!raw) return null;
@@ -934,6 +961,27 @@ function parseSnapshotZones(c: any): Array<{ arr: number; h3: string; zone_id: s
     });
   }
   return all;
+}
+
+function stableZoneSeed(zoneH3: string): number {
+  let acc = 0;
+  for (let i = 0; i < zoneH3.length; i++) {
+    acc = (acc + zoneH3.charCodeAt(i)) % 997;
+  }
+  return acc;
+}
+
+function computeZoneWhisper(zoneH3: string, presenceRecent: number, nowMs: number): string | null {
+  if (presenceRecent < WHISPER_MIN_PRESENCE) return null;
+  const cooldownBucket = Math.floor(nowMs / (WHISPER_COOLDOWN_MINUTES * 60 * 1000));
+  const cooldownPhase = (cooldownBucket + (stableZoneSeed(zoneH3) % 2)) % 2;
+  if (cooldownPhase === 1) return null;
+
+  const pool = ZONE_WHISPERS[zoneH3] ?? DEFAULT_WHISPERS;
+  if (!pool.length) return null;
+  const rotationBucket = Math.floor(nowMs / (WHISPER_ROTATION_MINUTES * 60 * 1000));
+  const idx = rotationBucket % pool.length;
+  return pool[idx] ?? null;
 }
 
 // ----- Presence: POST /presence/pulse -----
@@ -1209,9 +1257,13 @@ app.get("/world/snapshot", async (c) => {
   if (!allowed) return c.json({ error: "Too many requests" }, 429);
 
   const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
   const mapLimit = Math.max(120, zonesInView.length * 20);
   const worldMapItems: Array<{ id: string; h3: string; ts: string; excerpt: string }> = [];
   const worldChampItems: Array<{ id: string; ts: string; h3: string; excerpt: string }> = [];
+  const mapCountByH3 = new Map<string, number>();
+  const champCountByH3 = new Map<string, number>();
+  const presenceCountByH3 = new Map<string, number>();
 
   const needMap = include.has("map");
   const needChamp = include.has("champ");
@@ -1245,6 +1297,7 @@ app.get("/world/snapshot", async (c) => {
           ts: (row.created_at as string) ?? nowIso,
           excerpt,
         });
+        mapCountByH3.set(zone.h3, (mapCountByH3.get(zone.h3) ?? 0) + 1);
       }
       if (needChamp) {
         worldChampItems.push({
@@ -1253,7 +1306,25 @@ app.get("/world/snapshot", async (c) => {
           ts: (row.created_at as string) ?? nowIso,
           excerpt,
         });
+        champCountByH3.set(zone.h3, (champCountByH3.get(zone.h3) ?? 0) + 1);
       }
+    }
+  }
+
+  const presenceSinceIso = new Date(nowMs - PRESENCE_PULSE_WINDOW_MINUTES * 60 * 1000).toISOString();
+  const { data: presenceRows, error: presenceRowsError } = await supabase
+    .from("presence_pulses")
+    .select("h3")
+    .in("h3", zonesInView.map((z) => z.h3))
+    .gte("ts", presenceSinceIso)
+    .limit(5000);
+  if (presenceRowsError) {
+    console.error("[card-gate] world snapshot presence signals:", presenceRowsError);
+  } else {
+    for (const row of presenceRows ?? []) {
+      const h3 = row.h3 as string | null;
+      if (!h3 || !zoneH3Set.has(h3)) continue;
+      presenceCountByH3.set(h3, (presenceCountByH3.get(h3) ?? 0) + 1);
     }
   }
 
@@ -1465,13 +1536,19 @@ app.get("/world/snapshot", async (c) => {
     },
     world: {
       zones: zonesInView.map((zone) => {
-        const mapCount = worldMapItems.filter((i) => i.h3 === zone.h3).length;
-        const champCount = worldChampItems.filter((i) => i.h3 === zone.h3).length;
+        const mapCount = mapCountByH3.get(zone.h3) ?? 0;
+        const champCount = champCountByH3.get(zone.h3) ?? 0;
+        const presenceRecent = presenceCountByH3.get(zone.h3) ?? 0;
+        const whisper = computeZoneWhisper(zone.h3, presenceRecent, nowMs);
         return {
           h3: zone.h3,
           title: `Zone ${zone.h3}`,
           fog: { level: 0.72 },
-          signals: { inscriptions_recent: mapCount, champ_recent: champCount },
+          signals: {
+            inscriptions_recent: mapCount,
+            champ_recent: champCount,
+            whisper,
+          },
           law: include.has("law") ? (lawByH3.get(zone.h3) ?? {}) : {},
         };
       }),

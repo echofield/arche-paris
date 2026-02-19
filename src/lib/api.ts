@@ -274,7 +274,11 @@ export interface WorldZoneSnapshot {
   h3: string;
   title: string;
   fog: { level: number };
-  signals: { inscriptions_recent: number; champ_recent: number };
+  signals: {
+    inscriptions_recent: number;
+    champ_recent: number;
+    whisper?: string | null;
+  };
   law: Record<string, LawEvaluateData>;
 }
 
