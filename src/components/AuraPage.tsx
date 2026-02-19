@@ -20,6 +20,15 @@ const MAP_VIEWBOX_WIDTH = 2037.566;
 const MAP_VIEWBOX_HEIGHT = 1615.5;
 const MARKER_MIN_MOVE_M = 6;
 const MARKER_MAX_ACCURACY_M = 30;
+const PRESENCE_PULSE_INTERVAL_MS = 30_000;
+const TERRITORY_SWITCH_MAX_ACCURACY_M = 50;
+const TERRITORY_FIX_STREAK_REQUIRED = 3;
+const PARIS_TERRITORY_BOUNDS = {
+  minLat: 48.815,
+  maxLat: 48.902,
+  minLng: 2.224,
+  maxLng: 2.422,
+};
 
 // Hint templates based on what changed (French)
 const COMPLEXION_HINTS: Record<string, string[]> = {
@@ -106,7 +115,18 @@ function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: 
   return R * c;
 }
 
+function isInsideParisTerritory(lat: number, lng: number): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  return (
+    lat >= PARIS_TERRITORY_BOUNDS.minLat &&
+    lat <= PARIS_TERRITORY_BOUNDS.maxLat &&
+    lng >= PARIS_TERRITORY_BOUNDS.minLng &&
+    lng <= PARIS_TERRITORY_BOUNDS.maxLng
+  );
+}
+
 function inferArrondissementFromGeo(lat: number, lng: number): number | null {
+  if (!isInsideParisTerritory(lat, lng)) return null;
   const p = project(lat, lng);
   const xPct = (p.x / MAP_VIEWBOX_WIDTH) * 100;
   const yPct = (p.y / MAP_VIEWBOX_HEIGHT) * 100;
@@ -150,6 +170,13 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [currentH3, setCurrentH3] = useState<string | null>(null);
   const [outsideCoverage, setOutsideCoverage] = useState(false);
   const lastAcceptedPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const outsideFixStreakRef = useRef(0);
+  const insideFixStreakRef = useRef(0);
+  const lastPulseAtRef = useRef<number>(0);
+  const lastPulsePosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const pulseRetryUntilRef = useRef<number>(0);
+  const inFlightPulseRef = useRef(false);
+  const lastSnapshotRefreshAtRef = useRef<number>(0);
   const [vectorFadeIn, setVectorFadeIn] = useState(true);
   const [sealError, setSealError] = useState<string | null>(null);
   const state = loadCompanion();
@@ -194,9 +221,28 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    const applyTerritoryHysteresis = (lat: number, lng: number, accuracy: number) => {
+      if (!Number.isFinite(accuracy) || accuracy > TERRITORY_SWITCH_MAX_ACCURACY_M) return;
+      const outside = !isInsideParisTerritory(lat, lng);
+      if (outside) {
+        outsideFixStreakRef.current += 1;
+        insideFixStreakRef.current = 0;
+        if (outsideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
+          setOutsideCoverage(true);
+        }
+        return;
+      }
+      insideFixStreakRef.current += 1;
+      outsideFixStreakRef.current = 0;
+      if (insideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
+        setOutsideCoverage(false);
+      }
+    };
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
+        applyTerritoryHysteresis(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
         const incoming = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const prev = lastAcceptedPosRef.current;
@@ -204,11 +250,9 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
         lastAcceptedPosRef.current = incoming;
         const arr = inferArrondissementFromGeo(incoming.lat, incoming.lng);
         if (!arr) {
-          setOutsideCoverage(true);
           setCurrentH3(null);
           return;
         }
-        setOutsideCoverage(false);
         setCurrentH3(`PAR-${String(arr).padStart(2, '0')}`);
       },
       () => {
@@ -218,6 +262,66 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  useEffect(() => {
+    if (!cardId || cardId === 'DEMO-DEV') return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    const shouldPulse = (coords: GeolocationCoordinates): boolean => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible') return false;
+      if (now < pulseRetryUntilRef.current) return false;
+      if (now - lastPulseAtRef.current < PRESENCE_PULSE_INTERVAL_MS) return false;
+      if (coords.accuracy > MARKER_MAX_ACCURACY_M) return false;
+      const speed = typeof coords.speed === 'number' && Number.isFinite(coords.speed) ? coords.speed : null;
+      if (speed !== null && speed >= 0.35) return true;
+      const prev = lastPulsePosRef.current;
+      if (!prev) return true;
+      return distanceMeters(prev, { lat: coords.latitude, lng: coords.longitude }) >= 20;
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (pos) => {
+        if (!shouldPulse(pos.coords) || inFlightPulseRef.current) return;
+        if (!isInsideParisTerritory(pos.coords.latitude, pos.coords.longitude)) return;
+        const arr = inferArrondissementFromGeo(pos.coords.latitude, pos.coords.longitude);
+        if (!arr) return;
+        inFlightPulseRef.current = true;
+        try {
+          const h3 = `PAR-${String(arr).padStart(2, '0')}`;
+          const speedMps = typeof pos.coords.speed === 'number' && Number.isFinite(pos.coords.speed)
+            ? Math.max(0, pos.coords.speed)
+            : undefined;
+          const result = await api.presencePulse({
+            h3,
+            ts: new Date(pos.timestamp).toISOString(),
+            speed_mps: speedMps,
+            accuracy_m: pos.coords.accuracy,
+          });
+          if (result.data?.accepted) {
+            lastPulseAtRef.current = Date.now();
+            lastPulsePosRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            if (Date.now() - lastSnapshotRefreshAtRef.current > 60_000) {
+              lastSnapshotRefreshAtRef.current = Date.now();
+              loadComplexionData();
+            }
+          } else if (result.data?.retry_after_ms) {
+            pulseRetryUntilRef.current = Date.now() + result.data.retry_after_ms;
+          } else if (result.error?.includes('429')) {
+            pulseRetryUntilRef.current = Date.now() + PRESENCE_PULSE_INTERVAL_MS;
+          }
+        } finally {
+          inFlightPulseRef.current = false;
+        }
+      },
+      () => {
+        // Silent fail: heartbeat is best effort.
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [cardId, loadComplexionData]);
 
   const auraVectors = useMemo(() => {
     const zone = currentH3 ? worldSnapshot?.world.zones.find((z) => z.h3 === currentH3) : null;
@@ -252,7 +356,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
   const presenceLine = useMemo(() => {
     if (outsideCoverage) {
-      return language === 'fr' ? 'Hors champ (proche : Montreuil)' : 'Outside field (near: Montreuil)';
+      return language === 'fr' ? 'La ville vous attend.' : 'The city is waiting for you.';
     }
     const h3 = currentH3 ?? 'PAR-10';
     const pulses = worldSnapshot?.me.zones?.[h3]?.presence?.pulses_20m ?? 0;

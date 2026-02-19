@@ -15,6 +15,7 @@ interface ZoneOverlayProps {
   anchorZoneMap: Record<string, boolean>;
   onZoneSelect: (arr: number) => void;
   marker: { lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null;
+  globalPulseActive: boolean;
   youAreHereLabel: string;
   recognitionLine: string | null;
 }
@@ -26,11 +27,36 @@ export function ZoneOverlay({
   anchorZoneMap,
   onZoneSelect,
   marker,
+  globalPulseActive,
   youAreHereLabel,
   recognitionLine,
 }: ZoneOverlayProps) {
   return (
     <>
+      {globalPulseActive && (
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              background: 'rgba(0, 120, 80, 0.15)',
+              border: '1px solid rgba(0, 120, 80, 0.35)',
+              animation: 'you-are-here-pulse 4.6s ease-out infinite',
+            }}
+          />
+        </div>
+      )}
+
       {mapMode !== 'ville' && ARRONDISSEMENTS.map((arr) => {
         const pos = ARRONDISSEMENT_MAP_POSITION[arr];
         if (!pos) return null;

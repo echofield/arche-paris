@@ -46,6 +46,8 @@
   "map.legend.inProgress": "In progress",
   "map.legend.completed": "Completed",
 
+  "map.tabs.traces": "My Traces",
+  "map.tabs.city": "The City",
   "map.tabs.moments": "Moments",
   "map.panel.arrondissement": "Arrondissement",
 

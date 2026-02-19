@@ -974,6 +974,52 @@ const WHISPERS_BY_ANCHOR_TYPE: Record<AnchorType, string[]> = {
   ],
 };
 
+const LOW_PRESENCE_WHISPERS_BY_ANCHOR_TYPE: Record<AnchorType, string[]> = {
+  alignment: [
+    "The line waits for one more step.",
+    "Alignment begins before certainty.",
+  ],
+  threshold: [
+    "A boundary is near, but still quiet.",
+    "The edge is present, not yet crossed.",
+  ],
+  absence: [
+    "The missing point is still speaking softly.",
+    "Absence is here, but not yet shared.",
+  ],
+  measurement: [
+    "A measure is forming, almost audible.",
+    "The instrument is awake, waiting for insistence.",
+  ],
+  revelation: [
+    "A structure almost appears, then folds back.",
+    "Light is gathering but not yet declaring.",
+  ],
+};
+
+const CHAMP_SEED_BY_ANCHOR_TYPE: Record<AnchorType, string[]> = {
+  alignment: [
+    "A line of attention crosses this district.",
+    "The axis here remembers older footsteps.",
+  ],
+  threshold: [
+    "A threshold holds the air in this zone.",
+    "Something shifts at the edge of this place.",
+  ],
+  absence: [
+    "An absent marker still orients the walk.",
+    "A missing point gives direction here.",
+  ],
+  measurement: [
+    "Measure returns where the city was once calibrated.",
+    "Precision leaves a discreet trace in this zone.",
+  ],
+  revelation: [
+    "Light reveals a hidden order for a moment.",
+    "A geometry appears when attention lingers.",
+  ],
+};
+
 const MERIDIAN_ANCHORS: MeridianAnchor[] = [
   {
     id: "anchor_observatory_salle_cassini",
@@ -1187,7 +1233,44 @@ function stableZoneSeed(zoneH3: string): number {
   return acc;
 }
 
-function computeZoneWhisper(zoneH3: string, presenceRecent: number, nowMs: number): string | null {
+function buildSeedChampItemsForZone(
+  zoneH3: string,
+  nowMs: number,
+  presenceRecent: number,
+  existingChampCount: number
+): Array<{ id: string; ts: string; h3: string; excerpt: string; origin: "system"; source: "seed" }> {
+  const anchors = anchorsForZone(zoneH3);
+  if (!anchors.length) return [];
+  const targetCount = presenceRecent >= 4 ? 2 : 1;
+  const missing = Math.max(0, targetCount - existingChampCount);
+  if (missing <= 0) return [];
+
+  const hourBucket = Math.floor(nowMs / (60 * 60 * 1000));
+  const items: Array<{ id: string; ts: string; h3: string; excerpt: string; origin: "system"; source: "seed" }> = [];
+  for (let i = 0; i < Math.min(missing, anchors.length); i++) {
+    const anchor = anchors[(hourBucket + i) % anchors.length];
+    if (!anchor) continue;
+    const pool = CHAMP_SEED_BY_ANCHOR_TYPE[anchor.type] ?? DEFAULT_WHISPERS;
+    const line = pool[(hourBucket + stableZoneSeed(zoneH3) + i) % pool.length] ?? pool[0];
+    items.push({
+      id: `seed:${zoneH3}:${anchor.id}:${hourBucket}:${i}`,
+      ts: new Date(nowMs - i * 60_000).toISOString(),
+      h3: zoneH3,
+      excerpt: normalizeLegacyText(`${line} (${anchor.label})`),
+      origin: "system",
+      source: "seed",
+    });
+  }
+  return items;
+}
+
+function computeZoneWhisper(
+  zoneH3: string,
+  presenceRecent: number,
+  champRecent: number,
+  mapRecent: number,
+  nowMs: number
+): string | null {
   const anchors = anchorsForZone(zoneH3);
   const minPresence = Math.max(
     WHISPER_MIN_PRESENCE,
@@ -1195,7 +1278,15 @@ function computeZoneWhisper(zoneH3: string, presenceRecent: number, nowMs: numbe
       .map((a) => a.constraints?.presence?.min_pulses_20m ?? 0)
       .reduce((max, v) => Math.max(max, v), 0)
   );
-  if (presenceRecent < minPresence) return null;
+  if (presenceRecent < minPresence) {
+    if (champRecent + mapRecent < 3) return null;
+    const lowPresencePool = anchors.flatMap((a) => LOW_PRESENCE_WHISPERS_BY_ANCHOR_TYPE[a.type] ?? []);
+    if (!lowPresencePool.length) return null;
+    const rotationBucket = Math.floor(nowMs / (WHISPER_ROTATION_MINUTES * 60 * 1000));
+    const idx = (rotationBucket + stableZoneSeed(zoneH3)) % lowPresencePool.length;
+    const whisper = lowPresencePool[idx] ?? null;
+    return whisper ? normalizeLegacyText(whisper) : null;
+  }
   const cooldownBucket = Math.floor(nowMs / (WHISPER_COOLDOWN_MINUTES * 60 * 1000));
   const cooldownPhase = (cooldownBucket + (stableZoneSeed(zoneH3) % 2)) % 2;
   if (cooldownPhase === 1) return null;
@@ -1501,7 +1592,14 @@ app.get("/world/snapshot", async (c) => {
   const nowMs = Date.now();
   const mapLimit = Math.max(120, zonesInView.length * 20);
   const worldMapItems: Array<{ id: string; h3: string; ts: string; excerpt: string }> = [];
-  const worldChampItems: Array<{ id: string; ts: string; h3: string; excerpt: string }> = [];
+  const worldChampItems: Array<{
+    id: string;
+    ts: string;
+    h3: string;
+    excerpt: string;
+    origin: "user" | "system";
+    source: "inscription" | "seed";
+  }> = [];
   const mapCountByH3 = new Map<string, number>();
   const champCountByH3 = new Map<string, number>();
   const presenceCountByH3 = new Map<string, number>();
@@ -1546,6 +1644,8 @@ app.get("/world/snapshot", async (c) => {
           h3: zone.h3,
           ts: (row.created_at as string) ?? nowIso,
           excerpt,
+          origin: "user",
+          source: "inscription",
         });
         champCountByH3.set(zone.h3, (champCountByH3.get(zone.h3) ?? 0) + 1);
       }
@@ -1566,6 +1666,20 @@ app.get("/world/snapshot", async (c) => {
       const h3 = row.h3 as string | null;
       if (!h3 || !zoneH3Set.has(h3)) continue;
       presenceCountByH3.set(h3, (presenceCountByH3.get(h3) ?? 0) + 1);
+    }
+  }
+
+  if (needChamp) {
+    for (const zone of zonesInView) {
+      const existingChamp = champCountByH3.get(zone.h3) ?? 0;
+      const presenceRecent = presenceCountByH3.get(zone.h3) ?? 0;
+      const seededItems = buildSeedChampItemsForZone(zone.h3, nowMs, presenceRecent, existingChamp);
+      for (const item of seededItems) {
+        worldChampItems.push(item);
+      }
+      if (seededItems.length > 0) {
+        champCountByH3.set(zone.h3, existingChamp + seededItems.length);
+      }
     }
   }
 
@@ -1801,7 +1915,7 @@ app.get("/world/snapshot", async (c) => {
         const mapCount = mapCountByH3.get(zone.h3) ?? 0;
         const champCount = champCountByH3.get(zone.h3) ?? 0;
         const presenceRecent = presenceCountByH3.get(zone.h3) ?? 0;
-        const whisper = computeZoneWhisper(zone.h3, presenceRecent, nowMs);
+        const whisper = computeZoneWhisper(zone.h3, presenceRecent, champCount, mapCount, nowMs);
         const zoneAnchors = anchorsForZone(zone.h3);
         return {
           h3: zone.h3,

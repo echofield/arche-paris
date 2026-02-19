@@ -61,8 +61,26 @@ interface MapPoint {
 
 const MARKER_MIN_MOVE_M = 6;
 const MARKER_MAX_ACCURACY_M = 30;
+const TERRITORY_SWITCH_MAX_ACCURACY_M = 50;
+const TERRITORY_FIX_STREAK_REQUIRED = 3;
 const PRESENCE_PULSE_INTERVAL_MS = 30_000;
 const MARKER_LERP_ALPHA = 0.25;
+const PARIS_TERRITORY_BOUNDS = {
+  minLat: 48.815,
+  maxLat: 48.902,
+  minLng: 2.224,
+  maxLng: 2.422,
+};
+
+function isInsideParisTerritory(lat: number, lng: number): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  return (
+    lat >= PARIS_TERRITORY_BOUNDS.minLat &&
+    lat <= PARIS_TERRITORY_BOUNDS.maxLat &&
+    lng >= PARIS_TERRITORY_BOUNDS.minLng &&
+    lng <= PARIS_TERRITORY_BOUNDS.maxLng
+  );
+}
 
 function getCollectedPoints(): MapPoint[] {
   const collection = getCollection();
@@ -87,10 +105,12 @@ function getCollectedPoints(): MapPoint[] {
 }
 
 function inferArrondissementFromGeo(lat: number, lng: number): number | null {
+  if (!isInsideParisTerritory(lat, lng)) return null;
   const p = project(lat, lng);
   const xPct = (p.x / MAP_VIEWBOX_WIDTH) * 100;
   const yPct = (p.y / MAP_VIEWBOX_HEIGHT) * 100;
   if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
+  if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return null;
   let bestArr: number | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
   for (let arr = 1; arr <= 20; arr++) {
@@ -155,6 +175,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
+  const [outsideCoverage, setOutsideCoverage] = useState(false);
   // GPS + perception marker
   const [presenceMarker, setPresenceMarker] = useState<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
   const presenceMarkerRef = useRef<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
@@ -171,6 +192,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const pulsePauseTimerRef = useRef<number | null>(null);
   const lastSnapshotRefreshAtRef = useRef<number>(0);
   const lastZoneWhisperRef = useRef<string | null>(null);
+  const outsideFixStreakRef = useRef(0);
+  const insideFixStreakRef = useRef(0);
 
   useEffect(() => {
     presenceMarkerRef.current = presenceMarker;
@@ -205,7 +228,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     const p = project(presenceMarker.lat, presenceMarker.lng);
     const xPct = (p.x / MAP_VIEWBOX_WIDTH) * 100;
     const yPct = (p.y / MAP_VIEWBOX_HEIGHT) * 100;
-    const outsideParis = xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100;
+    const outsideParis = !isInsideParisTerritory(presenceMarker.lat, presenceMarker.lng) || xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100;
     if (!outsideParis) return { xPct: 0, yPct: 0 };
     return {
       xPct: 50 - xPct,
@@ -307,7 +330,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     const marker = markerTargetRef.current;
     if (!marker) return;
     const arr = inferArrondissementFromGeo(marker.lat, marker.lng);
-    if (!arr) return;
+    if (!arr) {
+      lastZoneWhisperRef.current = null;
+      return;
+    }
     const zoneH3 = `PAR-${String(arr).padStart(2, '0')}`;
     const meZone = snap.me.zones?.[zoneH3];
     const pulses20m = meZone?.presence?.pulses_20m ?? 0;
@@ -362,6 +388,24 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
 
+    const applyTerritoryHysteresis = (lat: number, lng: number, accuracy: number) => {
+      if (!Number.isFinite(accuracy) || accuracy > TERRITORY_SWITCH_MAX_ACCURACY_M) return;
+      const outside = !isInsideParisTerritory(lat, lng);
+      if (outside) {
+        outsideFixStreakRef.current += 1;
+        insideFixStreakRef.current = 0;
+        if (outsideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
+          setOutsideCoverage(true);
+        }
+        return;
+      }
+      insideFixStreakRef.current += 1;
+      outsideFixStreakRef.current = 0;
+      if (insideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
+        setOutsideCoverage(false);
+      }
+    };
+
     const animateMarker = (from: { lat: number; lng: number }, to: { lat: number; lng: number }, durationMs: number) => {
       if (markerAnimationRef.current != null) {
         cancelAnimationFrame(markerAnimationRef.current);
@@ -390,6 +434,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
+        applyTerritoryHysteresis(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
         if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
         const incoming = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const prevTarget = markerTargetRef.current;
@@ -460,6 +505,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       async (pos) => {
         if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
         if (!shouldPulse(pos.coords) || inFlightPulseRef.current) return;
+        if (!isInsideParisTerritory(pos.coords.latitude, pos.coords.longitude)) return;
         const arr = inferArrondissementFromGeo(pos.coords.latitude, pos.coords.longitude);
         if (!arr) return;
         inFlightPulseRef.current = true;
@@ -598,6 +644,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           setShowInscriptionsLayer={setShowInscriptionsLayer}
           segmentsLabel={t('myparis.layers.segments')}
           inscriptionsLabel={t('myparis.layers.inscriptions')}
+          tracesTabLabel={t('map.tabs.traces')}
+          cityTabLabel={t('map.tabs.city')}
           momentsTabLabel={t('map.tabs.moments')}
         />
 
@@ -649,7 +697,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             anchorZoneMap={anchorZoneMap}
             onZoneSelect={setZoneDetailArr}
             marker={presenceMarker}
-            youAreHereLabel="Vous êtes ici / You are here"
+            globalPulseActive={outsideCoverage}
+            youAreHereLabel={outsideCoverage ? (language === 'fr' ? 'Paris vous attend.' : 'Paris is waiting for you.') : 'Vous etes ici / You are here'}
             recognitionLine={recognitionLine}
           />
         </div>
@@ -1498,3 +1547,4 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     </div>
   );
 }
+

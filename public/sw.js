@@ -1,5 +1,5 @@
 // ARCHÉ Service Worker - Offline Support
-const CACHE_NAME = 'arche-v1';
+const CACHE_NAME = 'arche-v2';
 const OFFLINE_URL = '/';
 
 // Assets to cache on install

@@ -17,6 +17,8 @@ interface MapLayersProps {
   setShowInscriptionsLayer: (value: boolean) => void;
   segmentsLabel: string;
   inscriptionsLabel: string;
+  tracesTabLabel: string;
+  cityTabLabel: string;
   momentsTabLabel: string;
 }
 
@@ -35,13 +37,15 @@ export function MapLayers({
   setShowInscriptionsLayer,
   segmentsLabel,
   inscriptionsLabel,
+  tracesTabLabel,
+  cityTabLabel,
   momentsTabLabel,
 }: MapLayersProps) {
   return (
     <>
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, justifyContent: 'center' }}>
         {(['traces', 'ville', 'rituels'] as const).map((mode) => {
-          const labels = { traces: 'Mes traces', ville: 'La Ville', rituels: momentsTabLabel };
+          const labels = { traces: tracesTabLabel, ville: cityTabLabel, rituels: momentsTabLabel };
           const isActive = mapMode === mode;
           return (
             <button
