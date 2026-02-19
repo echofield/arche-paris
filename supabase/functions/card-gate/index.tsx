@@ -220,13 +220,23 @@ async function verifyToken(token: string): Promise<{ card_id: string } | null> {
 async function resolveCardSession(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string; actor_hash: string } | null> {
   const cardCode = (c.req.header("X-ARCHE-CARD-CODE") ?? c.req.header("X-ARCHE-SESSION") ?? "").trim();
   if (!cardCode || cardCode.length > 128) return null;
+  const refresh = parseRefreshCookie(c.req.header("Cookie"));
+  if (!refresh || refresh.cardId !== cardCode) return null;
+  let secretHash = "";
+  try {
+    const secretBytes = b64urlDecode(refresh.deviceSecret);
+    secretHash = await sha256Hex(secretBytes);
+  } catch {
+    return null;
+  }
   const supabase = getSupabase();
   const { data: card, error } = await supabase
     .from("cards")
-    .select("id, activated_at")
+    .select("id, activated_at, device_secret_hash")
     .eq("id", cardCode)
     .maybeSingle();
-  if (error || !card?.id || card.activated_at == null) return null;
+  if (error || !card?.id || card.activated_at == null || !card.device_secret_hash) return null;
+  if (!constantTimeCompare(card.device_secret_hash, secretHash)) return null;
   const actorHash = await sha256Hex(new TextEncoder().encode(card.id));
   return { card_id: card.id, actor_hash: actorHash.slice(0, 32) };
 }
@@ -295,7 +305,11 @@ app.post("/pair", async (c) => {
   }
 
   if (card.device_secret_hash != null) {
-    return c.json({ error: "Already paired", code: "ALREADY_PAIRED" }, 409);
+    return c.json({
+      error: "Already paired",
+      code: "ALREADY_PAIRED",
+      hint: "Use POST /device/force-unpair with card_id + card_code",
+    }, 409);
   }
 
   const deviceSecret = crypto.getRandomValues(new Uint8Array(32));
@@ -816,6 +830,206 @@ async function rateLimitMapPublic(
   const k = `map_public_ip:${ip}`;
   return await dbRateLimit(supabase, k, 300, 3600);
 }
+
+type LawRequirement = {
+  type: string;
+  status?: "ok" | "missing" | "blocked";
+  min?: number;
+  within_minutes?: number;
+};
+
+const LAW_VERSION = "2026-02-19.1";
+const PROTECTED_INTENTS = new Set(["ritual.start"]);
+
+function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_id: string } | null {
+  if (!raw) return null;
+  const value = raw.trim();
+  if (!value) return null;
+  let arr: number | null = null;
+  const par = value.match(/^PAR-(\d{1,2})$/i);
+  const paris = value.match(/^paris-(\d{1,2})$/i);
+  if (par) arr = Number.parseInt(par[1], 10);
+  else if (paris) arr = Number.parseInt(paris[1], 10);
+  else if (/^\d{1,2}$/.test(value)) arr = Number.parseInt(value, 10);
+  if (!arr || arr < 1 || arr > 20) return null;
+  return {
+    arr,
+    h3: `PAR-${String(arr).padStart(2, "0")}`,
+    zone_id: `paris-${arr}`,
+  };
+}
+
+function lawRefusal(
+  c: any,
+  status: number,
+  reasonCode: string,
+  message: string,
+  nextUnlockHint: string,
+  requirements: LawRequirement[],
+  intent: string,
+  zoneCtx: { h3: string; zone_id: string } | null
+) {
+  return c.json({
+    allowed: false,
+    reason_code: reasonCode,
+    message,
+    next_unlock_hint: nextUnlockHint,
+    requirements,
+    policy: { law_version: LAW_VERSION, intent },
+    context: zoneCtx ? { h3: zoneCtx.h3, zone_id: zoneCtx.zone_id } : null,
+  }, status);
+}
+
+// ----- Law: GET /law/evaluate -----
+app.get("/law/evaluate", async (c) => {
+  const supabase = getSupabase();
+  const intent = (c.req.query("intent") ?? "").trim();
+  const zoneParam = (c.req.query("h3") ?? c.req.query("zone_id") ?? "").trim();
+  const zone = parseLawZone(zoneParam);
+
+  if (!zone) {
+    return lawRefusal(
+      c,
+      400,
+      "UNKNOWN_ZONE",
+      "Not yet.",
+      "Move to a known zone and try again.",
+      [{ type: "zone", status: "missing" }],
+      intent || "unknown",
+      null
+    );
+  }
+
+  const isProtected = PROTECTED_INTENTS.has(intent);
+  const payload = isProtected ? await requireJwt(c) : await requireOptionalJwt(c);
+  if (isProtected && payload instanceof Response) {
+    return lawRefusal(
+      c,
+      401,
+      "AUTH_REQUIRED",
+      "Not yet.",
+      "Reconnect your card session first.",
+      [{ type: "auth_session", status: "missing" }],
+      intent,
+      zone
+    );
+  }
+  const session = payload instanceof Response ? null : payload;
+
+  if (intent === "ritual.start" && session) {
+    const ip = getClientIp(c);
+    if (!(await rateLimitMap(supabase, session.card_id, ip))) {
+      return lawRefusal(
+        c,
+        429,
+        "THRESHOLD_NOT_MET",
+        "Not yet.",
+        "Wait and return in a moment.",
+        [{ type: "rate_window", status: "blocked" }],
+        intent,
+        zone
+      );
+    }
+
+    const [inscriptionsRes, segmentsRes] = await Promise.all([
+      supabase
+        .from("inscriptions")
+        .select("created_at")
+        .eq("card_id", session.card_id)
+        .eq("arrondissement", zone.arr)
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("engraved_segments")
+        .select("created_at")
+        .eq("card_id", session.card_id)
+        .or(`from_arrondissement.eq.${zone.arr},to_arrondissement.eq.${zone.arr}`)
+        .order("created_at", { ascending: false })
+        .limit(1),
+    ]);
+
+    if (inscriptionsRes.error || segmentsRes.error) {
+      console.error("[card-gate] law evaluate query:", inscriptionsRes.error ?? segmentsRes.error);
+      return c.json({ error: "Failed to evaluate law" }, 500);
+    }
+
+    const hasActivation = (inscriptionsRes.data?.length ?? 0) > 0 || (segmentsRes.data?.length ?? 0) > 0;
+    if (!hasActivation) {
+      return lawRefusal(
+        c,
+        200,
+        "NEEDS_ACTIVATION",
+        "Not yet.",
+        "Return after you complete the zone activation.",
+        [
+          { type: "zone_activation", status: "missing" },
+          { type: "presence_pulses", min: 3, within_minutes: 30, status: "missing" },
+        ],
+        intent,
+        zone
+      );
+    }
+
+    const parisHour = Number.parseInt(
+      new Intl.DateTimeFormat("fr-FR", {
+        hour: "2-digit",
+        hour12: false,
+        timeZone: "Europe/Paris",
+      }).format(new Date()),
+      10
+    );
+    if (parisHour >= 2 && parisHour < 5) {
+      return lawRefusal(
+        c,
+        200,
+        "SILENCE_WINDOW",
+        "Not yet.",
+        "Return when the silence window has passed.",
+        [{ type: "silence_window", status: "blocked" }],
+        intent,
+        zone
+      );
+    }
+
+    const cooldownKey = `law:${intent}:${session.card_id}:${zone.zone_id}`;
+    const cooldownAllowed = await dbRateLimit(supabase, cooldownKey, 1, 120);
+    if (!cooldownAllowed) {
+      return lawRefusal(
+        c,
+        200,
+        "COOLDOWN_ACTIVE",
+        "Not yet.",
+        "Wait before starting this ritual again.",
+        [{ type: "cooldown", within_minutes: 2, status: "blocked" }],
+        intent,
+        zone
+      );
+    }
+
+    return c.json({
+      allowed: true,
+      reason_code: "OK",
+      message: "Open.",
+      next_unlock_hint: null,
+      requirements: [
+        { type: "zone_activation", status: "ok" },
+        { type: "silence_window", status: "ok" },
+      ],
+      policy: { law_version: LAW_VERSION, intent },
+      context: { h3: zone.h3, zone_id: zone.zone_id },
+    });
+  }
+
+  return c.json({
+    allowed: true,
+    reason_code: "OK",
+    message: "Open.",
+    next_unlock_hint: null,
+    requirements: [] as LawRequirement[],
+    policy: { law_version: LAW_VERSION, intent: intent || "unknown" },
+    context: { h3: zone.h3, zone_id: zone.zone_id },
+  });
+});
 
 // ----- /journal/list -----
 app.get("/journal/list", async (c) => {

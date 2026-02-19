@@ -1,5 +1,5 @@
 /**
- * ZoneDetailSheet — Shows zone progress + inscriptions + ritual actions
+ * ZoneDetailSheet - Shows zone progress + inscriptions + ritual actions
  * Accessed by tapping an arrondissement on Ma Carte
  */
 
@@ -9,6 +9,11 @@ import { api, type ZoneProgressItem, type Inscription } from '../lib/api';
 import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
 import { ZoneEntryFeedback } from './ZoneEntryFeedback';
 import { RitualRunner, type RitualType } from './RitualRunner';
+import {
+  evaluateSituationalActivation,
+  type ActivationResult,
+  type UrbanArtifactType,
+} from '../utils/situational-activation';
 
 interface ZoneDetailSheetProps {
   arrondissement: number | null;
@@ -16,65 +21,131 @@ interface ZoneDetailSheetProps {
   onOpenEcrire: (arr: number) => void;
 }
 
+function inferArtifactType(arr: number): UrbanArtifactType {
+  if ([4, 5].includes(arr)) return 'liturgical_artifact';
+  if ([6, 13].includes(arr)) return 'knowledge_artifact';
+  if ([10, 19].includes(arr)) return 'water_structure';
+  if ([18, 20].includes(arr)) return 'rupture_trace';
+  if ([1, 7, 8].includes(arr)) return 'civic_emblem';
+  return 'inscription_stone';
+}
+
 export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneDetailSheetProps) {
   const [progress, setProgress] = useState<ZoneProgressItem | null>(null);
   const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeRitual, setActiveRitual] = useState<RitualType | null>(null);
+  const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
+  const [lawRefusal, setLawRefusal] = useState<string | null>(null);
   const zoneEntry = useZoneEntry();
 
   const zoneId = arrondissement ? arrToZoneId(arrondissement) : null;
 
-  // Load zone data
   const loadData = useCallback(async () => {
-    if (!zoneId) return;
+    if (!zoneId || !arrondissement) return;
     setLoading(true);
-
     try {
-      const progressResult = await api.zoneProgress();
+      const [progressResult, inscriptionsResult, consciousnessResult, complexionResult] = await Promise.all([
+        api.zoneProgress(),
+        api.inscriptionsList(zoneId, 10, 0),
+        api.zoneConsciousness(zoneId),
+        api.meComplexion(),
+      ]);
+
+      let zoneProgress: ZoneProgressItem | null = null;
       if (progressResult.data) {
-        const zoneProgress = progressResult.data.zones.find(z => z.zone_id === zoneId);
-        setProgress(zoneProgress || null);
+        zoneProgress = progressResult.data.zones.find((z) => z.zone_id === zoneId) ?? null;
+        setProgress(zoneProgress);
+      } else {
+        setProgress(null);
       }
 
-      const inscriptionsResult = await api.inscriptionsList(zoneId, 10, 0);
       if (inscriptionsResult.data) {
         setInscriptions(inscriptionsResult.data.inscriptions);
+      } else {
+        setInscriptions([]);
+      }
+
+      if (zoneProgress && complexionResult.data) {
+        const hour = new Date().getHours();
+        const timeBand = hour < 6 ? 'night' : hour < 10 ? 'dawn' : hour < 18 ? 'day' : hour < 22 ? 'dusk' : 'night';
+        const semanticsTags = (inscriptionsResult.data?.inscriptions ?? [])
+          .slice(0, 3)
+          .map((i) => i.text?.slice(0, 24).trim())
+          .filter((s): s is string => Boolean(s));
+
+        const activation = evaluateSituationalActivation({
+          artifactType: inferArtifactType(arrondissement),
+          semanticsTags,
+          complexion: {
+            presence: complexionResult.data.presence_points,
+            wisdom: complexionResult.data.wisdom_points,
+            shadow: complexionResult.data.shadow_points,
+          },
+          context: {
+            dwellMinutes: zoneProgress.entered ? 1.2 : 0,
+            revisitsAtArtifact: Math.max(0, zoneProgress.objectives_complete - 1),
+            displacementMeters: zoneProgress.entered ? 60 : 0,
+            timeBand,
+            nearbyRitualDensity: Math.min(1, zoneProgress.objectives_complete / 5),
+          },
+          zoneConsciousness: consciousnessResult.data
+            ? {
+                entropy: consciousnessResult.data.metrics.entropy,
+                resonance: consciousnessResult.data.metrics.resonance,
+                unresolvedThreads: consciousnessResult.data.metrics.unresolved_threads,
+                guardianDecay: consciousnessResult.data.metrics.guardian_decay,
+              }
+            : undefined,
+        });
+        setActivationResult(activation);
+      } else {
+        setActivationResult(null);
       }
     } catch (err) {
       console.error('Failed to load zone data:', err);
+      setActivationResult(null);
     } finally {
       setLoading(false);
     }
-  }, [zoneId]);
+  }, [zoneId, arrondissement]);
 
   useEffect(() => {
-    if (arrondissement) {
-      loadData();
-    }
+    if (arrondissement) loadData();
   }, [arrondissement, loadData]);
 
-  // Handle zone entry
   const handleEnter = async () => {
     if (!zoneId) return;
     const success = await zoneEntry.enterZone(zoneId);
-    if (success) {
-      setTimeout(loadData, 500);
-    }
+    if (success) setTimeout(loadData, 500);
   };
 
-  // Handle ritual completion
   const handleRitualComplete = (success: boolean) => {
     setActiveRitual(null);
-    if (success) {
-      loadData();
-    }
+    if (success) loadData();
   };
+
+  const handleRitualStart = useCallback(async (ritualType: RitualType) => {
+    if (!arrondissement) return;
+    const h3 = `PAR-${String(arrondissement).padStart(2, '0')}`;
+    setLawRefusal(null);
+    const evalResult = await api.lawEvaluate('ritual.start', h3);
+    if (evalResult.error || !evalResult.data) {
+      setLawRefusal('Not yet.');
+      return;
+    }
+    if (!evalResult.data.allowed) {
+      const hint = evalResult.data.next_unlock_hint ? ` ${evalResult.data.next_unlock_hint}` : '';
+      setLawRefusal(`${evalResult.data.message ?? 'Not yet.'}${hint}`.trim());
+      return;
+    }
+    setActiveRitual(ritualType);
+  }, [arrondissement]);
 
   const objectivesComplete = progress?.objectives_complete ?? 0;
   const hasEntered = progress?.entered === true;
+  const isActivationClosed = activationResult != null && !activationResult.isOpen;
 
-  // Objective row renderer
   const renderObjective = (
     key: string,
     label: string,
@@ -106,7 +177,7 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
         {label}
       </span>
       {complete ? (
-        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#007850' }}>✓</span>
+        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#007850' }}>OK</span>
       ) : action && (
         <button
           type="button"
@@ -146,7 +217,6 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
           </SheetHeader>
 
           <div style={{ padding: '0 1rem 1rem', display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Progress Ring - No numeric display */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div
                 style={{
@@ -173,120 +243,118 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                     color: '#003D2C',
                   }}
                 >
-                  {/* Symbol instead of number */}
-                  {objectivesComplete === 5 ? '✓' : objectivesComplete === 0 ? '◯' : '◐'}
+                  {objectivesComplete === 5 ? 'OK' : objectivesComplete === 0 ? 'O' : 'C'}
                 </div>
               </div>
               <div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                  État
+                  Etat
                 </div>
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, color: '#1A1A1A' }}>
-                  {objectivesComplete === 5 ? 'Zone maîtrisée' : objectivesComplete === 0 ? 'Zone inexplorée' : 'En progression'}
+                  {objectivesComplete === 5 ? 'Zone maitrisee' : objectivesComplete === 0 ? 'Zone inexploree' : 'En progression'}
                 </div>
               </div>
             </div>
 
-            {/* Objectives List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Entrer */}
               {renderObjective(
                 'entered',
                 'Entrer',
-                '◯',
+                'O',
                 hasEntered,
-                !hasEntered ? {
-                  label: 'Entrer',
-                  onClick: handleEnter,
-                  disabled: zoneEntry.status !== 'idle',
-                } : undefined
+                !hasEntered ? { label: 'Entrer', onClick: handleEnter, disabled: zoneEntry.status !== 'idle' } : undefined
               )}
 
-              {/* Présence */}
               {renderObjective(
                 'presence_ritual',
-                'Présence',
-                '◎',
+                'Presence',
+                'P',
                 progress?.presence_ritual === true,
-                !progress?.presence_ritual ? {
-                  label: 'Commencer',
-                  onClick: () => setActiveRitual('presence'),
-                  disabled: !hasEntered,
-                } : undefined
+                !progress?.presence_ritual
+                  ? { label: 'Commencer', onClick: () => void handleRitualStart('presence'), disabled: !hasEntered }
+                  : undefined
               )}
 
-              {/* Observation */}
               {renderObjective(
                 'observation_ritual',
                 'Observation',
-                '◉',
+                'O',
                 progress?.observation_ritual === true,
-                !progress?.observation_ritual ? {
-                  label: 'Commencer',
-                  onClick: () => setActiveRitual('observation'),
-                  disabled: !hasEntered,
-                } : undefined
+                !progress?.observation_ritual
+                  ? { label: 'Commencer', onClick: () => void handleRitualStart('observation'), disabled: !hasEntered }
+                  : undefined
               )}
 
-              {/* Gravure */}
               {renderObjective(
                 'engraved',
                 'Gravure',
-                '✦',
+                '*',
                 progress?.engraved === true,
-                !progress?.engraved ? {
-                  label: 'Écrire',
-                  onClick: () => arrondissement && onOpenEcrire(arrondissement),
-                  disabled: !(progress?.presence_ritual || progress?.observation_ritual),
-                } : undefined
+                !progress?.engraved
+                  ? {
+                      label: 'Ecrire',
+                      onClick: () => arrondissement && onOpenEcrire(arrondissement),
+                      disabled: !(progress?.presence_ritual || progress?.observation_ritual) || isActivationClosed,
+                    }
+                  : undefined
               )}
 
-              {/* Gardien */}
-              {renderObjective(
-                'is_custodian',
-                'Gardien',
-                '♔',
-                progress?.is_custodian === true
-              )}
+              {renderObjective('is_custodian', 'Gardien', 'G', progress?.is_custodian === true)}
             </div>
 
-            {/* Helper text */}
+            {isActivationClosed && (
+              <p
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  color: '#6B6455',
+                  textAlign: 'center',
+                }}
+              >
+                {activationResult?.refusalLine ?? 'The place remains closed.'}
+              </p>
+            )}
+
+            {lawRefusal && (
+              <p
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  color: '#6B6455',
+                  textAlign: 'center',
+                }}
+              >
+                {lawRefusal}
+              </p>
+            )}
+
             {!hasEntered && (
-              <p style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 11,
-                color: '#8E8982',
-                fontStyle: 'italic',
-                textAlign: 'center',
-              }}>
-                Entre dans la zone pour débloquer les rituels.
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', fontStyle: 'italic', textAlign: 'center' }}>
+                Entre dans la zone pour debloquer les rituels.
               </p>
             )}
 
             {hasEntered && !(progress?.presence_ritual || progress?.observation_ritual) && (
-              <p style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 11,
-                color: '#8E8982',
-                fontStyle: 'italic',
-                textAlign: 'center',
-              }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', fontStyle: 'italic', textAlign: 'center' }}>
                 Accomplis un rituel pour pouvoir laisser une gravure.
               </p>
             )}
 
-            {/* Inscriptions */}
             {inscriptions.length > 0 && (
               <div>
-                <div style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 10,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: '#003D2C',
-                  opacity: 0.6,
-                  marginBottom: 12,
-                }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 10,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: '#003D2C',
+                    opacity: 0.6,
+                    marginBottom: 12,
+                  }}
+                >
                   Inscriptions ({inscriptions.length})
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -300,22 +368,19 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                         borderRadius: '0 4px 4px 0',
                       }}
                     >
-                      <p style={{
-                        fontFamily: 'var(--font-serif)',
-                        fontSize: 13,
-                        fontStyle: 'italic',
-                        color: '#1A1A1A',
-                        lineHeight: 1.5,
-                        margin: 0,
-                      }}>
+                      <p
+                        style={{
+                          fontFamily: 'var(--font-serif)',
+                          fontSize: 13,
+                          fontStyle: 'italic',
+                          color: '#1A1A1A',
+                          lineHeight: 1.5,
+                          margin: 0,
+                        }}
+                      >
                         "{ins.text}"
                       </p>
-                      <div style={{
-                        fontFamily: 'var(--font-sans)',
-                        fontSize: 10,
-                        color: '#8E8982',
-                        marginTop: 8,
-                      }}>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#8E8982', marginTop: 8 }}>
                         {ins.display_name || 'Anonyme'} · {new Date(ins.created_at).toLocaleDateString()}
                       </div>
                     </div>
@@ -325,22 +390,20 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
             )}
 
             {inscriptions.length === 0 && hasEntered && (
-              <p style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 12,
-                color: '#8E8982',
-                fontStyle: 'italic',
-                textAlign: 'center',
-                padding: '16px 0',
-              }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#8E8982', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>
                 Aucune inscription dans cette zone. Soyez le premier.
+              </p>
+            )}
+
+            {loading && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', textAlign: 'center' }}>
+                Chargement...
               </p>
             )}
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Zone entry feedback */}
       <ZoneEntryFeedback
         status={zoneEntry.status}
         error={zoneEntry.error}
@@ -349,7 +412,6 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
         onClose={zoneEntry.reset}
       />
 
-      {/* Ritual runner overlay */}
       {activeRitual && zoneId && (
         <RitualRunner
           zoneId={zoneId}

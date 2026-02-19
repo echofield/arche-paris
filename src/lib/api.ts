@@ -235,6 +235,29 @@ export interface InscriptionCreateResponse {
   created_at: string;
 }
 
+export interface LawRequirement {
+  type: string;
+  status?: 'ok' | 'missing' | 'blocked';
+  min?: number;
+  within_minutes?: number;
+}
+
+export interface LawEvaluateData {
+  allowed: boolean;
+  reason_code: 'OK' | 'AUTH_REQUIRED' | 'UNKNOWN_ZONE' | 'NEEDS_ACTIVATION' | 'SILENCE_WINDOW' | 'COOLDOWN_ACTIVE' | 'THRESHOLD_NOT_MET' | string;
+  message: string;
+  next_unlock_hint?: string | null;
+  requirements: LawRequirement[];
+  policy: {
+    law_version: string;
+    intent: string;
+  };
+  context: {
+    h3: string;
+    zone_id?: string;
+  } | null;
+}
+
 // ============ API Methods ============
 
 export const api = {
@@ -353,6 +376,9 @@ export const api = {
 
   zoneConsciousness: (h3: string) =>
     invokeCardGate<ZoneConsciousnessData>(`zone-consciousness?h3=${encodeURIComponent(h3)}`),
+
+  lawEvaluate: (intent: string, h3: string) =>
+    invokeCardGate<LawEvaluateData>(`law/evaluate?intent=${encodeURIComponent(intent)}&h3=${encodeURIComponent(h3)}`),
 
   // Zone Progress
   zoneProgress: () => invokeCardGate<ZoneProgressData>('zone-progress'),
