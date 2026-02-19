@@ -4,7 +4,7 @@
  * Shows AURA profile from church quests (status, seals) when available.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
@@ -14,6 +14,12 @@ import { appendAuraSealToJournal } from '../utils/journal-sync';
 import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
 import { useTranslation } from '../utils/i18n';
 import { api, type WorldSnapshotData, type ComplexionData, generateIdempotencyKey, clientTs } from '../lib/api';
+import { project } from '../utils/map-project';
+
+const MAP_VIEWBOX_WIDTH = 2037.566;
+const MAP_VIEWBOX_HEIGHT = 1615.5;
+const MARKER_MIN_MOVE_M = 6;
+const MARKER_MAX_ACCURACY_M = 30;
 
 // Hint templates based on what changed (French)
 const COMPLEXION_HINTS: Record<string, string[]> = {
@@ -88,8 +94,51 @@ function glyphOpacity(level: 0 | 1 | 2 | 3): number {
   return 0.4 + level * 0.2; // 0.4, 0.6, 0.8, 1.0
 }
 
+function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s1 = Math.sin(dLat / 2);
+  const s2 = Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2), Math.sqrt(1 - (s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2)));
+  return R * c;
+}
+
+function inferArrondissementFromGeo(lat: number, lng: number): number | null {
+  const p = project(lat, lng);
+  const xPct = (p.x / MAP_VIEWBOX_WIDTH) * 100;
+  const yPct = (p.y / MAP_VIEWBOX_HEIGHT) * 100;
+  if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
+  if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return null;
+
+  const centers: Record<number, { x: number; y: number }> = {
+    1: { x: 48, y: 48 }, 2: { x: 51, y: 42 }, 3: { x: 56, y: 44 }, 4: { x: 54, y: 50 },
+    5: { x: 52, y: 58 }, 6: { x: 45, y: 56 }, 7: { x: 39, y: 58 }, 8: { x: 42, y: 46 },
+    9: { x: 46, y: 40 }, 10: { x: 55, y: 39 }, 11: { x: 60, y: 47 }, 12: { x: 63, y: 58 },
+    13: { x: 56, y: 66 }, 14: { x: 47, y: 66 }, 15: { x: 36, y: 65 }, 16: { x: 31, y: 53 },
+    17: { x: 36, y: 39 }, 18: { x: 43, y: 31 }, 19: { x: 58, y: 33 }, 20: { x: 66, y: 46 },
+  };
+
+  let bestArr: number | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let arr = 1; arr <= 20; arr++) {
+    const center = centers[arr];
+    if (!center) continue;
+    const dx = center.x - xPct;
+    const dy = center.y - yPct;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < bestDist) {
+      bestDist = d;
+      bestArr = arr;
+    }
+  }
+  return bestArr;
+}
+
 export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [sealOpen, setSealOpen] = useState(false);
   const [sealContent, setSealContent] = useState('');
   const [sealSaved, setSealSaved] = useState(false);
@@ -98,6 +147,9 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
   const [complexion, setComplexion] = useState<ComplexionData | null>(null);
   const [complexionHint, setComplexionHint] = useState<string | null>(null);
+  const [currentH3, setCurrentH3] = useState<string | null>(null);
+  const [outsideCoverage, setOutsideCoverage] = useState(false);
+  const lastAcceptedPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [sealError, setSealError] = useState<string | null>(null);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
@@ -107,7 +159,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const loadComplexionData = useCallback(async () => {
     try {
       const [snapshotResult, complexionResult] = await Promise.all([
-        api.worldSnapshot({ include: 'law', h3_center: 'PAR-10', k: 2 }),
+        api.worldSnapshot({ include: 'law', h3_center: currentH3 ?? 'PAR-10', k: 2 }),
         api.meComplexion(),
       ]);
 
@@ -133,11 +185,58 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
         console.error('[AuraPage] Failed to load complexion:', err);
       }
     }
-  }, []);
+  }, [currentH3]);
 
   useEffect(() => {
     loadComplexionData();
   }, [loadComplexionData]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
+        if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
+        const incoming = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const prev = lastAcceptedPosRef.current;
+        if (prev && distanceMeters(prev, incoming) < MARKER_MIN_MOVE_M) return;
+        lastAcceptedPosRef.current = incoming;
+        const arr = inferArrondissementFromGeo(incoming.lat, incoming.lng);
+        if (!arr) {
+          setOutsideCoverage(true);
+          setCurrentH3(null);
+          return;
+        }
+        setOutsideCoverage(false);
+        setCurrentH3(`PAR-${String(arr).padStart(2, '0')}`);
+      },
+      () => {
+        // Silent fail
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  const auraVectors = useMemo(() => {
+    const zone = currentH3 ? worldSnapshot?.world.zones.find((z) => z.h3 === currentH3) : null;
+    const meZone = currentH3 ? worldSnapshot?.me.zones?.[currentH3] : null;
+    const pulses = meZone?.presence?.pulses_20m ?? 0;
+    const traces = zone?.signals?.inscriptions_recent ?? 0;
+    const law = zone?.law?.['ritual.start'] ?? null;
+    const crossings = (meZone?.progress?.entered ? 1 : 0) + (meZone?.progress?.engraved ? 1 : 0) + (law?.allowed ? 1 : 0);
+    const ombreMarkers = (law && !law.allowed ? 1 : 0) + (!zone?.signals?.whisper ? 1 : 0);
+    const ancrage = pulses >= 10 ? 'Ancré' : pulses >= 5 ? 'Stable' : pulses >= 1 ? 'Naissant' : 'Discret';
+    const clarte = traces >= 6 ? 'Lumineuse' : traces >= 3 ? 'Lisible' : traces >= 1 ? 'Émergente' : 'Voilée';
+    const courage = crossings >= 3 ? 'Franche' : crossings === 2 ? 'Ouverte' : crossings === 1 ? 'En approche' : 'Retenue';
+    const ombre = ombreMarkers >= 2 ? 'Épaisse' : ombreMarkers === 1 ? 'Présente' : 'Calme';
+    return [
+      { label: 'Clarté', value: clarte, evidence: traces > 0 ? `${traces} traces` : null },
+      { label: 'Ombre', value: ombre, evidence: ombreMarkers > 0 ? `${ombreMarkers} signes` : null },
+      { label: 'Ancrage', value: ancrage, evidence: `${pulses} pulses` },
+      { label: 'Courage', value: courage, evidence: crossings > 0 ? `${crossings} passages` : null },
+    ];
+  }, [currentH3, worldSnapshot]);
 
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
@@ -237,6 +336,48 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       >
         {word}
       </p>
+
+      <div
+        style={{
+          marginBottom: 'clamp(14px, 3vw, 18px)',
+          textAlign: 'center',
+          width: '100%',
+          maxWidth: 340,
+        }}
+      >
+        <p
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            color: '#003D2C',
+            opacity: 0.6,
+            letterSpacing: '0.04em',
+            marginBottom: 10,
+          }}
+        >
+          {outsideCoverage
+            ? (language === 'fr' ? 'Hors champ (proche : Montreuil)' : 'Outside field (near: Montreuil)')
+            : (currentH3
+              ? `Ici : ${currentH3} — présence ${worldSnapshot?.me.zones?.[currentH3]?.presence?.pulses_20m ?? 0}/5`
+              : (language === 'fr' ? 'Ici : PAR-10 — présence 0/5' : 'Here: PAR-10 — presence 0/5'))}
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {auraVectors.map((v) => (
+            <p
+              key={v.label}
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 13,
+                color: '#1A1A1A',
+                opacity: 0.72,
+                margin: 0,
+              }}
+            >
+              {v.label} : {v.value}{v.evidence ? ` (${v.evidence})` : ''}
+            </p>
+          ))}
+        </div>
+      </div>
 
       {/* Miroir — daily sentence with historical anecdote */}
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
