@@ -98,6 +98,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
   const [complexion, setComplexion] = useState<ComplexionData | null>(null);
   const [complexionHint, setComplexionHint] = useState<string | null>(null);
+  const [sealError, setSealError] = useState<string | null>(null);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
@@ -112,6 +113,13 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
       if (snapshotResult.data) {
         setWorldSnapshot(snapshotResult.data);
+        if (import.meta.env.DEV) {
+          console.debug('[AuraPage] snapshot', {
+            world_version: snapshotResult.data.policy.world_version,
+            now: snapshotResult.data.now,
+            authenticated: snapshotResult.data.me.authenticated,
+          });
+        }
       }
 
       if (complexionResult.data) {
@@ -121,7 +129,9 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
         setComplexionHint(hint);
       }
     } catch (err) {
-      console.error('[AuraPage] Failed to load complexion:', err);
+      if (import.meta.env.DEV) {
+        console.error('[AuraPage] Failed to load complexion:', err);
+      }
     }
   }, []);
 
@@ -598,6 +608,18 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                 minHeight: 80
               }}
             />
+            {sealError && (
+              <p
+                style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 12,
+                  color: '#6B6455',
+                  marginBottom: 12,
+                }}
+              >
+                {sealError}
+              </p>
+            )}
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button
                 type="button"
@@ -626,6 +648,11 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                 disabled={sealSaved || !sealContent.trim()}
                 onClick={async () => {
                   if (!cardId || !sealContent.trim()) return;
+                  setSealError(null);
+                  if (!worldSnapshot?.me.authenticated) {
+                    setSealError('Pair your card to begin.');
+                    return;
+                  }
                   const sealText = sealContent.trim();
                   await appendAuraSealToJournal(cardId, sealText);
                   const activeEntry = Object.entries(worldSnapshot?.me.zones ?? {})
@@ -635,7 +662,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                   const currentZone = currentZoneH3
                     ? `paris-${Number.parseInt(currentZoneH3.replace('PAR-', ''), 10)}`
                     : undefined;
-                  await api.decisionMade({
+                  const decision = await api.decisionMade({
                     zone_id: currentZone,
                     node_id: 'aura_seal',
                     choice: sealText.slice(0, 80),
@@ -645,6 +672,10 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                     client_ts: clientTs(),
                     idempotency_key: generateIdempotencyKey('aura-seal'),
                   });
+                  if (decision.error) {
+                    setSealError('Pair your card to begin.');
+                    return;
+                  }
                   await loadComplexionData();
                   setSealSaved(true);
                   setTimeout(() => {

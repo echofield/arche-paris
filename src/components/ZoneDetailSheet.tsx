@@ -30,6 +30,12 @@ function inferArtifactType(arr: number): UrbanArtifactType {
   return 'inscription_stone';
 }
 
+function lawLine(law: LawEvaluateData | null): string {
+  if (!law) return 'Not yet.';
+  if (law.reason_code === 'AUTH_REQUIRED') return 'Pair your card to begin.';
+  return [law.message, law.next_unlock_hint].filter(Boolean).join(' ').trim() || 'Not yet.';
+}
+
 export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneDetailSheetProps) {
   const [progress, setProgress] = useState<ZoneProgressItem | null>(null);
   const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
@@ -56,6 +62,14 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
       let zoneProgress: ZoneProgressItem | null = null;
       let snapshotInscriptions: Inscription[] = [];
       if (snapshotResult.data) {
+        if (import.meta.env.DEV) {
+          console.debug('[ZoneDetailSheet] snapshot', {
+            world_version: snapshotResult.data.policy.world_version,
+            now: snapshotResult.data.now,
+            authenticated: snapshotResult.data.me.authenticated,
+            h3: zoneH3,
+          });
+        }
         const zoneOverlay = snapshotResult.data.me.zones[zoneH3];
         const rawProgress = zoneOverlay?.progress;
         zoneProgress = rawProgress
@@ -166,8 +180,7 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
       return;
     }
     if (!evalResult.data.allowed) {
-      const hint = evalResult.data.next_unlock_hint ? ` ${evalResult.data.next_unlock_hint}` : '';
-      setLawRefusal(`${evalResult.data.message ?? 'Not yet.'}${hint}`.trim());
+      setLawRefusal(lawLine(evalResult.data));
       return;
     }
     setActiveRitual(ritualType);
@@ -379,7 +392,7 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                   textAlign: 'center',
                 }}
               >
-                {[zoneLaw.message, zoneLaw.next_unlock_hint].filter(Boolean).join(' ').trim() || 'Not yet.'}
+                {lawLine(zoneLaw)}
               </p>
             )}
 
