@@ -839,6 +839,34 @@ type LawRequirement = {
   count?: number;
 };
 
+type AnchorType = "alignment" | "threshold" | "absence" | "measurement" | "revelation";
+
+type AnchorConstraint = {
+  temporal?: {
+    mode: "solar_noon" | "daily_window";
+    window_minutes?: number;
+    start_hour?: number;
+    end_hour?: number;
+  };
+  spatial?: {
+    mode: "linearity" | "dwell";
+    min_displacement_m?: number;
+    radius_m?: number;
+  };
+  presence?: {
+    min_pulses_20m?: number;
+  };
+};
+
+type MeridianAnchor = {
+  id: string;
+  h3: string;
+  label: string;
+  type: AnchorType;
+  location_hint: string;
+  constraints?: AnchorConstraint;
+};
+
 const LAW_VERSION = "2026-02-19.1";
 const WORLD_VERSION = "2026-02-19.1";
 const PROTECTED_INTENTS = new Set(["ritual.start"]);
@@ -873,6 +901,109 @@ const ZONE_WHISPERS: Record<string, string[]> = {
   ],
 };
 
+const WHISPERS_BY_ANCHOR_TYPE: Record<AnchorType, string[]> = {
+  alignment: [
+    "The axis exists before intention.",
+    "Alignment is remembered in silence.",
+  ],
+  threshold: [
+    "A boundary can be measured without being crossed.",
+    "The line changes meaning at its edge.",
+  ],
+  absence: [
+    "What is missing also coordinates the city.",
+    "Absence can hold a direction.",
+  ],
+  measurement: [
+    "Measure is a kind of power.",
+    "Precision is a form of attention.",
+  ],
+  revelation: [
+    "Light discloses what clocks conceal.",
+    "A structure appears when you wait.",
+  ],
+};
+
+const MERIDIAN_ANCHORS: MeridianAnchor[] = [
+  {
+    id: "anchor_observatory_salle_cassini",
+    h3: "PAR-14",
+    label: "Salle Cassini",
+    type: "measurement",
+    location_hint: "Paris Observatory axis",
+    constraints: {
+      temporal: { mode: "solar_noon", window_minutes: 20 },
+      presence: { min_pulses_20m: 4 },
+    },
+  },
+  {
+    id: "anchor_arago_pedestal_absence",
+    h3: "PAR-14",
+    label: "Arago Pedestal",
+    type: "absence",
+    location_hint: "Boulevard Arago",
+    constraints: {
+      spatial: { mode: "dwell", radius_m: 120 },
+      presence: { min_pulses_20m: 3 },
+    },
+  },
+  {
+    id: "anchor_louvre_meridian_trace",
+    h3: "PAR-01",
+    label: "Arago Medallions",
+    type: "alignment",
+    location_hint: "Louvre / Palais Royal axis",
+    constraints: {
+      spatial: { mode: "linearity", min_displacement_m: 60 },
+      presence: { min_pulses_20m: 3 },
+    },
+  },
+  {
+    id: "anchor_saint_sulpice_gnomon",
+    h3: "PAR-06",
+    label: "Saint-Sulpice Gnomon",
+    type: "revelation",
+    location_hint: "Saint-Sulpice transept",
+    constraints: {
+      temporal: { mode: "solar_noon", window_minutes: 15 },
+      presence: { min_pulses_20m: 4 },
+    },
+  },
+  {
+    id: "anchor_pantheon_pendulum",
+    h3: "PAR-05",
+    label: "Foucault Pendulum",
+    type: "threshold",
+    location_hint: "Panthéon",
+    constraints: {
+      temporal: { mode: "daily_window", start_hour: 10, end_hour: 18 },
+      presence: { min_pulses_20m: 3 },
+    },
+  },
+  {
+    id: "anchor_montsouris_mire_sud",
+    h3: "PAR-14",
+    label: "Mire du Sud",
+    type: "measurement",
+    location_hint: "Parc Montsouris",
+    constraints: {
+      spatial: { mode: "linearity", min_displacement_m: 80 },
+      presence: { min_pulses_20m: 3 },
+    },
+  },
+  {
+    id: "anchor_montmartre_fizeau_leg",
+    h3: "PAR-18",
+    label: "Fizeau Mirror Leg",
+    type: "threshold",
+    location_hint: "Montmartre heights",
+    constraints: {
+      temporal: { mode: "daily_window", start_hour: 8, end_hour: 22 },
+      presence: { min_pulses_20m: 3 },
+    },
+  },
+];
+
 function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_id: string } | null {
   if (!raw) return null;
   const value = raw.trim();
@@ -891,6 +1022,34 @@ function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_
   };
 }
 
+function anchorsForZone(h3: string): MeridianAnchor[] {
+  return MERIDIAN_ANCHORS.filter((a) => a.h3 === h3);
+}
+
+function anchorTypesForZone(h3: string): AnchorType[] {
+  const set = new Set<AnchorType>();
+  for (const anchor of anchorsForZone(h3)) set.add(anchor.type);
+  return Array.from(set);
+}
+
+function requiredPulsesForZone(h3: string): number {
+  const anchored = anchorsForZone(h3)
+    .map((a) => a.constraints?.presence?.min_pulses_20m ?? 0)
+    .reduce((max, v) => Math.max(max, v), 0);
+  return Math.max(PRESENCE_PULSE_MIN_FOR_RITUAL, anchored);
+}
+
+function presenceMeaningForZone(h3: string, pulses: number): string {
+  const types = anchorTypesForZone(h3);
+  if (pulses <= 0) return "The line remains latent.";
+  if (types.includes("absence") && pulses >= 3) return "Absence turns into shared memory.";
+  if (types.includes("measurement") && pulses >= 3) return "Presence begins to measure the world.";
+  if (types.includes("revelation") && pulses >= 4) return "A hidden structure starts to disclose itself.";
+  if (types.includes("threshold")) return "You are standing on a boundary.";
+  if (types.includes("alignment")) return "The axis is becoming legible.";
+  return "The city is noticing your persistence.";
+}
+
 function lawRefusal(
   c: any,
   reasonCode: string,
@@ -899,7 +1058,8 @@ function lawRefusal(
   requirements: LawRequirement[],
   intent: string,
   zoneCtx: { h3: string; zone_id: string } | null,
-  retryAfterSeconds?: number
+  retryAfterSeconds?: number,
+  contextExtra?: Record<string, unknown>
 ) {
   return c.json({
     allowed: false,
@@ -909,11 +1069,12 @@ function lawRefusal(
     retry_after_seconds: retryAfterSeconds,
     requirements,
     policy: { law_version: LAW_VERSION, intent },
-    context: zoneCtx ? { h3: zoneCtx.h3, zone_id: zoneCtx.zone_id } : null,
+    context: zoneCtx ? { h3: zoneCtx.h3, zone_id: zoneCtx.zone_id, ...(contextExtra ?? {}) } : null,
   }, 200);
 }
 
 function lawAuthRequiredVerdict(zone: { h3: string; zone_id: string }, intent: string) {
+  const anchors = anchorsForZone(zone.h3);
   return {
     allowed: false,
     reason_code: "AUTH_REQUIRED",
@@ -921,7 +1082,12 @@ function lawAuthRequiredVerdict(zone: { h3: string; zone_id: string }, intent: s
     next_unlock_hint: "Pair your card to begin.",
     requirements: [{ type: "auth_session", status: "missing" }] as LawRequirement[],
     policy: { law_version: LAW_VERSION, intent },
-    context: { h3: zone.h3, zone_id: zone.zone_id },
+    context: {
+      h3: zone.h3,
+      zone_id: zone.zone_id,
+      anchor_types: anchorTypesForZone(zone.h3),
+      anchor_ids: anchors.map((a) => a.id),
+    },
   };
 }
 
@@ -972,12 +1138,20 @@ function stableZoneSeed(zoneH3: string): number {
 }
 
 function computeZoneWhisper(zoneH3: string, presenceRecent: number, nowMs: number): string | null {
-  if (presenceRecent < WHISPER_MIN_PRESENCE) return null;
+  const anchors = anchorsForZone(zoneH3);
+  const minPresence = Math.max(
+    WHISPER_MIN_PRESENCE,
+    anchors
+      .map((a) => a.constraints?.presence?.min_pulses_20m ?? 0)
+      .reduce((max, v) => Math.max(max, v), 0)
+  );
+  if (presenceRecent < minPresence) return null;
   const cooldownBucket = Math.floor(nowMs / (WHISPER_COOLDOWN_MINUTES * 60 * 1000));
   const cooldownPhase = (cooldownBucket + (stableZoneSeed(zoneH3) % 2)) % 2;
   if (cooldownPhase === 1) return null;
 
-  const pool = ZONE_WHISPERS[zoneH3] ?? DEFAULT_WHISPERS;
+  const anchorPool = anchors.flatMap((a) => WHISPERS_BY_ANCHOR_TYPE[a.type] ?? []);
+  const pool = [...(ZONE_WHISPERS[zoneH3] ?? []), ...anchorPool, ...DEFAULT_WHISPERS];
   if (!pool.length) return null;
   const rotationBucket = Math.floor(nowMs / (WHISPER_ROTATION_MINUTES * 60 * 1000));
   const idx = rotationBucket % pool.length;
@@ -1075,6 +1249,13 @@ app.get("/law/evaluate", async (c) => {
       null
     );
   }
+  const zoneAnchors = anchorsForZone(zone.h3);
+  const zoneAnchorTypes = anchorTypesForZone(zone.h3);
+  const contextExtra = {
+    anchor_types: zoneAnchorTypes,
+    anchor_ids: zoneAnchors.map((a) => a.id),
+  };
+  const requiredPresencePulses = requiredPulsesForZone(zone.h3);
 
   const isProtected = PROTECTED_INTENTS.has(intent);
   const payload = isProtected ? await requireJwt(c) : await requireOptionalJwt(c);
@@ -1086,7 +1267,9 @@ app.get("/law/evaluate", async (c) => {
       "Reconnect your card session first.",
       [{ type: "auth_session", status: "missing" }],
       intent,
-      zone
+      zone,
+      undefined,
+      contextExtra
     );
   }
   const session = payload instanceof Response ? null : payload;
@@ -1102,7 +1285,8 @@ app.get("/law/evaluate", async (c) => {
         [{ type: "rate_window", status: "blocked" }],
         intent,
         zone,
-        120
+        120,
+        contextExtra
       );
     }
 
@@ -1137,10 +1321,12 @@ app.get("/law/evaluate", async (c) => {
         "Return after you complete the zone activation.",
         [
           { type: "zone_activation", status: "missing" },
-          { type: "presence_pulses", min: PRESENCE_PULSE_MIN_FOR_RITUAL, within_minutes: PRESENCE_PULSE_WINDOW_MINUTES, status: "missing" },
+          { type: "presence_pulses", min: requiredPresencePulses, within_minutes: PRESENCE_PULSE_WINDOW_MINUTES, status: "missing" },
         ],
         intent,
-        zone
+        zone,
+        undefined,
+        contextExtra
       );
     }
 
@@ -1156,23 +1342,25 @@ app.get("/law/evaluate", async (c) => {
       return c.json({ error: "Failed to evaluate law" }, 500);
     }
     const pulseCount = pulseCountRaw ?? 0;
-    if (pulseCount < PRESENCE_PULSE_MIN_FOR_RITUAL) {
+    if (pulseCount < requiredPresencePulses) {
       return lawRefusal(
         c,
         "THRESHOLD_NOT_MET",
         "Not yet.",
-        "Stay in the zone a little longer.",
+        "Stay with the line a little longer.",
         [
           {
             type: "presence_pulses",
-            min: PRESENCE_PULSE_MIN_FOR_RITUAL,
+            min: requiredPresencePulses,
             within_minutes: PRESENCE_PULSE_WINDOW_MINUTES,
             count: pulseCount,
             status: "missing",
           },
         ],
         intent,
-        zone
+        zone,
+        undefined,
+        contextExtra
       );
     }
 
@@ -1193,7 +1381,8 @@ app.get("/law/evaluate", async (c) => {
         [{ type: "silence_window", status: "blocked" }],
         intent,
         zone,
-        3600
+        3600,
+        contextExtra
       );
     }
 
@@ -1208,7 +1397,8 @@ app.get("/law/evaluate", async (c) => {
         [{ type: "cooldown", within_minutes: 2, status: "blocked" }],
         intent,
         zone,
-        120
+        120,
+        contextExtra
       );
     }
 
@@ -1219,11 +1409,11 @@ app.get("/law/evaluate", async (c) => {
       next_unlock_hint: null,
       requirements: [
         { type: "zone_activation", status: "ok" },
-        { type: "presence_pulses", min: PRESENCE_PULSE_MIN_FOR_RITUAL, within_minutes: PRESENCE_PULSE_WINDOW_MINUTES, count: pulseCount, status: "ok" },
+        { type: "presence_pulses", min: requiredPresencePulses, within_minutes: PRESENCE_PULSE_WINDOW_MINUTES, count: pulseCount, status: "ok" },
         { type: "silence_window", status: "ok" },
       ],
       policy: { law_version: LAW_VERSION, intent },
-      context: { h3: zone.h3, zone_id: zone.zone_id },
+      context: { h3: zone.h3, zone_id: zone.zone_id, ...contextExtra },
     });
   }
 
@@ -1234,7 +1424,7 @@ app.get("/law/evaluate", async (c) => {
     next_unlock_hint: null,
     requirements: [] as LawRequirement[],
     policy: { law_version: LAW_VERSION, intent: intent || "unknown" },
-    context: { h3: zone.h3, zone_id: zone.zone_id },
+    context: { h3: zone.h3, zone_id: zone.zone_id, ...contextExtra },
   });
 });
 
@@ -1443,7 +1633,7 @@ app.get("/world/snapshot", async (c) => {
     }
   }
 
-  const meZones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null; presence: { pulses_20m: number; last_ts: string | null } }> = {};
+  const meZones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null; presence: { pulses_20m: number; last_ts: string | null; meaning: string } }> = {};
   if (isAuthed && payload) {
     const pulseSinceIso = new Date(Date.now() - PRESENCE_PULSE_WINDOW_MINUTES * 60 * 1000).toISOString();
     const [inscriptionsRes, segmentsRes, pulsesRes] = await Promise.all([
@@ -1502,6 +1692,7 @@ app.get("/world/snapshot", async (c) => {
       }
       for (const zone of zonesInView) {
         const p = progressByArr.get(zone.arr);
+        const presence = presenceByH3.get(zone.h3) ?? { pulses_20m: 0, last_ts: null };
         meZones[zone.h3] = {
           progress: p
             ? {
@@ -1513,18 +1704,38 @@ app.get("/world/snapshot", async (c) => {
               }
             : null,
           activation: lawByH3.get(zone.h3)?.["ritual.start"] as Record<string, unknown> | null ?? null,
-          presence: presenceByH3.get(zone.h3) ?? { pulses_20m: 0, last_ts: null },
+          presence: {
+            pulses_20m: presence.pulses_20m,
+            last_ts: presence.last_ts,
+            meaning: presenceMeaningForZone(zone.h3, presence.pulses_20m),
+          },
         };
       }
     }
   } else {
     for (const zone of zonesInView) {
-      meZones[zone.h3] = { progress: null, activation: null, presence: { pulses_20m: 0, last_ts: null } };
+      meZones[zone.h3] = {
+        progress: null,
+        activation: null,
+        presence: {
+          pulses_20m: 0,
+          last_ts: null,
+          meaning: presenceMeaningForZone(zone.h3, 0),
+        },
+      };
     }
   }
   for (const zone of zonesInView) {
     if (!meZones[zone.h3]) {
-      meZones[zone.h3] = { progress: null, activation: null, presence: { pulses_20m: 0, last_ts: null } };
+      meZones[zone.h3] = {
+        progress: null,
+        activation: null,
+        presence: {
+          pulses_20m: 0,
+          last_ts: null,
+          meaning: presenceMeaningForZone(zone.h3, 0),
+        },
+      };
     }
   }
 
@@ -1540,6 +1751,7 @@ app.get("/world/snapshot", async (c) => {
         const champCount = champCountByH3.get(zone.h3) ?? 0;
         const presenceRecent = presenceCountByH3.get(zone.h3) ?? 0;
         const whisper = computeZoneWhisper(zone.h3, presenceRecent, nowMs);
+        const zoneAnchors = anchorsForZone(zone.h3);
         return {
           h3: zone.h3,
           title: `Zone ${zone.h3}`,
@@ -1549,6 +1761,7 @@ app.get("/world/snapshot", async (c) => {
             champ_recent: champCount,
             whisper,
           },
+          anchors: zoneAnchors,
           law: include.has("law") ? (lawByH3.get(zone.h3) ?? {}) : {},
         };
       }),
