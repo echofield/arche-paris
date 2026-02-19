@@ -4,6 +4,33 @@
  */
 
 const DEFAULT_PROJECT_ID = 'qvyrpzgxsppkwfvqvgcn';
+const ALLOWED_ORIGINS = new Set([
+  'https://arche-paris.com',
+  'https://www.arche-paris.com',
+  'https://xn--arch-paris-e7a.com',
+  'https://www.xn--arch-paris-e7a.com',
+]);
+
+function isOriginAllowed(origin) {
+  if (!origin || typeof origin !== 'string') return false;
+  if (ALLOWED_ORIGINS.has(origin)) return true;
+  if (origin === 'http://localhost:5173' || origin === 'http://localhost:3000') return true;
+  if (origin.startsWith('http://127.0.0.1:')) return true;
+  if ((origin.startsWith('https://') || origin.startsWith('http://')) && origin.endsWith('.vercel.app')) return true;
+  if ((origin.startsWith('https://') || origin.startsWith('http://')) && origin.endsWith('.netlify.app')) return true;
+  return false;
+}
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, apikey, X-ARCHE-CARD-CODE, X-ARCHE-SESSION');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (isOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+}
 
 function buildSupabaseBase() {
   const explicitUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
@@ -16,11 +43,21 @@ function buildSupabaseBase() {
   return `https://${projectId}.supabase.co`;
 }
 
+async function readRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  if (!chunks.length) return undefined;
+  return Buffer.concat(chunks);
+}
+
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, apikey, X-ARCHE-CARD-CODE, X-ARCHE-SESSION');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  applyCors(req, res);
+  const origin = req.headers.origin;
+  if (origin && !isOriginAllowed(origin)) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -61,12 +98,17 @@ module.exports = async function handler(req, res) {
   }
 
   const hasBody = !['GET', 'HEAD'].includes(req.method || 'GET');
-  const body =
-    hasBody && req.body != null
-      ? typeof req.body === 'string' || Buffer.isBuffer(req.body)
-        ? req.body
-        : JSON.stringify(req.body)
-      : undefined;
+  let body;
+  if (hasBody) {
+    if (req.body != null) {
+      body =
+        typeof req.body === 'string' || Buffer.isBuffer(req.body)
+          ? req.body
+          : JSON.stringify(req.body);
+    } else {
+      body = await readRawBody(req);
+    }
+  }
 
   try {
     const upstream = await fetch(targetUrl, {
