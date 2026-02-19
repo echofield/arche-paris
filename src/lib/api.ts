@@ -264,7 +264,20 @@ export interface WorldZoneSnapshot {
   title: string;
   fog: { level: number };
   signals: { inscriptions_recent: number; champ_recent: number };
-  law: Record<string, unknown>;
+  law: Record<string, LawEvaluateData>;
+}
+
+export interface WorldMeZoneProgress {
+  zone_id: string;
+  entered: boolean;
+  entered_at: string | null;
+  engraved: boolean;
+  engraved_at: string | null;
+}
+
+export interface WorldMeZoneOverlay {
+  progress: WorldMeZoneProgress | null;
+  activation: LawEvaluateData | null;
 }
 
 export interface WorldSnapshotData {
@@ -281,7 +294,7 @@ export interface WorldSnapshotData {
   me: {
     authenticated: boolean;
     card_id: string | null;
-    zones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null }>;
+    zones: Record<string, WorldMeZoneOverlay>;
   };
 }
 
@@ -421,6 +434,9 @@ export const api = {
     const tail = qs.toString();
     return invokeCardGate<WorldSnapshotData>(`world/snapshot${tail ? `?${tail}` : ''}`);
   },
+
+  worldSnapshotForZone: (h3: string, include: string = 'law,map,champ') =>
+    api.worldSnapshot({ include, h3_center: h3, k: 0 }),
 
   // Zone Progress
   zoneProgress: () => invokeCardGate<ZoneProgressData>('zone-progress'),

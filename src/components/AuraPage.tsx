@@ -10,11 +10,10 @@ import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
 import { loadCompanion } from '../utils/companion-service';
 import { getCompanionWord, getReflectiveQuestion, getAuraInterpretation } from '../data/oracle';
-import { sealingStub } from '../utils/sealing-stub';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
 import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
 import { useTranslation } from '../utils/i18n';
-import { api, type ZoneProgressData, type ComplexionData } from '../lib/api';
+import { api, type WorldSnapshotData, type ComplexionData, generateIdempotencyKey, clientTs } from '../lib/api';
 
 // Hint templates based on what changed (French)
 const COMPLEXION_HINTS: Record<string, string[]> = {
@@ -96,7 +95,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [sealSaved, setSealSaved] = useState(false);
   const [auraProfile, setAuraProfile] = useState<AuraProfileResult | null>(null);
   const [auraProfileLoading, setAuraProfileLoading] = useState(false);
-  const [zoneProgress, setZoneProgress] = useState<ZoneProgressData | null>(null);
+  const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
   const [complexion, setComplexion] = useState<ComplexionData | null>(null);
   const [complexionHint, setComplexionHint] = useState<string | null>(null);
   const state = loadCompanion();
@@ -106,13 +105,13 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   // Load ARCHÉ zone progress + complexion (real backend data)
   const loadComplexionData = useCallback(async () => {
     try {
-      const [zoneResult, complexionResult] = await Promise.all([
-        api.zoneProgress(),
+      const [snapshotResult, complexionResult] = await Promise.all([
+        api.worldSnapshot({ include: 'law', h3_center: 'PAR-10', k: 2 }),
         api.meComplexion(),
       ]);
 
-      if (zoneResult.data) {
-        setZoneProgress(zoneResult.data);
+      if (snapshotResult.data) {
+        setWorldSnapshot(snapshotResult.data);
       }
 
       if (complexionResult.data) {
@@ -233,7 +232,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
 
       {/* ARCHÉ State Dashboard — Poetic dots, one rare number */}
-      {(zoneProgress || complexion) && (
+      {(worldSnapshot || complexion) && (
         <div
           style={{
             marginTop: 'clamp(24px, 5vw, 40px)',
@@ -265,8 +264,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
           {/* Complexion with dots (●●●○○○) — driven by real backend data */}
           {(() => {
-            // Use direct complexion data if available, fallback to zoneProgress
-            const data = complexion ?? zoneProgress?.complexion;
+            const data = complexion;
             if (!data) return null;
 
             const { presence_points, wisdom_points, shadow_points } = data;
@@ -390,13 +388,17 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
               color: '#003D2C',
               opacity: 0.8,
             }}>
-              Zones éveillées: <strong>{zoneProgress.stats.zones_complete}/20</strong>
+              Zones éveillées: <strong>{
+                Object.values(worldSnapshot?.me.zones ?? {}).filter((z) => z.progress?.engraved).length
+              }/20</strong>
             </p>
           </div>
 
           {/* Next seal goal */}
           {(() => {
-            const { total_rituals, zones_complete, custodianships } = zoneProgress.stats;
+            const total_rituals = complexion?.completed_rituals_count ?? 0;
+            const zones_complete = Object.values(worldSnapshot?.me.zones ?? {}).filter((z) => z.progress?.engraved).length;
+            const custodianships = 0;
             const seals = auraProfile?.seals ?? [];
 
             // Calculate next goal
@@ -445,7 +447,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
           })()}
 
           {/* Revealed status */}
-          {(complexion?.revealed || zoneProgress?.complexion?.revealed) && (
+          {complexion?.revealed && (
             <p
               style={{
                 fontFamily: 'var(--font-serif)',
@@ -624,13 +626,26 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                 disabled={sealSaved || !sealContent.trim()}
                 onClick={async () => {
                   if (!cardId || !sealContent.trim()) return;
-                  await appendAuraSealToJournal(cardId, sealContent.trim());
-                  await sealingStub.seal({
-                    kind: 'card_activated',
-                    id: `fade-${Date.now()}`,
-                    cardId: cardId ?? undefined,
-                    completedAt: new Date().toISOString()
+                  const sealText = sealContent.trim();
+                  await appendAuraSealToJournal(cardId, sealText);
+                  const activeEntry = Object.entries(worldSnapshot?.me.zones ?? {})
+                    .find(([, z]) => z.progress?.entered)
+                    ?? Object.entries(worldSnapshot?.me.zones ?? {})[0];
+                  const currentZoneH3 = activeEntry?.[0] ?? null;
+                  const currentZone = currentZoneH3
+                    ? `paris-${Number.parseInt(currentZoneH3.replace('PAR-', ''), 10)}`
+                    : undefined;
+                  await api.decisionMade({
+                    zone_id: currentZone,
+                    node_id: 'aura_seal',
+                    choice: sealText.slice(0, 80),
+                    d_presence: 0.01,
+                    d_wisdom: 0.03,
+                    d_shadow: -0.01,
+                    client_ts: clientTs(),
+                    idempotency_key: generateIdempotencyKey('aura-seal'),
                   });
+                  await loadComplexionData();
                   setSealSaved(true);
                   setTimeout(() => {
                     setSealOpen(false);

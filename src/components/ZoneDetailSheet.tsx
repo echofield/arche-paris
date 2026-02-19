@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
-import { api, type ZoneProgressItem, type Inscription } from '../lib/api';
+import { api, type ZoneProgressItem, type Inscription, type LawEvaluateData } from '../lib/api';
 import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
 import { ZoneEntryFeedback } from './ZoneEntryFeedback';
 import { RitualRunner, type RitualType } from './RitualRunner';
@@ -33,6 +33,7 @@ function inferArtifactType(arr: number): UrbanArtifactType {
 export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneDetailSheetProps) {
   const [progress, setProgress] = useState<ZoneProgressItem | null>(null);
   const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
+  const [zoneLaw, setZoneLaw] = useState<LawEvaluateData | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeRitual, setActiveRitual] = useState<RitualType | null>(null);
   const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
@@ -40,36 +41,66 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
   const zoneEntry = useZoneEntry();
 
   const zoneId = arrondissement ? arrToZoneId(arrondissement) : null;
+  const zoneH3 = arrondissement ? `PAR-${String(arrondissement).padStart(2, '0')}` : null;
 
   const loadData = useCallback(async () => {
-    if (!zoneId || !arrondissement) return;
+    if (!zoneId || !arrondissement || !zoneH3) return;
     setLoading(true);
     try {
-      const [progressResult, inscriptionsResult, consciousnessResult, complexionResult] = await Promise.all([
-        api.zoneProgress(),
-        api.inscriptionsList(zoneId, 10, 0),
+      const [snapshotResult, consciousnessResult, complexionResult] = await Promise.all([
+        api.worldSnapshotForZone(zoneH3, 'law,map,champ'),
         api.zoneConsciousness(zoneId),
         api.meComplexion(),
       ]);
 
       let zoneProgress: ZoneProgressItem | null = null;
-      if (progressResult.data) {
-        zoneProgress = progressResult.data.zones.find((z) => z.zone_id === zoneId) ?? null;
+      let snapshotInscriptions: Inscription[] = [];
+      if (snapshotResult.data) {
+        const zoneOverlay = snapshotResult.data.me.zones[zoneH3];
+        const rawProgress = zoneOverlay?.progress;
+        zoneProgress = rawProgress
+          ? {
+              zone_id: rawProgress.zone_id,
+              entered: rawProgress.entered,
+              entered_at: rawProgress.entered_at,
+              presence_ritual: false,
+              presence_ritual_at: null,
+              observation_ritual: false,
+              observation_ritual_at: null,
+              engraved: rawProgress.engraved,
+              engraved_at: rawProgress.engraved_at,
+              is_custodian: false,
+              custodian_since: null,
+              custody_expires_at: null,
+              objectives_complete: rawProgress.engraved ? 2 : (rawProgress.entered ? 1 : 0),
+              updated_at: rawProgress.engraved_at ?? rawProgress.entered_at ?? new Date().toISOString(),
+            }
+          : null;
         setProgress(zoneProgress);
+
+        const zone = snapshotResult.data.world.zones.find((z) => z.h3 === zoneH3);
+        const law = zone?.law?.['ritual.start'] ?? zoneOverlay?.activation ?? null;
+        setZoneLaw(law);
+
+        snapshotInscriptions = (snapshotResult.data.world.map.inscriptions ?? [])
+          .filter((ins) => ins.h3 === zoneH3)
+          .map((ins) => ({
+            inscription_id: ins.id,
+            text: ins.excerpt,
+            display_name: null,
+            created_at: ins.ts,
+          }));
+        setInscriptions(snapshotInscriptions);
       } else {
         setProgress(null);
-      }
-
-      if (inscriptionsResult.data) {
-        setInscriptions(inscriptionsResult.data.inscriptions);
-      } else {
+        setZoneLaw(null);
         setInscriptions([]);
       }
 
       if (zoneProgress && complexionResult.data) {
         const hour = new Date().getHours();
         const timeBand = hour < 6 ? 'night' : hour < 10 ? 'dawn' : hour < 18 ? 'day' : hour < 22 ? 'dusk' : 'night';
-        const semanticsTags = (inscriptionsResult.data?.inscriptions ?? [])
+        const semanticsTags = snapshotInscriptions
           .slice(0, 3)
           .map((i) => i.text?.slice(0, 24).trim())
           .filter((s): s is string => Boolean(s));
@@ -104,11 +135,12 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
       }
     } catch (err) {
       console.error('Failed to load zone data:', err);
+      setZoneLaw(null);
       setActivationResult(null);
     } finally {
       setLoading(false);
     }
-  }, [zoneId, arrondissement]);
+  }, [zoneId, arrondissement, zoneH3]);
 
   useEffect(() => {
     if (arrondissement) loadData();
@@ -126,10 +158,9 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
   };
 
   const handleRitualStart = useCallback(async (ritualType: RitualType) => {
-    if (!arrondissement) return;
-    const h3 = `PAR-${String(arrondissement).padStart(2, '0')}`;
+    if (!zoneH3) return;
     setLawRefusal(null);
-    const evalResult = await api.lawEvaluate('ritual.start', h3);
+    const evalResult = await api.lawEvaluate('ritual.start', zoneH3);
     if (evalResult.error || !evalResult.data) {
       setLawRefusal('Not yet.');
       return;
@@ -140,7 +171,7 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
       return;
     }
     setActiveRitual(ritualType);
-  }, [arrondissement]);
+  }, [zoneH3]);
 
   const objectivesComplete = progress?.objectives_complete ?? 0;
   const hasEntered = progress?.entered === true;
@@ -271,7 +302,11 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                 'P',
                 progress?.presence_ritual === true,
                 !progress?.presence_ritual
-                  ? { label: 'Commencer', onClick: () => void handleRitualStart('presence'), disabled: !hasEntered }
+                  ? {
+                      label: 'Commencer',
+                      onClick: () => void handleRitualStart('presence'),
+                      disabled: !hasEntered || (zoneLaw != null && !zoneLaw.allowed),
+                    }
                   : undefined
               )}
 
@@ -281,7 +316,11 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                 'O',
                 progress?.observation_ritual === true,
                 !progress?.observation_ritual
-                  ? { label: 'Commencer', onClick: () => void handleRitualStart('observation'), disabled: !hasEntered }
+                  ? {
+                      label: 'Commencer',
+                      onClick: () => void handleRitualStart('observation'),
+                      disabled: !hasEntered || (zoneLaw != null && !zoneLaw.allowed),
+                    }
                   : undefined
               )}
 
@@ -327,6 +366,20 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                 }}
               >
                 {lawRefusal}
+              </p>
+            )}
+
+            {!lawRefusal && zoneLaw && !zoneLaw.allowed && (
+              <p
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 13,
+                  fontStyle: 'italic',
+                  color: '#6B6455',
+                  textAlign: 'center',
+                }}
+              >
+                {[zoneLaw.message, zoneLaw.next_unlock_hint].filter(Boolean).join(' ').trim() || 'Not yet.'}
               </p>
             )}
 
