@@ -13,6 +13,7 @@ import { loadChampItems, type FieldItem } from '../utils/card-gate-client';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { project } from '../utils/map-project';
 import { postInscription } from '../utils/card-gate-map-client';
+import { normalizeDisplayText } from '../utils/text-normalize';
 import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 
@@ -108,12 +109,20 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
             .map((item) => ({
               id: item.id,
               arrondissement: item.arrondissement,
-              textExcerpt: item.textExcerpt,
+              textExcerpt: normalizeDisplayText(item.textExcerpt),
               timeLabel: item.timeLabel,
             }));
 
           // Store full items with full text for modal
-          setFullItems(data.filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null));
+          setFullItems(
+            data
+              .filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null)
+              .map((item) => ({
+                ...item,
+                textExcerpt: normalizeDisplayText(item.textExcerpt),
+                textFull: item.textFull ? normalizeDisplayText(item.textFull) : item.textFull,
+              }))
+          );
           setItems(mappedItems);
         }
       })
@@ -402,7 +411,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                 lineHeight: 1.7,
               }}
             >
-              {fullItems.find(f => f.id === selectedItem.id)?.textFull || selectedItem.textExcerpt}
+              {normalizeDisplayText(fullItems.find(f => f.id === selectedItem.id)?.textFull || selectedItem.textExcerpt)}
             </p>
           </div>
         </div>
@@ -487,10 +496,18 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                       .map((item) => ({
                         id: item.id,
                         arrondissement: item.arrondissement,
-                        textExcerpt: item.textExcerpt,
+                        textExcerpt: normalizeDisplayText(item.textExcerpt),
                         timeLabel: item.timeLabel,
                       }));
-                    setFullItems(data.filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null));
+                    setFullItems(
+                      data
+                        .filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null)
+                        .map((item) => ({
+                          ...item,
+                          textExcerpt: normalizeDisplayText(item.textExcerpt),
+                          textFull: item.textFull ? normalizeDisplayText(item.textFull) : item.textFull,
+                        }))
+                    );
                     setItems(mappedItems);
                     setTraceDraft('');
                     setShowAddTrace(false);

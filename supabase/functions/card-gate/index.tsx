@@ -113,6 +113,45 @@ function writeMapCache(key: string, body: unknown, ttlMs = MAP_READ_CACHE_TTL_MS
   });
 }
 
+function normalizeLegacyText(input: string): string {
+  let text = (input ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return text;
+
+  // Attempt to recover strings that were UTF-8 bytes misread as Latin-1.
+  if (/[ÃÂâ]/.test(text)) {
+    try {
+      const bytes = Uint8Array.from(Array.from(text, (ch) => ch.charCodeAt(0) & 0xff));
+      const decoded = new TextDecoder("utf-8").decode(bytes);
+      if (decoded && !decoded.includes("\u0000")) {
+        text = decoded;
+      }
+    } catch {
+      // Keep original text if decoding fails.
+    }
+  }
+
+  // Common mojibake fragments observed in legacy traces.
+  text = text
+    .replace(/â€¦/g, "...")
+    .replace(/â€”|â€“/g, "-")
+    .replace(/â€™/g, "'")
+    .replace(/â€œ|â€/g, "\"")
+    .replace(/Â·/g, "·")
+    .replace(/Â«/g, "«")
+    .replace(/Â»/g, "»");
+
+  // Heuristic repair for replacement-char corruption inside French words.
+  text = text
+    .replace(/([A-Za-z])\uFFFD([A-Za-z])/g, "$1e$2")
+    .replace(/pr\uFFFDsence/gi, "présence")
+    .replace(/t\uFFFDmoin/gi, "témoin")
+    .replace(/deuxi\uFFFDme/gi, "deuxième")
+    .replace(/premi\uFFFDres/gi, "premières")
+    .replace(/\uFFFD/g, "e");
+
+  return text.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
 // Cookie settings for refresh token
 function getRefreshCookieOptions(origin: string | undefined): string {
   const isLocalhost = origin?.includes("localhost") || origin?.includes("127.0.0.1");
@@ -1478,7 +1517,7 @@ app.get("/world/snapshot", async (c) => {
       if (typeof arr !== "number" || !zoneArrSet.has(arr)) continue;
       const zone = zoneByArr.get(arr);
       if (!zone) continue;
-      const text = (row.text ?? "").trim().replace(/\s+/g, " ");
+      const text = normalizeLegacyText(String(row.text ?? ""));
       const excerpt = text.length > 64 ? `${text.slice(0, 61)}...` : text;
       if (needMap) {
         worldMapItems.push({
@@ -2390,7 +2429,7 @@ app.post("/inscriptions", async (c) => {
   if (!["arrondissement", "quest", "lieu"].includes(kind)) {
     return c.json({ error: "Invalid kind" }, 400);
   }
-  const text = (body?.text ?? "").trim();
+  const text = normalizeLegacyText(String(body?.text ?? ""));
   if (text.length < 10) return c.json({ error: "Text too short" }, 400);
   const words = wordCount(text);
   if (words < 80 || words > 120) {
@@ -3381,12 +3420,12 @@ app.get("/champ/items", async (c) => {
     }
 
     // Full text for display (not truncated)
-    const fullText = row.text.trim().replace(/\s+/g, " ");
+    const fullText = normalizeLegacyText(String(row.text ?? ""));
     
     // Excerpt for map dots (truncated)
     let textExcerpt = fullText;
     if (textExcerpt.length > 90) {
-      textExcerpt = textExcerpt.slice(0, 87).trim() + "â€¦";
+      textExcerpt = textExcerpt.slice(0, 87).trim() + "...";
     }
 
     return {
