@@ -38,6 +38,8 @@ import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
 import { project } from '../utils/map-project';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
+const MAP_VIEWBOX_WIDTH = 2037.566;
+const MAP_VIEWBOX_HEIGHT = 1615.5;
 type RitualStartLaw = {
   allowed: boolean;
   reason_code?: string;
@@ -60,6 +62,7 @@ interface MapPoint {
 const MARKER_MIN_MOVE_M = 6;
 const MARKER_MAX_ACCURACY_M = 30;
 const PRESENCE_PULSE_INTERVAL_MS = 30_000;
+const MARKER_LERP_ALPHA = 0.25;
 
 function getCollectedPoints(): MapPoint[] {
   const collection = getCollection();
@@ -84,11 +87,9 @@ function getCollectedPoints(): MapPoint[] {
 }
 
 function inferArrondissementFromGeo(lat: number, lng: number): number | null {
-  const VIEWBOX_WIDTH = 2037.566;
-  const VIEWBOX_HEIGHT = 1615.5;
   const p = project(lat, lng);
-  const xPct = (p.x / VIEWBOX_WIDTH) * 100;
-  const yPct = (p.y / VIEWBOX_HEIGHT) * 100;
+  const xPct = (p.x / MAP_VIEWBOX_WIDTH) * 100;
+  const yPct = (p.y / MAP_VIEWBOX_HEIGHT) * 100;
   if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
   let bestArr: number | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
@@ -116,6 +117,13 @@ function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: 
   const s2 = Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2), Math.sqrt(1 - (s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2)));
   return R * c;
+}
+
+function lerpPoint(from: { lat: number; lng: number }, to: { lat: number; lng: number }, alpha: number): { lat: number; lng: number } {
+  return {
+    lat: from.lat + (to.lat - from.lat) * alpha,
+    lng: from.lng + (to.lng - from.lng) * alpha,
+  };
 }
 
 export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMemoryMapProps) {
@@ -192,6 +200,18 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     return list;
   }, [showThreads, showTemporalOnly]);
   const temporalUnlocked = isTemporalMeridiansUnlocked();
+  const mapPanOffset = useMemo(() => {
+    if (!presenceMarker) return { xPct: 0, yPct: 0 };
+    const p = project(presenceMarker.lat, presenceMarker.lng);
+    const xPct = (p.x / MAP_VIEWBOX_WIDTH) * 100;
+    const yPct = (p.y / MAP_VIEWBOX_HEIGHT) * 100;
+    const outsideParis = xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100;
+    if (!outsideParis) return { xPct: 0, yPct: 0 };
+    return {
+      xPct: 50 - xPct,
+      yPct: 50 - yPct,
+    };
+  }, [presenceMarker]);
 
   // Arrondissements with 0 collected symbols (unvisited)
   const visitedArrondissements = useMemo(() => {
@@ -386,14 +406,16 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         const from = presenceMarkerRef.current
           ? { lat: presenceMarkerRef.current.lat, lng: presenceMarkerRef.current.lng }
           : prevTarget;
+        const smoothedIncoming = lerpPoint(from, incoming, MARKER_LERP_ALPHA);
         const durationMs = Math.max(300, Math.min(600, 280 + movedMeters * 14));
+        markerTargetRef.current = smoothedIncoming;
         setPresenceMarker((prev) => ({ lat: from.lat, lng: from.lng, moving: true, pulsePaused: prev?.pulsePaused ?? false }));
-        animateMarker(from, incoming, durationMs);
+        animateMarker(from, smoothedIncoming, durationMs);
       },
       () => {
         // Silent fail: marker is best effort.
       },
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 }
     );
 
     const movingTicker = window.setInterval(() => {
@@ -426,7 +448,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       if (document.visibilityState !== 'visible') return false;
       if (now < pulseRetryUntilRef.current) return false;
       if (now - lastPulseAtRef.current < PRESENCE_PULSE_INTERVAL_MS) return false;
-      if (coords.accuracy > 80) return false;
+      if (coords.accuracy > MARKER_MAX_ACCURACY_M) return false;
       const speed = typeof coords.speed === 'number' && Number.isFinite(coords.speed) ? coords.speed : null;
       if (speed !== null && speed >= 0.35) return true;
       const prev = lastPulsePosRef.current;
@@ -436,6 +458,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
 
     const watchId = navigator.geolocation.watchPosition(
       async (pos) => {
+        if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
         if (!shouldPulse(pos.coords) || inFlightPulseRef.current) return;
         const arr = inferArrondissementFromGeo(pos.coords.latitude, pos.coords.longitude);
         if (!arr) return;
@@ -470,7 +493,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       () => {
         // Silent fail: heartbeat is best effort.
       },
-      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 }
     );
 
     return () => {
@@ -575,6 +598,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           setShowInscriptionsLayer={setShowInscriptionsLayer}
           segmentsLabel={t('myparis.layers.segments')}
           inscriptionsLabel={t('myparis.layers.inscriptions')}
+          momentsTabLabel={t('map.tabs.moments')}
         />
 
         {/* Map: homepage size or a bit bigger, then all content below */}
@@ -587,6 +611,13 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             flexShrink: 0
           }}
         >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              transform: `translate(${mapPanOffset.xPct}%, ${mapPanOffset.yPct}%)`,
+            }}
+          >
           <img
             src="/Parissvg.svg"
             alt=""
@@ -621,6 +652,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             youAreHereLabel="Vous êtes ici / You are here"
             recognitionLine={recognitionLine}
           />
+        </div>
         </div>
         <p
           style={{

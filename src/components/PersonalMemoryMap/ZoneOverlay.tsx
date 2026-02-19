@@ -12,18 +12,22 @@ interface ZoneOverlayProps {
   mapMode: MapLayerMode;
   zoneProgressMap: Record<string, ZoneProgressItem>;
   zoneLawMap: Record<string, { allowed: boolean; reason_code?: string }>;
+  anchorZoneMap: Record<string, boolean>;
   onZoneSelect: (arr: number) => void;
-  geoLat: number | null;
-  geoLng: number | null;
+  marker: { lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null;
+  youAreHereLabel: string;
+  recognitionLine: string | null;
 }
 
 export function ZoneOverlay({
   mapMode,
   zoneProgressMap,
   zoneLawMap,
+  anchorZoneMap,
   onZoneSelect,
-  geoLat,
-  geoLng,
+  marker,
+  youAreHereLabel,
+  recognitionLine,
 }: ZoneOverlayProps) {
   return (
     <>
@@ -43,6 +47,7 @@ export function ZoneOverlay({
         const hasObservation = progress?.observation_ritual === true;
         const isSealed = hasPresence && hasObservation;
         const hasEntered = progress?.entered === true;
+        const isAnchorZone = anchorZoneMap[zoneId] === true;
 
         const getRituelFill = () => {
           if (isSealed) return '#4a7c59';
@@ -71,7 +76,7 @@ export function ZoneOverlay({
                 borderRadius: '50%',
                 background: getRituelFill(),
                 border: isCustodian ? '2px solid #d4af37' : isLawLocked ? '1px dashed rgba(139,0,0,0.45)' : '1px solid rgba(0,0,0,0.1)',
-                opacity: isLawLocked ? 0.78 : 1,
+                opacity: isAnchorZone ? 0.96 : isLawLocked ? 0.64 : 0.78,
                 cursor: 'pointer',
                 zIndex: 3,
                 display: 'flex',
@@ -121,7 +126,7 @@ export function ZoneOverlay({
               alignItems: 'center',
               justifyContent: 'center',
               padding: 0,
-              opacity: isLawLocked ? 0.86 : 1,
+              opacity: isAnchorZone ? 0.94 : isLawLocked ? 0.62 : 0.76,
               ...(isCustodian ? custodyGlow : {
                 border: isComplete ? '2px solid rgba(255,215,0,0.4)' : 'none',
                 boxShadow: isComplete ? '0 2px 8px rgba(0,61,44,0.3)' : 'none',
@@ -150,11 +155,11 @@ export function ZoneOverlay({
         );
       })}
 
-      {geoLat !== null && geoLng !== null && (() => {
-        const userPos = project(geoLat, geoLng);
+      {marker && (() => {
+        const userPos = project(marker.lat, marker.lng);
         const xPct = (userPos.x / VIEWBOX_WIDTH) * 100;
         const yPct = (userPos.y / VIEWBOX_HEIGHT) * 100;
-        if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return null;
+        const pulseDuration = marker.moving ? '2.5s' : '4.2s';
         return (
           <div
             style={{
@@ -169,26 +174,61 @@ export function ZoneOverlay({
             <div
               style={{
                 position: 'absolute',
-                width: 32,
-                height: 32,
+                width: 26,
+                height: 26,
                 borderRadius: '50%',
-                background: 'rgba(0, 120, 80, 0.15)',
+                background: 'rgba(0, 120, 80, 0.12)',
                 transform: 'translate(-50%, -50%)',
                 left: '50%',
                 top: '50%',
-                animation: 'you-are-here-pulse 2s ease-out infinite',
+                animation: `you-are-here-pulse ${pulseDuration} ease-out infinite`,
+                animationPlayState: marker.pulsePaused ? 'paused' : 'running',
               }}
             />
             <div
               style={{
-                width: 12,
-                height: 12,
+                width: 10,
+                height: 10,
                 borderRadius: '50%',
                 background: '#007850',
                 border: '2px solid #FAF8F2',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.22)',
               }}
             />
+            <div
+              style={{
+                marginTop: 6,
+                marginLeft: -20,
+                padding: '2px 6px',
+                borderRadius: 8,
+                background: 'rgba(250,248,242,0.88)',
+                border: '1px solid rgba(0,61,44,0.14)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 9,
+                color: '#003D2C',
+                opacity: 0.72,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {youAreHereLabel}
+            </div>
+            {recognitionLine && (
+              <div
+                style={{
+                  marginTop: 8,
+                  marginLeft: -12,
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 12,
+                  fontStyle: 'italic',
+                  color: '#003D2C',
+                  opacity: 0.78,
+                  whiteSpace: 'nowrap',
+                  animation: 'presence-recognition 4s ease-in-out forwards',
+                }}
+              >
+                {recognitionLine}
+              </div>
+            )}
           </div>
         );
       })()}
