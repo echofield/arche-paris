@@ -12,11 +12,36 @@ import { useTranslation } from '../utils/i18n';
 import { loadChampItems, type FieldItem } from '../utils/card-gate-client';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { project } from '../utils/map-project';
+import { postInscription } from '../utils/card-gate-map-client';
+import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 
 interface ChampScreenProps {
   cardId: string;
   onBack: () => void;
+}
+
+const CHAMP_WORDS_MIN = 80;
+const CHAMP_WORDS_MAX = 120;
+const CHAMP_HEADER_PATTERN = /^Rue\s+.+\s+-\s+(?:[01]\d|2[0-3]):[0-5]\d(?:\s|$)/;
+
+function countWords(value: string): number {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function validateChampTrace(value: string): string | null {
+  const normalized = value.trim();
+  if (!CHAMP_HEADER_PATTERN.test(normalized)) {
+    return 'Format requis: "Rue ... - HH:MM" en debut de texte.';
+  }
+  const words = countWords(normalized);
+  if (words < CHAMP_WORDS_MIN || words > CHAMP_WORDS_MAX) {
+    return `Longueur requise: ${CHAMP_WORDS_MIN}-${CHAMP_WORDS_MAX} mots (actuel: ${words}).`;
+  }
+  return null;
 }
 
 export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
@@ -33,6 +58,33 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const [showAddTrace, setShowAddTrace] = useState(false);
   const [traceDraft, setTraceDraft] = useState('');
   const [traceSaving, setTraceSaving] = useState(false);
+  const [traceError, setTraceError] = useState<string | null>(null);
+  const traceValidationError = validateChampTrace(traceDraft);
+  const traceWordCount = countWords(traceDraft);
+  const canSubmitTrace = !traceSaving && geo.lat !== null && geo.lng !== null && traceDraft.trim().length > 0 && !traceValidationError;
+
+  const inferArrondissementFromGeo = (lat: number, lng: number): number | null => {
+    const VIEWBOX_WIDTH = 2037.566;
+    const VIEWBOX_HEIGHT = 1615.5;
+    const p = project(lat, lng);
+    const xPct = (p.x / VIEWBOX_WIDTH) * 100;
+    const yPct = (p.y / VIEWBOX_HEIGHT) * 100;
+    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
+    let bestArr: number | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let arr = 1; arr <= 20; arr++) {
+      const center = ARRONDISSEMENT_MAP_POSITION[arr];
+      if (!center) continue;
+      const dx = center.x - xPct;
+      const dy = center.y - yPct;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestDist) {
+        bestDist = d;
+        bestArr = arr;
+      }
+    }
+    return bestArr;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -386,8 +438,11 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
 
             <textarea
               value={traceDraft}
-              onChange={(e) => setTraceDraft(e.target.value)}
-              placeholder="Ce que tu observes, ressens, penses..."
+              onChange={(e) => {
+                setTraceDraft(e.target.value);
+                if (traceError) setTraceError(null);
+              }}
+              placeholder="Rue ... - HH:MM ..."
               rows={4}
               maxLength={280}
               style={{
@@ -405,22 +460,43 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
-                {traceDraft.length} / 280
+                {traceWordCount} mots - {traceDraft.length} / 280
               </span>
               <button
                 type="button"
-                disabled={traceSaving || traceDraft.trim().length < 5 || geo.lat === null}
+                disabled={!canSubmitTrace}
                 onClick={async () => {
-                  if (traceDraft.trim().length < 5 || geo.lat === null || geo.lng === null) return;
+                  if (!canSubmitTrace || geo.lat === null || geo.lng === null) return;
                   setTraceSaving(true);
+                  setTraceError(null);
                   try {
-                    // TODO: Call API to save trace
-                    // For now, just close and show feedback
-                    console.log('Trace submitted:', traceDraft, { lat: geo.lat, lng: geo.lng });
+                    const arrondissement = inferArrondissementFromGeo(geo.lat, geo.lng);
+                    if (!arrondissement) throw new Error('Position hors zone');
+                    const idempotencyKey = `champ:${arrondissement}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+                    await postInscription(cardId, {
+                      kind: 'arrondissement',
+                      arrondissement,
+                      text: traceDraft.trim(),
+                      idempotency_key: idempotencyKey,
+                      opt_in_field: true,
+                    });
+
+                    const data = await loadChampItems(cardId);
+                    const mappedItems: ChampFieldItem[] = data
+                      .filter((item): item is FieldItem & { arrondissement: number } => item.arrondissement != null)
+                      .map((item) => ({
+                        id: item.id,
+                        arrondissement: item.arrondissement,
+                        textExcerpt: item.textExcerpt,
+                        timeLabel: item.timeLabel,
+                      }));
+                    setFullItems(data.filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null));
+                    setItems(mappedItems);
                     setTraceDraft('');
                     setShowAddTrace(false);
                   } catch (err) {
                     console.error('Failed to save trace:', err);
+                    setTraceError(err instanceof Error ? err.message : 'Envoi impossible');
                   } finally {
                     setTraceSaving(false);
                   }
@@ -431,19 +507,29 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                   fontSize: 11,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  color: (traceSaving || traceDraft.trim().length < 5 || geo.lat === null) ? '#8E8982' : '#003D2C',
-                  background: (traceSaving || traceDraft.trim().length < 5 || geo.lat === null) ? 'rgba(0,0,0,0.03)' : 'rgba(0,61,44,0.1)',
+                  color: canSubmitTrace ? '#003D2C' : '#8E8982',
+                  background: canSubmitTrace ? 'rgba(0,61,44,0.1)' : 'rgba(0,0,0,0.03)',
                   border: 'none',
                   borderRadius: 4,
-                  cursor: (traceSaving || traceDraft.trim().length < 5 || geo.lat === null) ? 'not-allowed' : 'pointer',
+                  cursor: canSubmitTrace ? 'pointer' : 'not-allowed',
                 }}
               >
                 {traceSaving ? '...' : 'Envoyer'}
               </button>
             </div>
+            {traceDraft.trim().length > 0 && traceValidationError && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#B43232', textAlign: 'left' }}>
+                {traceValidationError}
+              </p>
+            )}
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: '#6B6455', opacity: 0.5, textAlign: 'center' }}>
               Ta trace apparaîtra sur la carte publique. Anonyme. Éphémère.
             </p>
+            {traceError && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#B43232', textAlign: 'center' }}>
+                {traceError}
+              </p>
+            )}
           </div>
         </SheetContent>
       </Sheet>
