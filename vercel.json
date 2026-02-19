@@ -18,10 +18,6 @@
   ],
   "rewrites": [
     {
-      "source": "/api/card-gate/:path*",
-      "destination": "/api/card-gate?path=:path*"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

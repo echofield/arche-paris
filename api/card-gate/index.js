@@ -163,3 +163,7 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ error: message });
   }
 };
+
+module.exports.config = {
+  api: { bodyParser: false, externalResolver: true },
+};
