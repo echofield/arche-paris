@@ -65,7 +65,11 @@ module.exports = async function handler(req, res) {
 
   const supabaseBase = buildSupabaseBase();
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-  const pathRaw = typeof req.query.path === 'string' ? req.query.path : '';
+  const pathRaw = Array.isArray(req.query.path)
+    ? req.query.path.join('/')
+    : typeof req.query.path === 'string'
+      ? req.query.path
+      : '';
   const proxiedPath = pathRaw.replace(/^\/+/, '');
   if (!proxiedPath) {
     return res.status(200).json({
