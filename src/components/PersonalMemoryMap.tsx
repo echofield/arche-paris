@@ -10,7 +10,7 @@
  * When user pins (collects) or writes here, it gets printed into notes (Carnet).
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
 import { getCollection } from '../utils/collection-service';
@@ -21,24 +21,31 @@ import { listTraces, loadTracesV1 } from '../utils/trace-service';
 import { getTodayKey, getTodaySummary, addManualWalk } from '../utils/walk-service';
 import { bump } from '../utils/companion-service';
 import { getRuns, isTemporalMeridiansUnlocked } from '../utils/quest-run-service';
-import { project } from '../utils/map-project';
-import { QUETES_DATA } from './QueteDetail';
 import { CompanionBlock } from './CompanionBlock';
 import { useTranslation } from '../utils/i18n';
 import { getRefusedArrondissements, isRefused, setRefused } from '../utils/refused-arrondissements';
-import { getMapState, postInscription } from '../utils/card-gate-map-client';
+import { getMapState, getCityMapState, postInscription } from '../utils/card-gate-map-client';
 import { hasLocalSecret } from '../utils/card-gate-client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
-import type { MapState, MapInscription, EngravedSegment } from '../types/map-engraving';
+import type { MapState, MapInscription, CityMapState } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
-import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { ZoneEntryFeedback } from './ZoneEntryFeedback';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
-import { api, type ZoneProgressItem } from '../lib/api';
+import { api, type ZoneProgressItem, type WorldSnapshotData } from '../lib/api';
+import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
+import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
+import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
+const USE_WORLD_SNAPSHOT_MAP_SOURCE = true;
+
+type RitualStartLaw = {
+  allowed: boolean;
+  reason_code?: string;
+  message?: string;
+  next_unlock_hint?: string | null;
+};
 
 interface PersonalMemoryMapProps {
   cardId: string;
@@ -74,17 +81,12 @@ function getCollectedPoints(): MapPoint[] {
     .filter((p): p is MapPoint => p !== null);
 }
 
-const VIEWBOX_WIDTH = 2037.566;
-const VIEWBOX_HEIGHT = 1615.5;
-
 export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMemoryMapProps) {
   const { t } = useTranslation();
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [showThreads, setShowThreads] = useState(true);
   const [showTemporalOnly, setShowTemporalOnly] = useState(false);
-  const [popover, setPopover] = useState<{ runId: string; questId: string; nodeId: string; name: string; geste: string; evidenceCount: number } | null>(null);
   const [showAddWalk, setShowAddWalk] = useState(false);
   const [addWalkLabel, setAddWalkLabel] = useState('');
   const [addWalkKm, setAddWalkKm] = useState('');
@@ -95,23 +97,19 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [unmarkedPromptArr, setUnmarkedPromptArr] = useState<number | null>(null);
   // Map engraving (Card Gate): 3 layers
   const [mapState, setMapState] = useState<MapState | null>(null);
-  const [mapStateError, setMapStateError] = useState<string | null>(null);
   const previousMapStateRef = useRef<MapState | null>(null);
+  const [cityMapState, setCityMapState] = useState<CityMapState | null>(null);
   const [showSegments, setShowSegments] = useState(true);
   const [showInscriptionsLayer, setShowInscriptionsLayer] = useState(true);
-  // Main map layer mode
-  type MapLayerMode = 'traces' | 'ville' | 'rituels';
   const [mapMode, setMapMode] = useState<MapLayerMode>('traces');
   const [ecrireSheetArr, setEcrireSheetArr] = useState<number | null>(null);
   const [ecrireDraft, setEcrireDraft] = useState('');
   const [ecrireSaving, setEcrireSaving] = useState(false);
   const [ecrireError, setEcrireError] = useState<string | null>(null);
   const [ecrireOptInField, setEcrireOptInField] = useState(false); // Share to Le Champ
-  // ARCHÉ zone entry
-  const zoneEntry = useZoneEntry();
-  const [zoneEntryPromptArr, setZoneEntryPromptArr] = useState<number | null>(null);
   const [zoneDetailArr, setZoneDetailArr] = useState<number | null>(null);
   const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
+  const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   // GPS location for "You are here" marker
   const geo = useGeolocation();
 
@@ -161,22 +159,98 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     loadMyParisNote(cardId).then(setNote);
   }, [cardId]);
 
-  useEffect(() => {
-    if (!hasLocalSecret(cardId)) return;
-    setMapStateError(null);
-    getMapState(cardId)
-      .then((state) => {
-        previousMapStateRef.current = state;
-        setMapState(state);
-      })
-      .catch((err) => {
-        setMapStateError(err instanceof Error ? err.message : 'Failed to load map state');
-        setMapState(null);
-        previousMapStateRef.current = null;
-      });
-  }, [cardId]);
+  const parseArrondissementFromH3 = (h3: string): number | null => {
+    const m = h3.match(/^PAR-(\d{1,2})$/i);
+    if (!m) return null;
+    const arr = Number.parseInt(m[1], 10);
+    return Number.isFinite(arr) && arr >= 1 && arr <= 20 ? arr : null;
+  };
+
+  const toZoneIdFromH3 = (h3: string): string | null => {
+    const arr = parseArrondissementFromH3(h3);
+    return arr ? `paris-${arr}` : null;
+  };
+
+  const applySnapshot = useCallback((snap: WorldSnapshotData) => {
+    const mappedMapState: MapState = {
+      inscriptions: (snap.world.map.inscriptions ?? []).map((ins) => {
+        const arr = parseArrondissementFromH3(ins.h3);
+        return {
+          id: ins.id,
+          kind: 'arrondissement',
+          status: 'verified',
+          arrondissement: arr ?? undefined,
+          text: ins.excerpt,
+          createdAt: ins.ts,
+          immutable: true as const,
+        };
+      }),
+      segments: [],
+      meridian_proofs: [],
+    };
+
+    const mappedCityState: CityMapState = {
+      generatedAt: snap.now,
+      windowDays: 90,
+      arrondissements: (snap.world.zones ?? [])
+        .map((z) => {
+          const arr = parseArrondissementFromH3(z.h3);
+          if (!arr) return null;
+          const inscriptionsRecent = z.signals?.inscriptions_recent ?? 0;
+          const champRecent = z.signals?.champ_recent ?? 0;
+          const weighted = inscriptionsRecent + champRecent * 0.5;
+          const signalStrength = Math.max(0, Math.min(1, weighted / 8));
+          return {
+            arrondissement: arr,
+            signalStrength,
+            inscriptionCount: inscriptionsRecent,
+            verifiedInscriptions: inscriptionsRecent,
+            pendingInscriptions: 0,
+            segmentCount: champRecent,
+            lastActivityAt: null,
+            sampleLines: [],
+          };
+        })
+        .filter((v): v is CityMapState['arrondissements'][number] => v !== null),
+    };
+
+    const mappedLaw: Record<string, RitualStartLaw> = {};
+    (snap.world.zones ?? []).forEach((z) => {
+      const zoneId = toZoneIdFromH3(z.h3);
+      if (!zoneId) return;
+      const law = z.law?.['ritual.start'] as RitualStartLaw | undefined;
+      if (law) mappedLaw[zoneId] = law;
+    });
+
+    previousMapStateRef.current = mappedMapState;
+    setMapState(mappedMapState);
+    setCityMapState(mappedCityState);
+    setZoneLawMap(mappedLaw);
+  }, []);
 
   const refreshMapState = useCallback(() => {
+    if (USE_WORLD_SNAPSHOT_MAP_SOURCE) {
+      api.worldSnapshot({ include: 'map,champ,law', h3_center: 'PAR-10', k: 10 })
+        .then((result) => {
+          if (result.data) {
+            applySnapshot(result.data);
+            return;
+          }
+          if (result.error) throw new Error(result.error);
+        })
+        .catch(() => {
+          getMapState(cardId)
+            .then((state) => {
+              previousMapStateRef.current = state;
+              setMapState(state);
+            })
+            .catch(() => {});
+          getCityMapState(cardId, 90)
+            .then(setCityMapState)
+            .catch(() => {});
+        });
+      return;
+    }
     getMapState(cardId)
       .then((newState) => {
         const prevState = previousMapStateRef.current;
@@ -226,7 +300,15 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         setMapState(newState);
       })
       .catch(() => {});
-  }, [cardId]);
+    getCityMapState(cardId, 90)
+      .then(setCityMapState)
+      .catch(() => {});
+  }, [applySnapshot, cardId]);
+
+  useEffect(() => {
+    if (!hasLocalSecret(cardId)) return;
+    refreshMapState();
+  }, [cardId, refreshMapState]);
 
   const handleNoteBlur = useCallback(() => {
     saveMyParisNote(cardId, note).catch(console.warn);
@@ -304,173 +386,22 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           alignItems: 'center'
         }}
       >
-        {/* Main mode selector: Mes traces / La Ville / Rituels */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 16, justifyContent: 'center' }}>
-          {(['traces', 'ville', 'rituels'] as const).map((mode) => {
-            const labels = { traces: 'Mes traces', ville: 'La Ville', rituels: 'Rituels' };
-            const isActive = mapMode === mode;
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setMapMode(mode)}
-                style={{
-                  padding: '8px 16px',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 11,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: isActive ? '#FAF8F2' : '#003D2C',
-                  background: isActive ? '#003D2C' : 'transparent',
-                  border: `1px solid ${isActive ? '#003D2C' : 'rgba(0,61,44,0.2)'}`,
-                  borderRadius: mode === 'traces' ? '4px 0 0 4px' : mode === 'rituels' ? '0 4px 4px 0' : 0,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {labels[mode]}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Sub-layer toggles (only show in 'traces' mode) */}
-        {mapMode === 'traces' && (() => {
-          const visuallyHidden: CSSProperties = {
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            padding: 0,
-            margin: -1,
-            overflow: 'hidden',
-            clip: 'rect(0, 0, 0, 0)',
-            whiteSpace: 'nowrap',
-            border: 0
-          };
-          const pillBase: CSSProperties = {
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            height: 32,
-            padding: '0 12px',
-            border: '1px solid #DBD4C6',
-            background: '#FAF8F3',
-            color: '#1F3B2E',
-            borderRadius: 999,
-            fontFamily: 'var(--font-sans)',
-            fontSize: 11,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-            transition: 'background 0.2s ease, border-color 0.2s ease'
-          };
-          const pillChecked: CSSProperties = {
-            background: 'rgba(31,59,46,0.06)',
-            borderColor: 'rgba(31,59,46,0.35)'
-          };
-          const dotBase: CSSProperties = {
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            flexShrink: 0
-          };
-          const PillToggle = ({
-            checked,
-            onChange,
-            label,
-            ariaLabel
-          }: { checked: boolean; onChange: () => void; label: string; ariaLabel: string }) => (
-            <label
-              style={{
-                ...pillBase,
-                ...(checked ? pillChecked : {}),
-                outline: 'none'
-              }}
-              onMouseEnter={(e) => {
-                if (!checked) e.currentTarget.style.background = 'rgba(31,59,46,0.04)';
-              }}
-              onMouseLeave={(e) => {
-                if (!checked) e.currentTarget.style.background = '#FAF8F3';
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={onChange}
-                style={visuallyHidden}
-                aria-label={ariaLabel}
-                onFocus={(e) => {
-                  e.currentTarget.parentElement!.style.outline = '2px solid rgba(31,59,46,0.25)';
-                  e.currentTarget.parentElement!.style.outlineOffset = '2px';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.parentElement!.style.outline = 'none';
-                  e.currentTarget.parentElement!.style.outlineOffset = '0';
-                }}
-              />
-              <span
-                style={{
-                  ...dotBase,
-                  background: checked ? 'rgba(31,59,46,0.55)' : 'transparent',
-                  border: `1px solid ${checked ? 'rgba(31,59,46,0.55)' : '#DBD4C6'}`
-                }}
-              />
-              <span>{label}</span>
-            </label>
-          );
-          return (
-            <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {(runs.length > 0 || temporalUnlocked) && (
-                <>
-                  <PillToggle
-                    checked={showThreads}
-                    onChange={() => setShowThreads((v) => !v)}
-                    label="Threads"
-                    ariaLabel="Threads"
-                  />
-                  {temporalUnlocked && (
-                    <PillToggle
-                      checked={showTemporalOnly}
-                      onChange={() => setShowTemporalOnly((v) => !v)}
-                      label="Temporal Meridians only"
-                      ariaLabel="Temporal Meridians only"
-                    />
-                  )}
-                </>
-              )}
-              <PillToggle
-                checked={showSegments}
-                onChange={() => setShowSegments((v) => !v)}
-                label={t('myparis.layers.segments')}
-                ariaLabel={t('myparis.layers.segments')}
-              />
-              <PillToggle
-                checked={showInscriptionsLayer}
-                onChange={() => setShowInscriptionsLayer((v) => !v)}
-                label={t('myparis.layers.inscriptions')}
-                ariaLabel={t('myparis.layers.inscriptions')}
-              />
-            </div>
-          );
-        })()}
-
-        {/* Rituels legend */}
-        {mapMode === 'rituels' && (
-          <div style={{ display: 'flex', gap: 16, marginBottom: 12, justifyContent: 'center', fontSize: 10, fontFamily: 'var(--font-sans)', color: '#6B6455' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#e5e5e5', border: '1px solid #ccc' }} />
-              Inexploré
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#d4af37' }} />
-              Entré
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4a7c59' }} />
-              Scellé
-            </span>
-          </div>
-        )}
+        <MapLayers
+          mapMode={mapMode}
+          setMapMode={setMapMode}
+          showThreads={showThreads}
+          setShowThreads={setShowThreads}
+          showTemporalOnly={showTemporalOnly}
+          setShowTemporalOnly={setShowTemporalOnly}
+          temporalUnlocked={temporalUnlocked}
+          runsLength={runs.length}
+          showSegments={showSegments}
+          setShowSegments={setShowSegments}
+          showInscriptionsLayer={showInscriptionsLayer}
+          setShowInscriptionsLayer={setShowInscriptionsLayer}
+          segmentsLabel={t('myparis.layers.segments')}
+          inscriptionsLabel={t('myparis.layers.inscriptions')}
+        />
 
         {/* Map: homepage size or a bit bigger, then all content below */}
         <div
@@ -495,436 +426,24 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               pointerEvents: 'none'
             }}
           />
-          {/* La Ville mode: placeholder for community traces */}
-          {mapMode === 'ville' && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(250,248,242,0.7)',
-                zIndex: 5,
-              }}
-            >
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: 24,
-                  maxWidth: 240,
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: 'var(--font-serif)',
-                    fontSize: 14,
-                    fontStyle: 'italic',
-                    color: '#6B6455',
-                    marginBottom: 8,
-                  }}
-                >
-                  Les traces de la ville apparaissent ici.
-                </p>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 10,
-                    color: '#8E8982',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  Traces anonymes, effacées par le temps.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Layer 2 — Engraved segments (Card Gate) */}
-          {mapMode === 'traces' && showSegments && mapState?.segments && mapState.segments.length > 0 && (
-            <svg
-              viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
-              preserveAspectRatio="xMidYMid meet"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none'
-              }}
-            >
-              {mapState.segments.map((seg: EngravedSegment) => {
-                const fromP = seg.from?.lat != null && seg.from?.lng != null
-                  ? project(seg.from.lat, seg.from.lng)
-                  : seg.from?.arrondissement != null && ARRONDISSEMENT_MAP_POSITION[seg.from.arrondissement]
-                    ? {
-                        x: (ARRONDISSEMENT_MAP_POSITION[seg.from.arrondissement].x / 100) * VIEWBOX_WIDTH,
-                        y: (ARRONDISSEMENT_MAP_POSITION[seg.from.arrondissement].y / 100) * VIEWBOX_HEIGHT
-                      }
-                    : null;
-                const toP = seg.to?.lat != null && seg.to?.lng != null
-                  ? project(seg.to.lat, seg.to.lng)
-                  : seg.to?.arrondissement != null && ARRONDISSEMENT_MAP_POSITION[seg.to.arrondissement]
-                    ? {
-                        x: (ARRONDISSEMENT_MAP_POSITION[seg.to.arrondissement].x / 100) * VIEWBOX_WIDTH,
-                        y: (ARRONDISSEMENT_MAP_POSITION[seg.to.arrondissement].y / 100) * VIEWBOX_HEIGHT
-                      }
-                    : null;
-                if (!fromP || !toP) return null;
-                const isPending = seg.status === 'pending';
-                return (
-                  <line
-                    key={seg.id}
-                    x1={fromP.x}
-                    y1={fromP.y}
-                    x2={toP.x}
-                    y2={toP.y}
-                    stroke="#003D2C"
-                    strokeWidth={isPending ? 1.5 : 2}
-                    strokeDasharray={isPending ? '4 4' : 'none'}
-                    opacity={isPending ? 0.5 : 0.85}
-                  />
-                );
-              })}
-            </svg>
-          )}
-          {/* Layer 3 — Inscription marks (arrondissements with inscriptions) */}
-          {mapMode === 'traces' && showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
-            const arrsWithInscriptions = new Set(
-              mapState.inscriptions.map((i) => i.arrondissement).filter((a): a is number => a != null)
-            );
-            return (
-              <>
-                {Array.from(arrsWithInscriptions).map((arr) => {
-                  const pos = ARRONDISSEMENT_MAP_POSITION[arr];
-                  if (!pos) return null;
-                  return (
-                    <div
-                      key={arr}
-                      style={{
-                        position: 'absolute',
-                        left: `${pos.x}%`,
-                        top: `${pos.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: '#003D2C',
-                        opacity: 0.6,
-                        pointerEvents: 'none'
-                      }}
-                    />
-                  );
-                })}
-              </>
-            );
-          })()}
-          {/* Quest threads overlay — polylines + stamps (from getRuns). TODO: optionally unify with traces_v1 for selected trace highlight. */}
-          {mapMode === 'traces' && showThreads && runs.length > 0 && (
-            <svg
-              viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
-              preserveAspectRatio="xMidYMid meet"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none'
-              }}
-            >
-              {runs.map((run) => {
-                const quete = QUETES_DATA[run.questId];
-                const nodes = quete?.stops?.filter((s): s is typeof s & { nodeId: string; coordinates: { lat: number; lng: number } } => !!(s.nodeId && s.coordinates)) ?? [];
-                const pts = nodes.map((s) => project(s.coordinates.lat, s.coordinates.lng));
-                const pathD = pts.length > 1 ? `M ${pts.map((p) => `${p.x} ${p.y}`).join(' L ')}` : '';
-                const stroke = run.closedAt ? '#003D2C' : '#8E8982';
-                return (
-                  <g key={run.runId} style={{ pointerEvents: 'auto' }}>
-                    <path d={pathD} fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={0.7} pointerEvents="none" />
-                    {nodes.map((stop, i) => {
-                      if (!run.visited[stop.nodeId]) return null;
-                      const p = pts[i];
-                      return (
-                        <circle
-                          key={stop.nodeId}
-                          cx={p.x}
-                          cy={p.y}
-                          r={8}
-                          fill="#003D2C"
-                          opacity={0.9}
-                          style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPopover({
-                              runId: run.runId,
-                              questId: run.questId,
-                              nodeId: stop.nodeId,
-                              name: stop.name,
-                              geste: stop.geste,
-                              evidenceCount: run.visited[stop.nodeId]?.evidenceLocalIds?.length ?? 0
-                            });
-                          }}
-                        />
-                      );
-                    })}
-                  </g>
-                );
-              })}
-            </svg>
-          )}
-          {/* Stamp popover */}
-          {popover && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                marginBottom: 12,
-                padding: 12,
-                background: '#FAF8F2',
-                border: '1px solid rgba(0,61,44,0.2)',
-                borderRadius: 4,
-                maxWidth: 260,
-                zIndex: 10,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontWeight: 500, color: '#1A1A1A', marginBottom: 6 }}>{popover.name}</div>
-              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 12, fontStyle: 'italic', color: '#003D2C', opacity: 0.9, marginBottom: 10 }}>{popover.geste}</p>
-              {popover.evidenceCount > 0 && (
-                <button type="button" style={{ fontSize: 10, textTransform: 'uppercase', marginBottom: 8, background: 'none', border: 'none', color: '#003D2C', opacity: 0.7, cursor: 'pointer' }}>
-                  View evidence
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.hash = `quete/${popover.questId}`;
-                  setPopover(null);
-                }}
-                style={{ fontSize: 10, textTransform: 'uppercase', background: 'none', border: 'none', color: '#003D2C', cursor: 'pointer', fontWeight: 500 }}
-              >
-                Continue
-              </button>
-            </div>
-          )}
-          {mapMode === 'traces' && points.map(({ symbol, x, y }) => (
-            <div
-              key={symbol.id}
-              style={{
-                position: 'absolute',
-                left: `${x}%`,
-                top: `${y}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 2
-              }}
-              onMouseEnter={() => setHoveredId(symbol.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <div
-                style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '50%',
-                  background: '#003D2C',
-                  cursor: 'default',
-                  transition: 'transform 0.2s ease',
-                  transform: hoveredId === symbol.id ? 'scale(1.4)' : 'scale(1)'
-                }}
-              />
-              {hoveredId === symbol.id && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '100%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    marginBottom: '8px',
-                    padding: '6px 12px',
-                    background: '#1A1A1A',
-                    color: '#FAF8F2',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '10px',
-                    letterSpacing: '0.05em',
-                    whiteSpace: 'nowrap',
-                    borderRadius: '2px'
-                  }}
-                >
-                  {symbol.name}
-                </div>
-              )}
-            </div>
-          ))}
-          {/* Clickable arrondissement zones with progress rings or ritual colors */}
-          {mapMode !== 'ville' && ARRONDISSEMENTS.map((arr) => {
-            const pos = ARRONDISSEMENT_MAP_POSITION[arr];
-            if (!pos) return null;
-            const zoneId = arrToZoneId(arr);
-            const progress = zoneProgressMap[zoneId];
-            const objectivesComplete = progress?.objectives_complete ?? 0;
-            const progressPct = objectivesComplete * 20; // 5 objectives = 100%
-            const isUnexplored = objectivesComplete === 0;
-            const isComplete = objectivesComplete === 5;
-            const isCustodian = progress?.is_custodian === true;
-            const hasPresence = progress?.presence_ritual === true;
-            const hasObservation = progress?.observation_ritual === true;
-            const isSealed = hasPresence && hasObservation;
-            const hasEntered = progress?.entered === true;
-
-            // Rituels layer colors: grey (unexplored) / gold (entered) / green (sealed)
-            const getRituelFill = () => {
-              if (isSealed) return '#4a7c59'; // green
-              if (hasEntered) return '#d4af37'; // gold
-              return '#e5e5e5'; // grey
-            };
-
-            // Custody glow style
-            const custodyGlow = isCustodian ? {
-              boxShadow: '0 0 12px 4px rgba(212,175,55,0.5), 0 2px 8px rgba(0,0,0,0.15)',
-              border: '2px solid #d4af37',
-            } : {};
-
-            if (mapMode === 'rituels') {
-              // Rituels mode: simple colored circles
-              return (
-                <button
-                  key={arr}
-                  type="button"
-                  aria-label={`${arr}e arrondissement - ${isSealed ? 'Scellé' : hasEntered ? 'Entré' : 'Inexploré'}${isCustodian ? ' (Gardien)' : ''}`}
-                  style={{
-                    position: 'absolute',
-                    left: `${pos.x}%`,
-                    top: `${pos.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: getRituelFill(),
-                    border: isCustodian ? '2px solid #d4af37' : '1px solid rgba(0,0,0,0.1)',
-                    cursor: 'pointer',
-                    zIndex: 3,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 0,
-                    ...custodyGlow,
-                  }}
-                  onClick={() => setZoneDetailArr(arr)}
-                >
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: 9,
-                      fontWeight: 500,
-                      color: isSealed ? '#FAF8F2' : hasEntered ? '#1A1A1A' : '#8E8982',
-                    }}
-                  >
-                    {arr}
-                  </span>
-                </button>
-              );
-            }
-
-            // Traces mode: progress rings (existing behavior)
-            return (
-              <button
-                key={arr}
-                type="button"
-                aria-label={`${arr}e arrondissement - ${objectivesComplete}/5 objectifs${isCustodian ? ' (Gardien)' : ''}`}
-                className={isUnexplored ? 'zone-unexplored' : ''}
-                style={{
-                  position: 'absolute',
-                  left: `${pos.x}%`,
-                  top: `${pos.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: isComplete ? 36 : 32,
-                  height: isComplete ? 36 : 32,
-                  borderRadius: '50%',
-                  background: isComplete
-                    ? 'linear-gradient(135deg, #007850 0%, #003D2C 100%)'
-                    : objectivesComplete > 0
-                      ? `conic-gradient(#003D2C ${progressPct}%, rgba(0,61,44,0.15) ${progressPct}%)`
-                      : 'rgba(0,61,44,0.08)',
-                  cursor: 'pointer',
-                  zIndex: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  ...(isCustodian ? custodyGlow : {
-                    border: isComplete ? '2px solid rgba(255,215,0,0.4)' : 'none',
-                    boxShadow: isComplete ? '0 2px 8px rgba(0,61,44,0.3)' : 'none',
-                  }),
-                }}
-                onClick={() => setZoneDetailArr(arr)}
-              >
-                <span
-                  style={{
-                    width: isComplete ? 28 : 24,
-                    height: isComplete ? 28 : 24,
-                    borderRadius: '50%',
-                    background: isComplete ? 'transparent' : '#FAF8F2',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: isComplete ? 12 : 9,
-                    fontWeight: isComplete ? 600 : 500,
-                    color: isComplete ? '#FAF8F2' : objectivesComplete > 0 ? '#003D2C' : '#8E8982',
-                  }}
-                >
-                  {isComplete ? '✓' : isUnexplored ? '◯' : arr}
-                </span>
-              </button>
-            );
-          })}
-          {/* "You are here" marker */}
-          {geo.lat !== null && geo.lng !== null && (() => {
-            const userPos = project(geo.lat, geo.lng);
-            const xPct = (userPos.x / VIEWBOX_WIDTH) * 100;
-            const yPct = (userPos.y / VIEWBOX_HEIGHT) * 100;
-            // Only show if within reasonable bounds (Paris area)
-            if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return null;
-            return (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${xPct}%`,
-                  top: `${yPct}%`,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 10,
-                  pointerEvents: 'none',
-                }}
-              >
-                {/* Pulsing ring */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: 'rgba(0, 120, 80, 0.15)',
-                    transform: 'translate(-50%, -50%)',
-                    left: '50%',
-                    top: '50%',
-                    animation: 'you-are-here-pulse 2s ease-out infinite',
-                  }}
-                />
-                {/* Center dot */}
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: '50%',
-                    background: '#007850',
-                    border: '2px solid #FAF8F2',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                  }}
-                />
-              </div>
-            );
-          })()}
+          <TraceRenderer
+            mapMode={mapMode}
+            showSegments={showSegments}
+            showInscriptionsLayer={showInscriptionsLayer}
+            showThreads={showThreads}
+            mapState={mapState}
+            cityMapState={cityMapState}
+            runs={runs}
+            points={points}
+          />
+          <ZoneOverlay
+            mapMode={mapMode}
+            zoneProgressMap={zoneProgressMap}
+            zoneLawMap={zoneLawMap}
+            onZoneSelect={setZoneDetailArr}
+            geoLat={geo.lat}
+            geoLng={geo.lng}
+          />
         </div>
 
         {/* Absence (Unmarked) — arrondissements with 0 symbols: tappable → "Is this choice?" → refused */}
