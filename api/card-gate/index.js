@@ -120,11 +120,14 @@ module.exports = async function handler(req, res) {
       headers: outgoingHeaders,
       body,
     });
-    const setCookie = upstream.headers.get('set-cookie');
+    const setCookies =
+      typeof upstream.headers.getSetCookie === 'function'
+        ? upstream.headers.getSetCookie()
+        : (upstream.headers.get('set-cookie') ? [upstream.headers.get('set-cookie')] : []);
     const cacheControl = upstream.headers.get('cache-control');
     const methodUpper = (req.method || 'GET').toUpperCase();
     const cacheEligibleRead = methodUpper === 'GET' && (proxiedPath === 'map-state' || proxiedPath === 'map-state/community');
-    if (setCookie && !cacheEligibleRead) res.setHeader('Set-Cookie', setCookie);
+    if (setCookies.length && !cacheEligibleRead) res.setHeader('Set-Cookie', setCookies);
     let effectiveCacheControl = cacheControl || null;
     let cachePolicyLabel = 'upstream';
     if (methodUpper === 'GET') {
