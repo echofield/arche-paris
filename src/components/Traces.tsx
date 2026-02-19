@@ -178,7 +178,9 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
                   fontStyle: 'italic',
                   color: '#1A1A1A',
                   lineHeight: '1.6',
-                  marginBottom: '4px'
+                  marginBottom: '4px',
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere'
                 }}
               >
                 "{trace.content}"

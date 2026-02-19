@@ -398,13 +398,13 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
 
             {!hasEntered && (
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', fontStyle: 'italic', textAlign: 'center' }}>
-                Entre dans la zone pour debloquer les rituels.
+                Entre dans la zone pour debloquer les moments.
               </p>
             )}
 
             {hasEntered && !(progress?.presence_ritual || progress?.observation_ritual) && (
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#8E8982', fontStyle: 'italic', textAlign: 'center' }}>
-                Accomplis un rituel pour pouvoir laisser une gravure.
+                Accomplis un moment pour pouvoir laisser une gravure.
               </p>
             )}
 
@@ -442,6 +442,8 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                           color: '#1A1A1A',
                           lineHeight: 1.5,
                           margin: 0,
+                          whiteSpace: 'pre-wrap',
+                          overflowWrap: 'anywhere',
                         }}
                       >
                         "{ins.text}"

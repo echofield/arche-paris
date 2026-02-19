@@ -118,7 +118,7 @@ const LESSONS: Lesson[] = [
       `Sans seuil, la transition disparaît.`
     ],
     historicalNecessity: [
-      `Le seuil apparaît avec le rituel.`,
+      `Le seuil apparaît avec le rite.`,
       `Il distingue l'intérieur de l'extérieur.`,
       `Il inscrit le corps dans l'espace.`
     ],

@@ -1021,7 +1021,7 @@ export function ParisianGlyphs({ onBack }: ParisianGlyphsProps) {
       rarity: 'Mystérieux',
       component: <SerrureParisienne />,
       discovered: true,
-      meaning: 'Le Seuil de l\'Invisible — symbole des portes secrètes, du caché, du rituel. Cette serrure représente la clé invisible du Vieux Paris, celle qui ouvre vers l\'ARCHÉ.',
+      meaning: 'Le Seuil de l\'Invisible — symbole des portes secrètes, du caché, du passage. Cette serrure représente la clé invisible du Vieux Paris, celle qui ouvre vers l\'ARCHÉ.',
       locations: [
         'Hôtel de Sully (4e) — Plaques Louis XVI',
         'Île Saint-Louis (4e) — Serrures anciennes',

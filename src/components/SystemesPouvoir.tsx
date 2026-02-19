@@ -30,7 +30,7 @@ const JALONS = [
   {
     periode: '1958–présent',
     titre: 'Ve République : Jupiter présidentiel',
-    texte: 'De Gaulle conçoit un Président fort, au-dessus des partis, élu au suffrage universel direct (1962). Le "domaine réservé" (défense, diplomatie) lui appartient. L\'Élysée devient une "monarchie nucléaire" : le Président seul peut déclencher le feu nucléaire. C\'est une concentration de pouvoir vertigineuse sur un individu. L\'Article 16 (pouvoirs exceptionnels en cas de crise) constitutionnalise la dictature temporaire. La fonction présidentielle est sacralisée par le rituel, le protocole, et le secret.'
+    texte: 'De Gaulle conçoit un Président fort, au-dessus des partis, élu au suffrage universel direct (1962). Le "domaine réservé" (défense, diplomatie) lui appartient. L\'Élysée devient une "monarchie nucléaire" : le Président seul peut déclencher le feu nucléaire. C\'est une concentration de pouvoir vertigineuse sur un individu. L\'Article 16 (pouvoirs exceptionnels en cas de crise) constitutionnalise la dictature temporaire. La fonction présidentielle est sacralisée par le cérémonial, le protocole et le secret.'
   }
 ];
 
@@ -144,7 +144,7 @@ export function SystemesPouvoir({ onReturn }: SystemesPouvoirProps) {
             >
               Le pouvoir en France n'est jamais nu.
               <br/><br/>
-              Il est habillé de rituels,
+              Il est habillé de cérémonial et de protocole,
               <br/>
               enfoui dans des bunkers,
               <br/>

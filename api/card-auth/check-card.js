@@ -2,6 +2,19 @@
  * /api/card-auth/check-card - proxy to Supabase Edge Function.
  */
 
+const JSON_UTF8 = 'application/json; charset=utf-8';
+
+function setJsonUtf8(res) {
+  res.setHeader('Content-Type', JSON_UTF8);
+}
+
+function normalizeContentType(contentType) {
+  const value = (contentType || '').toLowerCase();
+  if (!value.includes('application/json')) return contentType || 'text/plain; charset=utf-8';
+  if (value.includes('charset=')) return contentType;
+  return JSON_UTF8;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -11,6 +24,7 @@ module.exports = async function handler(req, res) {
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!projectId || !anonKey) {
+    setJsonUtf8(res);
     return res.status(500).json({ error: 'Missing Supabase env vars' });
   }
 
@@ -21,17 +35,21 @@ module.exports = async function handler(req, res) {
       : JSON.stringify(req.body)
     : undefined;
 
-  const upstream = await fetch(url, {
-    method: req.method || 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
-    },
-    body,
-  });
+  try {
+    const upstream = await fetch(url, {
+      method: req.method || 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body,
+    });
 
-  const text = await upstream.text();
-  const contentType = upstream.headers.get('content-type') || 'application/json';
-  res.setHeader('Content-Type', contentType);
-  return res.status(upstream.status).send(text);
+    const text = await upstream.text();
+    res.setHeader('Content-Type', normalizeContentType(upstream.headers.get('content-type')));
+    return res.status(upstream.status).send(text);
+  } catch (error) {
+    setJsonUtf8(res);
+    return res.status(502).json({ error: error instanceof Error ? error.message : 'Proxy failure' });
+  }
 };

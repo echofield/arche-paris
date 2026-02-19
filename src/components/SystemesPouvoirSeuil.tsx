@@ -45,7 +45,7 @@ const JALONS = [
   {
     periode: '1958–présent',
     titre: 'Ve République : Jupiter présidentiel',
-    texte: 'De Gaulle conçoit un Président fort, au-dessus des partis, élu au suffrage universel direct (1962).\n\nLe "domaine réservé" (défense, diplomatie) lui appartient.\n\nL\'Élysée devient une "monarchie nucléaire" : le Président seul peut déclencher le feu nucléaire. C\'est une concentration de pouvoir vertigineuse sur un individu.\n\nL\'Article 16 (pouvoirs exceptionnels en cas de crise) constitutionnalise la dictature temporaire.\n\nLa fonction présidentielle est sacralisée par le rituel, le protocole, et le secret.'
+    texte: 'De Gaulle conçoit un Président fort, au-dessus des partis, élu au suffrage universel direct (1962).\n\nLe "domaine réservé" (défense, diplomatie) lui appartient.\n\nL\'Élysée devient une "monarchie nucléaire" : le Président seul peut déclencher le feu nucléaire. C\'est une concentration de pouvoir vertigineuse sur un individu.\n\nL\'Article 16 (pouvoirs exceptionnels en cas de crise) constitutionnalise la dictature temporaire.\n\nLa fonction présidentielle est sacralisée par le cérémonial, le protocole et le secret.'
   }
 ];
 
@@ -75,7 +75,7 @@ const SEUIL_ITEMS = [
         revelation: 'Tu lis Paris par ses mécanismes de surveillance et de maîtrise des corps.'
       },
       {
-        label: 'Rituel',
+        label: 'Rites d’État',
         revelation: 'Tu perçois d\'abord la dimension symbolique et sacrée du pouvoir.'
       },
       {
@@ -105,7 +105,7 @@ const SEUIL_ITEMS = [
     fragments: [
       {
         periode: 'Absolutisme (XVIIe)',
-        texte: 'Concentration du pouvoir dans une main unique, rituel du chef',
+        texte: 'Concentration du pouvoir dans une main unique, cérémonial du chef',
         revelation: 'Tu identifies la permanence du verticalisme dans la fonction présidentielle moderne.'
       },
       {

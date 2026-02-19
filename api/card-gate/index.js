@@ -11,6 +11,8 @@ const ALLOWED_ORIGINS = new Set([
   'https://www.xn--arch-paris-e7a.com',
 ]);
 
+const JSON_UTF8 = 'application/json; charset=utf-8';
+
 function isOriginAllowed(origin) {
   if (!origin || typeof origin !== 'string') return false;
   if (ALLOWED_ORIGINS.has(origin)) return true;
@@ -30,6 +32,17 @@ function applyCors(req, res) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
+}
+
+function setJsonUtf8(res) {
+  res.setHeader('Content-Type', JSON_UTF8);
+}
+
+function normalizeContentType(contentType) {
+  const value = (contentType || '').toLowerCase();
+  if (!value.includes('application/json')) return contentType || 'text/plain; charset=utf-8';
+  if (value.includes('charset=')) return contentType;
+  return JSON_UTF8;
 }
 
 function buildSupabaseBase() {
@@ -56,6 +69,7 @@ module.exports = async function handler(req, res) {
   applyCors(req, res);
   const origin = req.headers.origin;
   if (origin && !isOriginAllowed(origin)) {
+    setJsonUtf8(res);
     return res.status(403).json({ error: 'Origin not allowed' });
   }
 
@@ -72,6 +86,7 @@ module.exports = async function handler(req, res) {
       : '';
   const proxiedPath = pathRaw.replace(/^\/+/, '');
   if (!proxiedPath) {
+    setJsonUtf8(res);
     return res.status(200).json({
       status: 'Card Gate proxy active',
       target: `${supabaseBase}/functions/v1/card-gate`,
@@ -158,11 +173,12 @@ module.exports = async function handler(req, res) {
     }
     res.setHeader('X-Card-Gate-Proxy-Path', proxiedPath || '(root)');
     res.setHeader('X-Card-Gate-Cache-Policy', cachePolicyLabel);
-    res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json');
+    res.setHeader('Content-Type', normalizeContentType(upstream.headers.get('content-type')));
     const text = await upstream.text();
     return res.status(upstream.status).send(text);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Proxy failure';
+    setJsonUtf8(res);
     return res.status(502).json({ error: message });
   }
 };

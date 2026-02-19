@@ -30,7 +30,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, CityMapState } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
-import { useGeolocation } from '../hooks/useGeolocation';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
 import { api, type ZoneProgressItem, type WorldSnapshotData } from '../lib/api';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
@@ -57,6 +56,10 @@ interface MapPoint {
   x: number;
   y: number;
 }
+
+const MARKER_MIN_MOVE_M = 6;
+const MARKER_MAX_ACCURACY_M = 30;
+const PRESENCE_PULSE_INTERVAL_MS = 30_000;
 
 function getCollectedPoints(): MapPoint[] {
   const collection = getCollection();
@@ -116,7 +119,7 @@ function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: 
 }
 
 export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMemoryMapProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [note, setNote] = useState('');
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [showThreads, setShowThreads] = useState(true);
@@ -143,12 +146,27 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneDetailArr, setZoneDetailArr] = useState<number | null>(null);
   const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
-  // GPS location for "You are here" marker
-  const geo = useGeolocation();
+  const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
+  // GPS + perception marker
+  const [presenceMarker, setPresenceMarker] = useState<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
+  const presenceMarkerRef = useRef<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
+  const [recognitionLine, setRecognitionLine] = useState<string | null>(null);
   const lastPulseAtRef = useRef<number>(0);
   const lastPulsePosRef = useRef<{ lat: number; lng: number } | null>(null);
   const pulseRetryUntilRef = useRef<number>(0);
   const inFlightPulseRef = useRef(false);
+  const markerTargetRef = useRef<{ lat: number; lng: number } | null>(null);
+  const markerLastMoveAtRef = useRef<number>(0);
+  const markerAnimationRef = useRef<number | null>(null);
+  const recognitionShownRef = useRef(false);
+  const recognitionHideTimerRef = useRef<number | null>(null);
+  const pulsePauseTimerRef = useRef<number | null>(null);
+  const lastSnapshotRefreshAtRef = useRef<number>(0);
+  const lastZoneWhisperRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    presenceMarkerRef.current = presenceMarker;
+  }, [presenceMarker]);
 
   // Load zone progress on mount
   useEffect(() => {
@@ -252,17 +270,52 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     };
 
     const mappedLaw: Record<string, RitualStartLaw> = {};
+    const mappedAnchors: Record<string, boolean> = {};
     (snap.world.zones ?? []).forEach((z) => {
       const zoneId = toZoneIdFromH3(z.h3);
       if (!zoneId) return;
       const law = z.law?.['ritual.start'] as RitualStartLaw | undefined;
       if (law) mappedLaw[zoneId] = law;
+      mappedAnchors[zoneId] = (z.anchors?.length ?? 0) > 0;
     });
 
     setMapState(mappedMapState);
     setCityMapState(mappedCityState);
     setZoneLawMap(mappedLaw);
-  }, []);
+    setAnchorZoneMap(mappedAnchors);
+
+    const marker = markerTargetRef.current;
+    if (!marker) return;
+    const arr = inferArrondissementFromGeo(marker.lat, marker.lng);
+    if (!arr) return;
+    const zoneH3 = `PAR-${String(arr).padStart(2, '0')}`;
+    const meZone = snap.me.zones?.[zoneH3];
+    const pulses20m = meZone?.presence?.pulses_20m ?? 0;
+    if (!recognitionShownRef.current && pulses20m >= 5) {
+      recognitionShownRef.current = true;
+      const line = language === 'fr' ? 'Votre présence commence à compter.' : 'Your presence now matters.';
+      setRecognitionLine(line);
+      if (recognitionHideTimerRef.current != null) {
+        window.clearTimeout(recognitionHideTimerRef.current);
+      }
+      recognitionHideTimerRef.current = window.setTimeout(() => {
+        setRecognitionLine(null);
+      }, 4000);
+    }
+
+    const zone = (snap.world.zones ?? []).find((z) => z.h3 === zoneH3);
+    const whisper = zone?.signals?.whisper ?? null;
+    if (whisper && whisper !== lastZoneWhisperRef.current) {
+      setPresenceMarker((prev) => (prev ? { ...prev, pulsePaused: true } : prev));
+      if (pulsePauseTimerRef.current != null) {
+        window.clearTimeout(pulsePauseTimerRef.current);
+      }
+      pulsePauseTimerRef.current = window.setTimeout(() => {
+        setPresenceMarker((prev) => (prev ? { ...prev, pulsePaused: false } : prev));
+      }, 1000);
+    }
+    lastZoneWhisperRef.current = whisper;
+  }, [language]);
 
   const refreshMapState = useCallback(() => {
     api.worldSnapshot({ include: 'map,champ,law', h3_center: 'PAR-10', k: 10 })
@@ -277,6 +330,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         setMapState(null);
         setCityMapState(null);
         setZoneLawMap({});
+        setAnchorZoneMap({});
       });
   }, [applySnapshot]);
 
@@ -286,6 +340,84 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   }, [cardId, refreshMapState]);
 
   useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    const animateMarker = (from: { lat: number; lng: number }, to: { lat: number; lng: number }, durationMs: number) => {
+      if (markerAnimationRef.current != null) {
+        cancelAnimationFrame(markerAnimationRef.current);
+      }
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - start) / durationMs);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const lat = from.lat + (to.lat - from.lat) * eased;
+        const lng = from.lng + (to.lng - from.lng) * eased;
+        setPresenceMarker((prev) => ({
+          lat,
+          lng,
+          moving: prev?.moving ?? true,
+          pulsePaused: prev?.pulsePaused ?? false,
+        }));
+        if (t < 1) {
+          markerAnimationRef.current = requestAnimationFrame(tick);
+        } else {
+          markerAnimationRef.current = null;
+        }
+      };
+      markerAnimationRef.current = requestAnimationFrame(tick);
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
+        if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
+        const incoming = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const prevTarget = markerTargetRef.current;
+        if (!prevTarget) {
+          markerTargetRef.current = incoming;
+          markerLastMoveAtRef.current = Date.now();
+          setPresenceMarker({ ...incoming, moving: false, pulsePaused: false });
+          return;
+        }
+        const movedMeters = distanceMeters(prevTarget, incoming);
+        if (movedMeters < MARKER_MIN_MOVE_M) return;
+        markerTargetRef.current = incoming;
+        markerLastMoveAtRef.current = Date.now();
+        const from = presenceMarkerRef.current
+          ? { lat: presenceMarkerRef.current.lat, lng: presenceMarkerRef.current.lng }
+          : prevTarget;
+        const durationMs = Math.max(300, Math.min(600, 280 + movedMeters * 14));
+        setPresenceMarker((prev) => ({ lat: from.lat, lng: from.lng, moving: true, pulsePaused: prev?.pulsePaused ?? false }));
+        animateMarker(from, incoming, durationMs);
+      },
+      () => {
+        // Silent fail: marker is best effort.
+      },
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 }
+    );
+
+    const movingTicker = window.setInterval(() => {
+      const isMoving = Date.now() - markerLastMoveAtRef.current < 5000;
+      setPresenceMarker((prev) => (prev ? { ...prev, moving: isMoving } : prev));
+    }, 800);
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      window.clearInterval(movingTicker);
+      if (markerAnimationRef.current != null) {
+        cancelAnimationFrame(markerAnimationRef.current);
+        markerAnimationRef.current = null;
+      }
+      if (recognitionHideTimerRef.current != null) {
+        window.clearTimeout(recognitionHideTimerRef.current);
+      }
+      if (pulsePauseTimerRef.current != null) {
+        window.clearTimeout(pulsePauseTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasLocalSecret(cardId)) return;
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
 
@@ -293,7 +425,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       const now = Date.now();
       if (document.visibilityState !== 'visible') return false;
       if (now < pulseRetryUntilRef.current) return false;
-      if (now - lastPulseAtRef.current < 30_000) return false;
+      if (now - lastPulseAtRef.current < PRESENCE_PULSE_INTERVAL_MS) return false;
       if (coords.accuracy > 80) return false;
       const speed = typeof coords.speed === 'number' && Number.isFinite(coords.speed) ? coords.speed : null;
       if (speed !== null && speed >= 0.35) return true;
@@ -322,10 +454,14 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           if (result.data?.accepted) {
             lastPulseAtRef.current = Date.now();
             lastPulsePosRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            if (Date.now() - lastSnapshotRefreshAtRef.current > 60_000) {
+              lastSnapshotRefreshAtRef.current = Date.now();
+              refreshMapState();
+            }
           } else if (result.data?.retry_after_ms) {
             pulseRetryUntilRef.current = Date.now() + result.data.retry_after_ms;
           } else if (result.error?.includes('429')) {
-            pulseRetryUntilRef.current = Date.now() + 30_000;
+            pulseRetryUntilRef.current = Date.now() + PRESENCE_PULSE_INTERVAL_MS;
           }
         } finally {
           inFlightPulseRef.current = false;
@@ -340,7 +476,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     return () => {
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [cardId]);
+  }, [cardId, refreshMapState]);
 
   const handleNoteBlur = useCallback(() => {
     saveMyParisNote(cardId, note).catch(console.warn);
@@ -395,6 +531,12 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         @keyframes you-are-here-pulse {
           0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
           100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+        }
+        @keyframes presence-recognition {
+          0% { opacity: 0; transform: translateY(4px); }
+          20% { opacity: 0.78; transform: translateY(0); }
+          80% { opacity: 0.78; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-2px); }
         }
         @keyframes zone-invite {
           0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
@@ -467,16 +609,34 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             cityMapState={cityMapState}
             runs={runs}
             points={points}
+            anchorZoneMap={anchorZoneMap}
           />
           <ZoneOverlay
             mapMode={mapMode}
             zoneProgressMap={zoneProgressMap}
             zoneLawMap={zoneLawMap}
+            anchorZoneMap={anchorZoneMap}
             onZoneSelect={setZoneDetailArr}
-            geoLat={geo.lat}
-            geoLng={geo.lng}
+            marker={presenceMarker}
+            youAreHereLabel="Vous êtes ici / You are here"
+            recognitionLine={recognitionLine}
           />
         </div>
+        <p
+          style={{
+            marginTop: -10,
+            marginBottom: 24,
+            fontFamily: 'var(--font-serif)',
+            fontSize: 13,
+            fontStyle: 'italic',
+            color: '#003D2C',
+            opacity: 0.5,
+            textAlign: 'center',
+            letterSpacing: '0.01em',
+          }}
+        >
+          {t('tagline.walkReveal')}
+        </p>
 
         {/* Absence (Unmarked) — arrondissements with 0 symbols: tappable → "Is this choice?" → refused */}
         {(unvisitedArrondissements.length > 0 || unvisitedRefused.length > 0) && (
