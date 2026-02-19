@@ -18,6 +18,7 @@ import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 
 const app = new Hono().basePath("/card-gate");
+const JSON_UTF8 = "application/json; charset=utf-8";
 
 // Allowed origins only (no random site can use visitor's browser as relay).
 // Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.archÃ©-paris.com).
@@ -73,7 +74,7 @@ app.use("*", async (c, next) => {
   if (origin && !isOriginAllowed(origin)) {
     console.log("[card-gate] Origin not allowed:", origin);
     const errorHeaders = new Headers();
-    errorHeaders.set("Content-Type", "application/json");
+    errorHeaders.set("Content-Type", JSON_UTF8);
     setCorsHeaders(errorHeaders, origin); // Set CORS for error response too
     return new Response(JSON.stringify({ error: "Origin not allowed" }), {
       status: 403,
@@ -81,6 +82,16 @@ app.use("*", async (c, next) => {
     });
   }
   await next();
+});
+
+// Enforce UTF-8 JSON responses for all card-gate payloads.
+app.use("*", async (c, next) => {
+  await next();
+  const contentType = c.res.headers.get("Content-Type");
+  if (!contentType) return;
+  if (!contentType.toLowerCase().includes("application/json")) return;
+  if (contentType.toLowerCase().includes("charset=")) return;
+  c.res.headers.set("Content-Type", JSON_UTF8);
 });
 
 const ACCESS_TOKEN_EXPIRY_MINUTES = 15;
@@ -378,7 +389,7 @@ app.post("/pair", async (c) => {
     status: 200,
     headers: {
       ...getCorsHeaders(c),
-      "Content-Type": "application/json",
+      "Content-Type": JSON_UTF8,
       "Set-Cookie": `arche_refresh=${cookieValue}; ${getRefreshCookieOptions(origin)}`,
     },
   });
@@ -448,7 +459,7 @@ app.post("/validate", async (c) => {
     status: 200,
     headers: {
       ...getCorsHeaders(c),
-      "Content-Type": "application/json",
+      "Content-Type": JSON_UTF8,
       "Set-Cookie": `arche_refresh=${cookieValue}; ${getRefreshCookieOptions(origin)}`,
     },
   });
@@ -558,7 +569,7 @@ app.post("/unpair-session", async (c) => {
           status: 401,
           headers: {
             ...getCorsHeaders(c),
-            "Content-Type": "application/json",
+            "Content-Type": JSON_UTF8,
             "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
           },
         });
@@ -570,7 +581,7 @@ app.post("/unpair-session", async (c) => {
       status: 200,
       headers: {
         ...getCorsHeaders(c),
-        "Content-Type": "application/json",
+        "Content-Type": JSON_UTF8,
         "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
       },
     });
@@ -609,7 +620,7 @@ app.post("/unpair-session", async (c) => {
       status: 200,
       headers: {
         ...getCorsHeaders(c),
-        "Content-Type": "application/json",
+        "Content-Type": JSON_UTF8,
         "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
       },
     });
@@ -637,7 +648,7 @@ app.post("/unpair-session", async (c) => {
     status: 200,
     headers: {
       ...getCorsHeaders(c),
-      "Content-Type": "application/json",
+      "Content-Type": JSON_UTF8,
       "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
     },
   });
@@ -715,7 +726,7 @@ app.post("/unpair", async (c) => {
     status: 200,
     headers: {
       ...getCorsHeaders(c),
-      "Content-Type": "application/json",
+      "Content-Type": JSON_UTF8,
       "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
     },
   });
@@ -796,7 +807,7 @@ app.post("/force-unpair", async (c) => {
     status: 200,
     headers: {
       ...getCorsHeaders(c),
-      "Content-Type": "application/json",
+      "Content-Type": JSON_UTF8,
       "Set-Cookie": `arche_refresh=; ${clearRefreshCookie(origin)}`,
     },
   });
@@ -816,7 +827,7 @@ async function requireJwt(c: { req: { header: (n: string) => string | undefined 
   }
   const sessionPayload = await resolveCardSession(c);
   if (sessionPayload) return sessionPayload;
-  return new Response(JSON.stringify({ error: "Authorization required" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ error: "Authorization required" }), { status: 401, headers: { ...cors, "Content-Type": JSON_UTF8 } });
 }
 
 async function requireOptionalJwt(c: { req: { header: (n: string) => string | undefined } }): Promise<{ card_id: string; actor_hash?: string } | null> {
@@ -1194,7 +1205,8 @@ function computeZoneWhisper(zoneH3: string, presenceRecent: number, nowMs: numbe
   if (!pool.length) return null;
   const rotationBucket = Math.floor(nowMs / (WHISPER_ROTATION_MINUTES * 60 * 1000));
   const idx = rotationBucket % pool.length;
-  return pool[idx] ?? null;
+  const whisper = pool[idx] ?? null;
+  return whisper ? normalizeLegacyText(whisper) : null;
 }
 
 // ----- Presence: POST /presence/pulse -----
@@ -2867,7 +2879,8 @@ app.get("/map-state/community", async (c) => {
     else b.pendingInscriptions += 1;
     pushLastActivity(b, ins.created_at ?? null);
     if (b.sampleLines.length < maxSampleLines && typeof ins.text === "string") {
-      b.sampleLines.push(ins.text.slice(0, 96));
+      const clean = normalizeLegacyText(ins.text);
+      b.sampleLines.push(clean.slice(0, 96));
     }
   }
 
@@ -3523,7 +3536,7 @@ Deno.serve(async (req: Request) => {
     console.error(`[DEBUG-${debugId}] Error:`, error);
 
     const errorHeaders = new Headers();
-    errorHeaders.set("Content-Type", "application/json");
+    errorHeaders.set("Content-Type", JSON_UTF8);
     setCorsHeaders(errorHeaders, origin);
 
     // Verify no wildcard in error response

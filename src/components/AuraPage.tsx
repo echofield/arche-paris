@@ -150,6 +150,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [currentH3, setCurrentH3] = useState<string | null>(null);
   const [outsideCoverage, setOutsideCoverage] = useState(false);
   const lastAcceptedPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [vectorFadeIn, setVectorFadeIn] = useState(true);
   const [sealError, setSealError] = useState<string | null>(null);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
@@ -226,10 +227,10 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     const law = zone?.law?.['ritual.start'] ?? null;
     const crossings = (meZone?.progress?.entered ? 1 : 0) + (meZone?.progress?.engraved ? 1 : 0) + (law?.allowed ? 1 : 0);
     const ombreMarkers = (law && !law.allowed ? 1 : 0) + (!zone?.signals?.whisper ? 1 : 0);
-    const ancrage = pulses >= 10 ? 'Ancré' : pulses >= 5 ? 'Stable' : pulses >= 1 ? 'Naissant' : 'Discret';
-    const clarte = traces >= 6 ? 'Lumineuse' : traces >= 3 ? 'Lisible' : traces >= 1 ? 'Émergente' : 'Voilée';
-    const courage = crossings >= 3 ? 'Franche' : crossings === 2 ? 'Ouverte' : crossings === 1 ? 'En approche' : 'Retenue';
-    const ombre = ombreMarkers >= 2 ? 'Épaisse' : ombreMarkers === 1 ? 'Présente' : 'Calme';
+    const ancrage = pulses >= 10 ? 'prend racine' : pulses >= 5 ? "s'ancre" : pulses >= 1 ? "s'installe" : 'se cherche';
+    const clarte = traces >= 6 ? 'se déploie' : traces >= 3 ? 'se dégage' : traces >= 1 ? 'apparaît' : 'se voile';
+    const courage = crossings >= 3 ? "s'avance" : crossings === 2 ? 'se prononce' : crossings === 1 ? 's’éveille' : 'se retient';
+    const ombre = ombreMarkers >= 2 ? "s'épaissit" : ombreMarkers === 1 ? 'persiste' : 'se retire';
     return [
       { label: 'Clarté', value: clarte, evidence: traces > 0 ? `${traces} traces` : null },
       { label: 'Ombre', value: ombre, evidence: ombreMarkers > 0 ? `${ombreMarkers} signes` : null },
@@ -237,6 +238,35 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       { label: 'Courage', value: courage, evidence: crossings > 0 ? `${crossings} passages` : null },
     ];
   }, [currentH3, worldSnapshot]);
+
+  const vectorSignature = useMemo(
+    () => auraVectors.map((v) => `${v.label}:${v.value}`).join('|'),
+    [auraVectors]
+  );
+
+  useEffect(() => {
+    setVectorFadeIn(false);
+    const id = window.setTimeout(() => setVectorFadeIn(true), 40);
+    return () => window.clearTimeout(id);
+  }, [vectorSignature]);
+
+  const presenceLine = useMemo(() => {
+    if (outsideCoverage) {
+      return language === 'fr' ? 'Hors champ (proche : Montreuil)' : 'Outside field (near: Montreuil)';
+    }
+    const h3 = currentH3 ?? 'PAR-10';
+    const pulses = worldSnapshot?.me.zones?.[h3]?.presence?.pulses_20m ?? 0;
+    if (language !== 'fr') {
+      if (pulses >= 8) return `Here, ${h3}: presence settles and opens the line.`;
+      if (pulses >= 4) return `Here, ${h3}: presence gathers and holds.`;
+      if (pulses >= 1) return `Here, ${h3}: presence starts to emerge.`;
+      return `Here, ${h3}: presence remains discreet.`;
+    }
+    if (pulses >= 8) return `Ici, ${h3} : la présence s'installe et ouvre la ligne.`;
+    if (pulses >= 4) return `Ici, ${h3} : la présence se rassemble et tient.`;
+    if (pulses >= 1) return `Ici, ${h3} : la présence commence à se dégager.`;
+    return `Ici, ${h3} : la présence reste discrète.`;
+  }, [currentH3, language, outsideCoverage, worldSnapshot]);
 
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
@@ -340,7 +370,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       <div
         style={{
           marginBottom: 'clamp(14px, 3vw, 18px)',
-          textAlign: 'center',
+          textAlign: 'left',
           width: '100%',
           maxWidth: 340,
         }}
@@ -355,13 +385,17 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             marginBottom: 10,
           }}
         >
-          {outsideCoverage
-            ? (language === 'fr' ? 'Hors champ (proche : Montreuil)' : 'Outside field (near: Montreuil)')
-            : (currentH3
-              ? `Ici : ${currentH3} — présence ${worldSnapshot?.me.zones?.[currentH3]?.presence?.pulses_20m ?? 0}/5`
-              : (language === 'fr' ? 'Ici : PAR-10 — présence 0/5' : 'Here: PAR-10 — presence 0/5'))}
+          {presenceLine}
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            opacity: vectorFadeIn ? 0.72 : 0.18,
+            transition: 'opacity 520ms ease',
+          }}
+        >
           {auraVectors.map((v) => (
             <p
               key={v.label}
@@ -369,7 +403,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                 fontFamily: 'var(--font-serif)',
                 fontSize: 13,
                 color: '#1A1A1A',
-                opacity: 0.72,
+                opacity: 1,
                 margin: 0,
               }}
             >
