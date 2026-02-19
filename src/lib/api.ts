@@ -247,6 +247,7 @@ export interface LawEvaluateData {
   reason_code: 'OK' | 'AUTH_REQUIRED' | 'UNKNOWN_ZONE' | 'NEEDS_ACTIVATION' | 'SILENCE_WINDOW' | 'COOLDOWN_ACTIVE' | 'THRESHOLD_NOT_MET' | string;
   message: string;
   next_unlock_hint?: string | null;
+  retry_after_seconds?: number;
   requirements: LawRequirement[];
   policy: {
     law_version: string;

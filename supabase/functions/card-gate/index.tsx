@@ -861,23 +861,24 @@ function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_
 
 function lawRefusal(
   c: any,
-  status: number,
   reasonCode: string,
   message: string,
   nextUnlockHint: string,
   requirements: LawRequirement[],
   intent: string,
-  zoneCtx: { h3: string; zone_id: string } | null
+  zoneCtx: { h3: string; zone_id: string } | null,
+  retryAfterSeconds?: number
 ) {
   return c.json({
     allowed: false,
     reason_code: reasonCode,
     message,
     next_unlock_hint: nextUnlockHint,
+    retry_after_seconds: retryAfterSeconds,
     requirements,
     policy: { law_version: LAW_VERSION, intent },
     context: zoneCtx ? { h3: zoneCtx.h3, zone_id: zoneCtx.zone_id } : null,
-  }, status);
+  }, 200);
 }
 
 // ----- Law: GET /law/evaluate -----
@@ -890,7 +891,6 @@ app.get("/law/evaluate", async (c) => {
   if (!zone) {
     return lawRefusal(
       c,
-      400,
       "UNKNOWN_ZONE",
       "Not yet.",
       "Move to a known zone and try again.",
@@ -905,7 +905,6 @@ app.get("/law/evaluate", async (c) => {
   if (isProtected && payload instanceof Response) {
     return lawRefusal(
       c,
-      401,
       "AUTH_REQUIRED",
       "Not yet.",
       "Reconnect your card session first.",
@@ -921,13 +920,13 @@ app.get("/law/evaluate", async (c) => {
     if (!(await rateLimitMap(supabase, session.card_id, ip))) {
       return lawRefusal(
         c,
-        429,
         "THRESHOLD_NOT_MET",
         "Not yet.",
         "Wait and return in a moment.",
         [{ type: "rate_window", status: "blocked" }],
         intent,
-        zone
+        zone,
+        120
       );
     }
 
@@ -957,7 +956,6 @@ app.get("/law/evaluate", async (c) => {
     if (!hasActivation) {
       return lawRefusal(
         c,
-        200,
         "NEEDS_ACTIVATION",
         "Not yet.",
         "Return after you complete the zone activation.",
@@ -981,13 +979,13 @@ app.get("/law/evaluate", async (c) => {
     if (parisHour >= 2 && parisHour < 5) {
       return lawRefusal(
         c,
-        200,
         "SILENCE_WINDOW",
         "Not yet.",
         "Return when the silence window has passed.",
         [{ type: "silence_window", status: "blocked" }],
         intent,
-        zone
+        zone,
+        3600
       );
     }
 
@@ -996,13 +994,13 @@ app.get("/law/evaluate", async (c) => {
     if (!cooldownAllowed) {
       return lawRefusal(
         c,
-        200,
         "COOLDOWN_ACTIVE",
         "Not yet.",
         "Wait before starting this ritual again.",
         [{ type: "cooldown", within_minutes: 2, status: "blocked" }],
         intent,
-        zone
+        zone,
+        120
       );
     }
 
