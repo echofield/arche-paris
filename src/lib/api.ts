@@ -259,6 +259,32 @@ export interface LawEvaluateData {
   } | null;
 }
 
+export interface WorldZoneSnapshot {
+  h3: string;
+  title: string;
+  fog: { level: number };
+  signals: { inscriptions_recent: number; champ_recent: number };
+  law: Record<string, unknown>;
+}
+
+export interface WorldSnapshotData {
+  now: string;
+  policy: {
+    world_version: string;
+    cache: { public_s_maxage: number; public_swr: number };
+  };
+  world: {
+    zones: WorldZoneSnapshot[];
+    map: { inscriptions: Array<{ id: string; h3: string; ts: string; excerpt: string }> };
+    champ: { items: Array<{ id: string; h3: string; ts: string; excerpt: string }> };
+  };
+  me: {
+    authenticated: boolean;
+    card_id: string | null;
+    zones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null }>;
+  };
+}
+
 // ============ API Methods ============
 
 export const api = {
@@ -380,6 +406,21 @@ export const api = {
 
   lawEvaluate: (intent: string, h3: string) =>
     invokeCardGate<LawEvaluateData>(`law/evaluate?intent=${encodeURIComponent(intent)}&h3=${encodeURIComponent(h3)}`),
+
+  worldSnapshot: (params?: {
+    bbox?: string;
+    h3_center?: string;
+    k?: number;
+    include?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.bbox) qs.set('bbox', params.bbox);
+    if (params?.h3_center) qs.set('h3_center', params.h3_center);
+    if (typeof params?.k === 'number') qs.set('k', String(params.k));
+    if (params?.include) qs.set('include', params.include);
+    const tail = qs.toString();
+    return invokeCardGate<WorldSnapshotData>(`world/snapshot${tail ? `?${tail}` : ''}`);
+  },
 
   // Zone Progress
   zoneProgress: () => invokeCardGate<ZoneProgressData>('zone-progress'),

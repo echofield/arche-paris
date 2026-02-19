@@ -839,6 +839,7 @@ type LawRequirement = {
 };
 
 const LAW_VERSION = "2026-02-19.1";
+const WORLD_VERSION = "2026-02-19.1";
 const PROTECTED_INTENTS = new Set(["ritual.start"]);
 
 function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_id: string } | null {
@@ -879,6 +880,56 @@ function lawRefusal(
     policy: { law_version: LAW_VERSION, intent },
     context: zoneCtx ? { h3: zoneCtx.h3, zone_id: zoneCtx.zone_id } : null,
   }, 200);
+}
+
+function lawAuthRequiredVerdict(zone: { h3: string; zone_id: string }, intent: string) {
+  return {
+    allowed: false,
+    reason_code: "AUTH_REQUIRED",
+    message: "Not yet.",
+    next_unlock_hint: "Pair your card to begin.",
+    requirements: [{ type: "auth_session", status: "missing" }] as LawRequirement[],
+    policy: { law_version: LAW_VERSION, intent },
+    context: { h3: zone.h3, zone_id: zone.zone_id },
+  };
+}
+
+function parseSnapshotIncludes(raw: string | undefined): Set<string> {
+  if (!raw || !raw.trim()) return new Set(["map"]);
+  const parsed = raw
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => ["map", "champ", "law"].includes(v));
+  if (!parsed.length) return new Set(["map"]);
+  return new Set(parsed);
+}
+
+function parseSnapshotZones(c: any): Array<{ arr: number; h3: string; zone_id: string }> {
+  const h3CenterRaw = c.req.query("h3_center");
+  const kRaw = c.req.query("k");
+  const center = parseLawZone(h3CenterRaw);
+  if (center) {
+    const kParsed = Number.parseInt(kRaw ?? "2", 10);
+    const k = Number.isFinite(kParsed) ? Math.max(0, Math.min(8, kParsed)) : 2;
+    const out: Array<{ arr: number; h3: string; zone_id: string }> = [];
+    for (let arr = Math.max(1, center.arr - k); arr <= Math.min(20, center.arr + k); arr++) {
+      out.push({
+        arr,
+        h3: `PAR-${String(arr).padStart(2, "0")}`,
+        zone_id: `paris-${arr}`,
+      });
+    }
+    return out.slice(0, 30);
+  }
+  const all: Array<{ arr: number; h3: string; zone_id: string }> = [];
+  for (let arr = 1; arr <= 20; arr++) {
+    all.push({
+      arr,
+      h3: `PAR-${String(arr).padStart(2, "0")}`,
+      zone_id: `paris-${arr}`,
+    });
+  }
+  return all;
 }
 
 // ----- Law: GET /law/evaluate -----
@@ -1027,6 +1078,250 @@ app.get("/law/evaluate", async (c) => {
     policy: { law_version: LAW_VERSION, intent: intent || "unknown" },
     context: { h3: zone.h3, zone_id: zone.zone_id },
   });
+});
+
+// ----- World: GET /world/snapshot -----
+app.get("/world/snapshot", async (c) => {
+  const supabase = getSupabase();
+  const include = parseSnapshotIncludes(c.req.query("include"));
+  const zonesInView = parseSnapshotZones(c);
+  const zoneArrSet = new Set(zonesInView.map((z) => z.arr));
+  const zoneByArr = new Map<number, { arr: number; h3: string; zone_id: string }>(
+    zonesInView.map((z) => [z.arr, z])
+  );
+  const payload = await requireOptionalJwt(c);
+  const isAuthed = Boolean(payload);
+  const ip = getClientIp(c);
+  const allowed = isAuthed
+    ? await rateLimitMap(supabase, payload!.card_id, ip)
+    : await rateLimitMapPublic(supabase, ip);
+  if (!allowed) return c.json({ error: "Too many requests" }, 429);
+
+  const nowIso = new Date().toISOString();
+  const mapLimit = Math.max(120, zonesInView.length * 20);
+  const worldMapItems: Array<{ id: string; h3: string; ts: string; excerpt: string }> = [];
+  const worldChampItems: Array<{ id: string; ts: string; h3: string; excerpt: string }> = [];
+
+  const needMap = include.has("map");
+  const needChamp = include.has("champ");
+  if (needMap || needChamp) {
+    const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const baseQuery = supabase
+      .from("inscriptions")
+      .select("id, arrondissement, text, created_at")
+      .eq("opt_in_field", true)
+      .not("arrondissement", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(mapLimit);
+    const { data: rows, error } = needChamp
+      ? await baseQuery.gte("created_at", sinceIso)
+      : await baseQuery;
+    if (error) {
+      console.error("[card-gate] world snapshot inscriptions:", error);
+      return c.json({ error: "Failed to load world snapshot" }, 500);
+    }
+    for (const row of rows ?? []) {
+      const arr = row.arrondissement as number | null;
+      if (typeof arr !== "number" || !zoneArrSet.has(arr)) continue;
+      const zone = zoneByArr.get(arr);
+      if (!zone) continue;
+      const text = (row.text ?? "").trim().replace(/\s+/g, " ");
+      const excerpt = text.length > 64 ? `${text.slice(0, 61)}...` : text;
+      if (needMap) {
+        worldMapItems.push({
+          id: row.id as string,
+          h3: zone.h3,
+          ts: (row.created_at as string) ?? nowIso,
+          excerpt,
+        });
+      }
+      if (needChamp) {
+        worldChampItems.push({
+          id: row.id as string,
+          h3: zone.h3,
+          ts: (row.created_at as string) ?? nowIso,
+          excerpt,
+        });
+      }
+    }
+  }
+
+  const lawByH3 = new Map<string, Record<string, unknown>>();
+  if (include.has("law")) {
+    const intent = "ritual.start";
+    let activatedArr = new Set<number>();
+    if (isAuthed && payload) {
+      const [inscriptionsRes, segmentsRes] = await Promise.all([
+        supabase
+          .from("inscriptions")
+          .select("arrondissement")
+          .eq("card_id", payload.card_id)
+          .in("arrondissement", zonesInView.map((z) => z.arr))
+          .limit(500),
+        supabase
+          .from("engraved_segments")
+          .select("from_arrondissement, to_arrondissement")
+          .eq("card_id", payload.card_id)
+          .or(
+            zonesInView
+              .map((z) => `from_arrondissement.eq.${z.arr},to_arrondissement.eq.${z.arr}`)
+              .join(",")
+          )
+          .limit(500),
+      ]);
+      if (inscriptionsRes.error || segmentsRes.error) {
+        console.error("[card-gate] world snapshot law queries:", inscriptionsRes.error ?? segmentsRes.error);
+        return c.json({ error: "Failed to load world snapshot law" }, 500);
+      }
+      for (const row of inscriptionsRes.data ?? []) {
+        const arr = row.arrondissement as number | null;
+        if (typeof arr === "number" && zoneArrSet.has(arr)) activatedArr.add(arr);
+      }
+      for (const row of segmentsRes.data ?? []) {
+        const from = row.from_arrondissement as number | null;
+        const to = row.to_arrondissement as number | null;
+        if (typeof from === "number" && zoneArrSet.has(from)) activatedArr.add(from);
+        if (typeof to === "number" && zoneArrSet.has(to)) activatedArr.add(to);
+      }
+    }
+    const parisHour = Number.parseInt(
+      new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", hour12: false, timeZone: "Europe/Paris" }).format(new Date()),
+      10
+    );
+    for (const zone of zonesInView) {
+      if (!isAuthed) {
+        lawByH3.set(zone.h3, { [intent]: lawAuthRequiredVerdict(zone, intent) });
+        continue;
+      }
+      if (!activatedArr.has(zone.arr)) {
+        lawByH3.set(zone.h3, {
+          [intent]: {
+            allowed: false,
+            reason_code: "NEEDS_ACTIVATION",
+            message: "Not yet.",
+            next_unlock_hint: "Return after you complete the zone activation.",
+          },
+        });
+        continue;
+      }
+      if (parisHour >= 2 && parisHour < 5) {
+        lawByH3.set(zone.h3, {
+          [intent]: {
+            allowed: false,
+            reason_code: "SILENCE_WINDOW",
+            message: "Not yet.",
+            next_unlock_hint: "Return when the silence window has passed.",
+            retry_after_seconds: 3600,
+          },
+        });
+        continue;
+      }
+      lawByH3.set(zone.h3, {
+        [intent]: {
+          allowed: true,
+          reason_code: "OK",
+          message: "Open.",
+          next_unlock_hint: null,
+        },
+      });
+    }
+  }
+
+  const meZones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null }> = {};
+  if (isAuthed && payload) {
+    const [inscriptionsRes, segmentsRes] = await Promise.all([
+      supabase
+        .from("inscriptions")
+        .select("arrondissement, created_at")
+        .eq("card_id", payload.card_id)
+        .in("arrondissement", zonesInView.map((z) => z.arr))
+        .order("created_at", { ascending: false })
+        .limit(1000),
+      supabase
+        .from("engraved_segments")
+        .select("from_arrondissement, to_arrondissement, created_at")
+        .eq("card_id", payload.card_id)
+        .order("created_at", { ascending: false })
+        .limit(1000),
+    ]);
+    if (!inscriptionsRes.error && !segmentsRes.error) {
+      const progressByArr = new Map<number, { entered_at: string | null; engraved_at: string | null }>();
+      const ensure = (arr: number) => {
+        if (!progressByArr.has(arr)) progressByArr.set(arr, { entered_at: null, engraved_at: null });
+        return progressByArr.get(arr)!;
+      };
+      for (const row of inscriptionsRes.data ?? []) {
+        const arr = row.arrondissement as number | null;
+        if (typeof arr !== "number" || !zoneArrSet.has(arr)) continue;
+        const p = ensure(arr);
+        p.engraved_at = p.engraved_at ?? (row.created_at as string);
+        p.entered_at = p.entered_at ?? (row.created_at as string);
+      }
+      for (const row of segmentsRes.data ?? []) {
+        const candidates = [row.from_arrondissement as number | null, row.to_arrondissement as number | null];
+        for (const arr of candidates) {
+          if (typeof arr !== "number" || !zoneArrSet.has(arr)) continue;
+          const p = ensure(arr);
+          p.entered_at = p.entered_at ?? (row.created_at as string);
+        }
+      }
+      for (const zone of zonesInView) {
+        const p = progressByArr.get(zone.arr);
+        meZones[zone.h3] = {
+          progress: p
+            ? {
+                zone_id: zone.zone_id,
+                entered: p.entered_at != null,
+                entered_at: p.entered_at,
+                engraved: p.engraved_at != null,
+                engraved_at: p.engraved_at,
+              }
+            : null,
+          activation: lawByH3.get(zone.h3)?.["ritual.start"] as Record<string, unknown> | null ?? null,
+        };
+      }
+    }
+  } else {
+    for (const zone of zonesInView) {
+      meZones[zone.h3] = { progress: null, activation: null };
+    }
+  }
+
+  const response = {
+    now: nowIso,
+    policy: {
+      world_version: WORLD_VERSION,
+      cache: { public_s_maxage: 60, public_swr: 600 },
+    },
+    world: {
+      zones: zonesInView.map((zone) => {
+        const mapCount = worldMapItems.filter((i) => i.h3 === zone.h3).length;
+        const champCount = worldChampItems.filter((i) => i.h3 === zone.h3).length;
+        return {
+          h3: zone.h3,
+          title: `Zone ${zone.h3}`,
+          fog: { level: 0.72 },
+          signals: { inscriptions_recent: mapCount, champ_recent: champCount },
+          law: include.has("law") ? (lawByH3.get(zone.h3) ?? {}) : {},
+        };
+      }),
+      map: include.has("map") ? { inscriptions: worldMapItems.slice(0, 300) } : { inscriptions: [] },
+      champ: include.has("champ") ? { items: worldChampItems.slice(0, 100) } : { items: [] },
+    },
+    me: {
+      authenticated: isAuthed,
+      card_id: isAuthed && payload ? payload.card_id : null,
+      zones: meZones,
+    },
+  };
+
+  if (isAuthed) {
+    c.header("Cache-Control", "private, no-store");
+    c.header("Vary", "Authorization, X-ARCHE-CARD-CODE, X-ARCHE-SESSION");
+  } else {
+    c.header("Cache-Control", MAP_CACHE_CONTROL_PUBLIC);
+  }
+  return c.json(response);
 });
 
 // ----- /journal/list -----
