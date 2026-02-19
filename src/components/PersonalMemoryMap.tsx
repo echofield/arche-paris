@@ -10,7 +10,7 @@
  * When user pins (collects) or writes here, it gets printed into notes (Carnet).
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
 import { getCollection } from '../utils/collection-service';
@@ -36,6 +36,7 @@ import { api, type ZoneProgressItem, type WorldSnapshotData } from '../lib/api';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
 import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
+import { project } from '../utils/map-project';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 type RitualStartLaw = {
@@ -79,6 +80,41 @@ function getCollectedPoints(): MapPoint[] {
     .filter((p): p is MapPoint => p !== null);
 }
 
+function inferArrondissementFromGeo(lat: number, lng: number): number | null {
+  const VIEWBOX_WIDTH = 2037.566;
+  const VIEWBOX_HEIGHT = 1615.5;
+  const p = project(lat, lng);
+  const xPct = (p.x / VIEWBOX_WIDTH) * 100;
+  const yPct = (p.y / VIEWBOX_HEIGHT) * 100;
+  if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
+  let bestArr: number | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let arr = 1; arr <= 20; arr++) {
+    const center = ARRONDISSEMENT_MAP_POSITION[arr];
+    if (!center) continue;
+    const dx = center.x - xPct;
+    const dy = center.y - yPct;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < bestDist) {
+      bestDist = d;
+      bestArr = arr;
+    }
+  }
+  return bestArr;
+}
+
+function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s1 = Math.sin(dLat / 2);
+  const s2 = Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2), Math.sqrt(1 - (s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2)));
+  return R * c;
+}
+
 export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMemoryMapProps) {
   const { t } = useTranslation();
   const [note, setNote] = useState('');
@@ -109,6 +145,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   // GPS location for "You are here" marker
   const geo = useGeolocation();
+  const lastPulseAtRef = useRef<number>(0);
+  const lastPulsePosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const pulseRetryUntilRef = useRef<number>(0);
+  const inFlightPulseRef = useRef(false);
 
   // Load zone progress on mount
   useEffect(() => {
@@ -244,6 +284,63 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     if (!hasLocalSecret(cardId)) return;
     refreshMapState();
   }, [cardId, refreshMapState]);
+
+  useEffect(() => {
+    if (!hasLocalSecret(cardId)) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+    const shouldPulse = (coords: GeolocationCoordinates): boolean => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible') return false;
+      if (now < pulseRetryUntilRef.current) return false;
+      if (now - lastPulseAtRef.current < 30_000) return false;
+      if (coords.accuracy > 80) return false;
+      const speed = typeof coords.speed === 'number' && Number.isFinite(coords.speed) ? coords.speed : null;
+      if (speed !== null && speed >= 0.35) return true;
+      const prev = lastPulsePosRef.current;
+      if (!prev) return true;
+      return distanceMeters(prev, { lat: coords.latitude, lng: coords.longitude }) >= 20;
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (pos) => {
+        if (!shouldPulse(pos.coords) || inFlightPulseRef.current) return;
+        const arr = inferArrondissementFromGeo(pos.coords.latitude, pos.coords.longitude);
+        if (!arr) return;
+        inFlightPulseRef.current = true;
+        try {
+          const h3 = `PAR-${String(arr).padStart(2, '0')}`;
+          const speedMps = typeof pos.coords.speed === 'number' && Number.isFinite(pos.coords.speed)
+            ? Math.max(0, pos.coords.speed)
+            : undefined;
+          const result = await api.presencePulse({
+            h3,
+            ts: new Date(pos.timestamp).toISOString(),
+            speed_mps: speedMps,
+            accuracy_m: pos.coords.accuracy,
+          });
+          if (result.data?.accepted) {
+            lastPulseAtRef.current = Date.now();
+            lastPulsePosRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          } else if (result.data?.retry_after_ms) {
+            pulseRetryUntilRef.current = Date.now() + result.data.retry_after_ms;
+          } else if (result.error?.includes('429')) {
+            pulseRetryUntilRef.current = Date.now() + 30_000;
+          }
+        } finally {
+          inFlightPulseRef.current = false;
+        }
+      },
+      () => {
+        // Silent fail: heartbeat is best effort.
+      },
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [cardId]);
 
   const handleNoteBlur = useCallback(() => {
     saveMyParisNote(cardId, note).catch(console.warn);

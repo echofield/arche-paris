@@ -836,11 +836,15 @@ type LawRequirement = {
   status?: "ok" | "missing" | "blocked";
   min?: number;
   within_minutes?: number;
+  count?: number;
 };
 
 const LAW_VERSION = "2026-02-19.1";
 const WORLD_VERSION = "2026-02-19.1";
 const PROTECTED_INTENTS = new Set(["ritual.start"]);
+const PRESENCE_PULSE_COOLDOWN_MS = 30_000;
+const PRESENCE_PULSE_WINDOW_MINUTES = 20;
+const PRESENCE_PULSE_MIN_FOR_RITUAL = 3;
 
 function parseLawZone(raw: string | undefined): { arr: number; h3: string; zone_id: string } | null {
   if (!raw) return null;
@@ -932,6 +936,79 @@ function parseSnapshotZones(c: any): Array<{ arr: number; h3: string; zone_id: s
   return all;
 }
 
+// ----- Presence: POST /presence/pulse -----
+app.post("/presence/pulse", async (c) => {
+  const supabase = getSupabase();
+  const session = await requireJwt(c);
+  if (session instanceof Response) return session;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, session.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  let body: { h3?: string; ts?: string; speed_mps?: number; accuracy_m?: number };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const zone = parseLawZone(body?.h3);
+  if (!zone) {
+    return c.json({ error: "h3 required" }, 400);
+  }
+
+  const speedMps = typeof body?.speed_mps === "number" && Number.isFinite(body.speed_mps)
+    ? Math.max(0, Math.min(20, body.speed_mps))
+    : null;
+  const accuracyM = typeof body?.accuracy_m === "number" && Number.isFinite(body.accuracy_m)
+    ? Math.max(0, Math.min(500, body.accuracy_m))
+    : null;
+
+  const { data: lastPulse, error: lastPulseError } = await supabase
+    .from("presence_pulses")
+    .select("ts")
+    .eq("card_id", session.card_id)
+    .order("ts", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastPulseError) {
+    console.error("[card-gate] presence pulse last query:", lastPulseError);
+    return c.json({ error: "Failed to record pulse" }, 500);
+  }
+
+  if (lastPulse?.ts) {
+    const elapsed = Date.now() - new Date(lastPulse.ts as string).getTime();
+    if (elapsed < PRESENCE_PULSE_COOLDOWN_MS) {
+      return c.json({
+        ok: false,
+        accepted: false,
+        cooldown_ms: PRESENCE_PULSE_COOLDOWN_MS,
+        retry_after_ms: Math.max(1, PRESENCE_PULSE_COOLDOWN_MS - elapsed),
+      }, 429);
+    }
+  }
+
+  const { error: insertError } = await supabase
+    .from("presence_pulses")
+    .insert({
+      card_id: session.card_id,
+      h3: zone.h3,
+      speed_mps: speedMps,
+      accuracy_m: accuracyM,
+      ts: new Date().toISOString(),
+    });
+  if (insertError) {
+    console.error("[card-gate] presence pulse insert:", insertError);
+    return c.json({ error: "Failed to record pulse" }, 500);
+  }
+
+  return c.json({
+    ok: true,
+    accepted: true,
+    cooldown_ms: PRESENCE_PULSE_COOLDOWN_MS,
+  });
+});
+
 // ----- Law: GET /law/evaluate -----
 app.get("/law/evaluate", async (c) => {
   const supabase = getSupabase();
@@ -1012,7 +1089,39 @@ app.get("/law/evaluate", async (c) => {
         "Return after you complete the zone activation.",
         [
           { type: "zone_activation", status: "missing" },
-          { type: "presence_pulses", min: 3, within_minutes: 30, status: "missing" },
+          { type: "presence_pulses", min: PRESENCE_PULSE_MIN_FOR_RITUAL, within_minutes: PRESENCE_PULSE_WINDOW_MINUTES, status: "missing" },
+        ],
+        intent,
+        zone
+      );
+    }
+
+    const pulseSinceIso = new Date(Date.now() - PRESENCE_PULSE_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const { count: pulseCountRaw, error: pulseCountError } = await supabase
+      .from("presence_pulses")
+      .select("id", { count: "exact", head: true })
+      .eq("card_id", session.card_id)
+      .eq("h3", zone.h3)
+      .gte("ts", pulseSinceIso);
+    if (pulseCountError) {
+      console.error("[card-gate] law evaluate presence query:", pulseCountError);
+      return c.json({ error: "Failed to evaluate law" }, 500);
+    }
+    const pulseCount = pulseCountRaw ?? 0;
+    if (pulseCount < PRESENCE_PULSE_MIN_FOR_RITUAL) {
+      return lawRefusal(
+        c,
+        "THRESHOLD_NOT_MET",
+        "Not yet.",
+        "Stay in the zone a little longer.",
+        [
+          {
+            type: "presence_pulses",
+            min: PRESENCE_PULSE_MIN_FOR_RITUAL,
+            within_minutes: PRESENCE_PULSE_WINDOW_MINUTES,
+            count: pulseCount,
+            status: "missing",
+          },
         ],
         intent,
         zone
@@ -1062,6 +1171,7 @@ app.get("/law/evaluate", async (c) => {
       next_unlock_hint: null,
       requirements: [
         { type: "zone_activation", status: "ok" },
+        { type: "presence_pulses", min: PRESENCE_PULSE_MIN_FOR_RITUAL, within_minutes: PRESENCE_PULSE_WINDOW_MINUTES, count: pulseCount, status: "ok" },
         { type: "silence_window", status: "ok" },
       ],
       policy: { law_version: LAW_VERSION, intent },
@@ -1086,6 +1196,7 @@ app.get("/world/snapshot", async (c) => {
   const include = parseSnapshotIncludes(c.req.query("include"));
   const zonesInView = parseSnapshotZones(c);
   const zoneArrSet = new Set(zonesInView.map((z) => z.arr));
+  const zoneH3Set = new Set(zonesInView.map((z) => z.h3));
   const zoneByArr = new Map<number, { arr: number; h3: string; zone_id: string }>(
     zonesInView.map((z) => [z.arr, z])
   );
@@ -1150,8 +1261,10 @@ app.get("/world/snapshot", async (c) => {
   if (include.has("law")) {
     const intent = "ritual.start";
     let activatedArr = new Set<number>();
+    const pulsesByH3 = new Map<string, number>();
     if (isAuthed && payload) {
-      const [inscriptionsRes, segmentsRes] = await Promise.all([
+      const pulseSinceIso = new Date(Date.now() - PRESENCE_PULSE_WINDOW_MINUTES * 60 * 1000).toISOString();
+      const [inscriptionsRes, segmentsRes, pulsesRes] = await Promise.all([
         supabase
           .from("inscriptions")
           .select("arrondissement")
@@ -1168,9 +1281,16 @@ app.get("/world/snapshot", async (c) => {
               .join(",")
           )
           .limit(500),
+        supabase
+          .from("presence_pulses")
+          .select("h3")
+          .eq("card_id", payload.card_id)
+          .in("h3", zonesInView.map((z) => z.h3))
+          .gte("ts", pulseSinceIso)
+          .limit(2000),
       ]);
-      if (inscriptionsRes.error || segmentsRes.error) {
-        console.error("[card-gate] world snapshot law queries:", inscriptionsRes.error ?? segmentsRes.error);
+      if (inscriptionsRes.error || segmentsRes.error || pulsesRes.error) {
+        console.error("[card-gate] world snapshot law queries:", inscriptionsRes.error ?? segmentsRes.error ?? pulsesRes.error);
         return c.json({ error: "Failed to load world snapshot law" }, 500);
       }
       for (const row of inscriptionsRes.data ?? []) {
@@ -1182,6 +1302,11 @@ app.get("/world/snapshot", async (c) => {
         const to = row.to_arrondissement as number | null;
         if (typeof from === "number" && zoneArrSet.has(from)) activatedArr.add(from);
         if (typeof to === "number" && zoneArrSet.has(to)) activatedArr.add(to);
+      }
+      for (const row of pulsesRes.data ?? []) {
+        const h3 = row.h3 as string | null;
+        if (!h3 || !zoneH3Set.has(h3)) continue;
+        pulsesByH3.set(h3, (pulsesByH3.get(h3) ?? 0) + 1);
       }
     }
     const parisHour = Number.parseInt(
@@ -1200,6 +1325,26 @@ app.get("/world/snapshot", async (c) => {
             reason_code: "NEEDS_ACTIVATION",
             message: "Not yet.",
             next_unlock_hint: "Return after you complete the zone activation.",
+          },
+        });
+        continue;
+      }
+      const pulseCount = pulsesByH3.get(zone.h3) ?? 0;
+      if (pulseCount < PRESENCE_PULSE_MIN_FOR_RITUAL) {
+        lawByH3.set(zone.h3, {
+          [intent]: {
+            allowed: false,
+            reason_code: "THRESHOLD_NOT_MET",
+            message: "Not yet.",
+            next_unlock_hint: "Stay in the zone a little longer.",
+            requirements: [
+              {
+                type: "presence_pulses",
+                min: PRESENCE_PULSE_MIN_FOR_RITUAL,
+                within_minutes: PRESENCE_PULSE_WINDOW_MINUTES,
+                count: pulseCount,
+              },
+            ],
           },
         });
         continue;
@@ -1227,9 +1372,10 @@ app.get("/world/snapshot", async (c) => {
     }
   }
 
-  const meZones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null }> = {};
+  const meZones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null; presence: { pulses_20m: number; last_ts: string | null } }> = {};
   if (isAuthed && payload) {
-    const [inscriptionsRes, segmentsRes] = await Promise.all([
+    const pulseSinceIso = new Date(Date.now() - PRESENCE_PULSE_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const [inscriptionsRes, segmentsRes, pulsesRes] = await Promise.all([
       supabase
         .from("inscriptions")
         .select("arrondissement, created_at")
@@ -1243,9 +1389,18 @@ app.get("/world/snapshot", async (c) => {
         .eq("card_id", payload.card_id)
         .order("created_at", { ascending: false })
         .limit(1000),
+      supabase
+        .from("presence_pulses")
+        .select("h3, ts")
+        .eq("card_id", payload.card_id)
+        .in("h3", zonesInView.map((z) => z.h3))
+        .gte("ts", pulseSinceIso)
+        .order("ts", { ascending: false })
+        .limit(2000),
     ]);
-    if (!inscriptionsRes.error && !segmentsRes.error) {
+    if (!inscriptionsRes.error && !segmentsRes.error && !pulsesRes.error) {
       const progressByArr = new Map<number, { entered_at: string | null; engraved_at: string | null }>();
+      const presenceByH3 = new Map<string, { pulses_20m: number; last_ts: string | null }>();
       const ensure = (arr: number) => {
         if (!progressByArr.has(arr)) progressByArr.set(arr, { entered_at: null, engraved_at: null });
         return progressByArr.get(arr)!;
@@ -1265,6 +1420,15 @@ app.get("/world/snapshot", async (c) => {
           p.entered_at = p.entered_at ?? (row.created_at as string);
         }
       }
+      for (const row of pulsesRes.data ?? []) {
+        const h3 = row.h3 as string | null;
+        const ts = row.ts as string | null;
+        if (!h3 || !zoneH3Set.has(h3)) continue;
+        const current = presenceByH3.get(h3) ?? { pulses_20m: 0, last_ts: null };
+        current.pulses_20m += 1;
+        current.last_ts = current.last_ts ?? ts;
+        presenceByH3.set(h3, current);
+      }
       for (const zone of zonesInView) {
         const p = progressByArr.get(zone.arr);
         meZones[zone.h3] = {
@@ -1278,12 +1442,18 @@ app.get("/world/snapshot", async (c) => {
               }
             : null,
           activation: lawByH3.get(zone.h3)?.["ritual.start"] as Record<string, unknown> | null ?? null,
+          presence: presenceByH3.get(zone.h3) ?? { pulses_20m: 0, last_ts: null },
         };
       }
     }
   } else {
     for (const zone of zonesInView) {
-      meZones[zone.h3] = { progress: null, activation: null };
+      meZones[zone.h3] = { progress: null, activation: null, presence: { pulses_20m: 0, last_ts: null } };
+    }
+  }
+  for (const zone of zonesInView) {
+    if (!meZones[zone.h3]) {
+      meZones[zone.h3] = { progress: null, activation: null, presence: { pulses_20m: 0, last_ts: null } };
     }
   }
 

@@ -36,14 +36,24 @@ async function invoke<T>(fn: string, body?: Record<string, unknown>): Promise<Ap
 }
 
 async function invokeCardGate<T>(path: string): Promise<ApiResult<T>> {
+  return invokeCardGateRequest<T>('GET', path);
+}
+
+async function invokeCardGateRequest<T>(
+  method: 'GET' | 'POST',
+  path: string,
+  body?: Record<string, unknown>
+): Promise<ApiResult<T>> {
   try {
     const cardCode = getRuntimeCardCode();
     const headers: Record<string, string> = {};
+    if (body) headers['Content-Type'] = 'application/json';
     if (cardCode) headers['X-ARCHE-CARD-CODE'] = cardCode;
     const res = await fetch(`/api/card-gate/${path}`, {
-      method: 'GET',
+      method,
       headers,
       credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -240,6 +250,7 @@ export interface LawRequirement {
   status?: 'ok' | 'missing' | 'blocked';
   min?: number;
   within_minutes?: number;
+  count?: number;
 }
 
 export interface LawEvaluateData {
@@ -278,6 +289,10 @@ export interface WorldMeZoneProgress {
 export interface WorldMeZoneOverlay {
   progress: WorldMeZoneProgress | null;
   activation: LawEvaluateData | null;
+  presence?: {
+    pulses_20m: number;
+    last_ts: string | null;
+  };
 }
 
 export interface WorldSnapshotData {
@@ -296,6 +311,13 @@ export interface WorldSnapshotData {
     card_id: string | null;
     zones: Record<string, WorldMeZoneOverlay>;
   };
+}
+
+export interface PresencePulseData {
+  ok: boolean;
+  accepted: boolean;
+  cooldown_ms: number;
+  retry_after_ms?: number;
 }
 
 // ============ API Methods ============
@@ -419,6 +441,13 @@ export const api = {
 
   lawEvaluate: (intent: string, h3: string) =>
     invokeCardGate<LawEvaluateData>(`law/evaluate?intent=${encodeURIComponent(intent)}&h3=${encodeURIComponent(h3)}`),
+
+  presencePulse: (params: {
+    h3: string;
+    ts?: string;
+    speed_mps?: number;
+    accuracy_m?: number;
+  }) => invokeCardGateRequest<PresencePulseData>('POST', 'presence/pulse', params),
 
   worldSnapshot: (params?: {
     bbox?: string;
