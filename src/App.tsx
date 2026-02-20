@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -8,15 +8,13 @@ import { CarnetParisien } from './components/CarnetParisien';
 import { CollectionMap } from './components/CollectionMap';
 import { PersonalMemoryMap } from './components/PersonalMemoryMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
-import { MeridiensLive } from './components/MeridiensLive';
 import { QuestRun } from './components/QuestRun';
 import { CultureQuiz } from './components/CultureQuiz';
-import { EtudesHub } from './components/EtudesHub';
 import { CardEntry } from './components/CardEntry';
 import { CardDrawer } from './components/CardDrawer';
 import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
-import { AuraPage } from './components/AuraPage';
+import { ArcheInterface } from './components/ArcheInterface';
 import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
@@ -33,6 +31,13 @@ import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
+
+const LazyMeridiensLive = lazy(() =>
+  import('./components/MeridiensLive').then((mod) => ({ default: mod.MeridiensLive }))
+);
+const LazyEtudesHub = lazy(() =>
+  import('./components/EtudesHub').then((mod) => ({ default: mod.EtudesHub }))
+);
 
 /**
  * APP V1 — ARCHÉ
@@ -343,6 +348,25 @@ export default function App() {
     }
   };
 
+  const renderScreenLoading = (label = 'Chargement...') => (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#003D2C',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 12,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        opacity: 0.7,
+      }}
+    >
+      {label}
+    </div>
+  );
+
   // Main app
   const renderScreen = () => {
     switch (currentScreen) {
@@ -415,10 +439,14 @@ export default function App() {
       case 'seuil':
         return <CultureQuiz onBack={() => navigateTo('homepage')} />;
       case 'etudes':
-        return <EtudesHub onClose={() => navigateTo('homepage')} />;
+        return (
+          <Suspense fallback={renderScreenLoading('Chargement des Etudes...')}>
+            <LazyEtudesHub onClose={() => navigateTo('homepage')} />
+          </Suspense>
+        );
       case 'aura':
         return (
-          <AuraPage
+          <ArcheInterface
             onBack={() => navigateTo('homepage')}
             cardId={cardStatus?.cardId ?? null}
             onOpenKept={() => navigateTo('kept')}
@@ -434,10 +462,12 @@ export default function App() {
         );
       case 'meridiens':
         return (
-          <MeridiensLive
-            onBack={() => navigateTo('homepage')}
-            cardId={cardStatus?.cardId ?? null}
-          />
+          <Suspense fallback={renderScreenLoading('Chargement des Meridiens...')}>
+            <LazyMeridiensLive
+              onBack={() => navigateTo('homepage')}
+              cardId={cardStatus?.cardId ?? null}
+            />
+          </Suspense>
         );
       case 'champ':
         return (

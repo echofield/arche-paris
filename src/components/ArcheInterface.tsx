@@ -9,7 +9,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Globe, Sparkles } from 'lucide-react';
 
 interface ArcheInterfaceProps {
-  onExit: () => void;
+  onBack: () => void;
+  cardId?: string | null;
+  onOpenKept?: () => void;
+  onEnterChamp?: () => void;
 }
 
 type LensType = 'NEUTRAL' | 'CLARTE' | 'ANCRAGE' | 'ECHO' | 'MOUVEMENT' | 'ALIGNEMENT' | 'OMBRE';
@@ -176,7 +179,7 @@ function WaveformReading({ lens, current, previous }: { lens: LensType, current:
 
 // --- MAIN COMPONENT ---
 
-export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
+export function ArcheInterface({ onBack }: ArcheInterfaceProps) {
   const [activeLens, setActiveLens] = useState<LensType>('NEUTRAL');
   const [lang, setLang] = useState<'FR' | 'EN'>('FR');
   const [visibleSentence, setVisibleSentence] = useState(LENS_CONFIG.NEUTRAL.sentence);
@@ -228,7 +231,7 @@ export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
       {/* NAV */}
       <nav className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-50">
         <button
-          onClick={onExit}
+          onClick={onBack}
           className="flex items-center gap-2 text-[11px] uppercase tracking-[0.15em] opacity-60 hover:opacity-100 transition-opacity"
           style={{ fontFamily: 'var(--font-sans)' }}
         >
