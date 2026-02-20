@@ -11,8 +11,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { api, type ZoneProgressItem, type ZoneProgressData } from '../lib/api';
-import { getThresholdsVisited, type ObservationRecord, getObservations } from '../utils/meridien-storage';
+import { api, type ZoneProgressData } from '../lib/api';
+import { getThresholdsVisited, getObservations } from '../utils/meridien-storage';
 import { MERIDIEN_THRESHOLDS, type ThresholdId } from '../data/meridiens';
 import { useTranslation } from '../utils/i18n';
 
@@ -28,6 +28,7 @@ export interface LiveAction {
   label: string;
   sublabel: string;
   target: string; // zone name, threshold name, or action
+  daysToExpiry?: number;
 }
 
 // Zone ID to display name
@@ -114,17 +115,27 @@ export function getNextAction(zoneProgress: ZoneProgressData | null): LiveAction
     }
 
     // Priority 3: Custody expiring soon (< 7 days)
-    const expiring = zones.find(z => {
-      if (!z.is_custodian) return false;
-      const days = daysUntilExpiry(z.custodian_since); // Note: we'd need custody_expires_at
-      return days !== null && days > 0 && days <= 7;
-    });
+    const expiring = zones
+      .map((z) => ({
+        zone: z,
+        daysLeft: daysUntilExpiry(z.custody_expires_at),
+      }))
+      .filter(({ zone, daysLeft }) =>
+        zone.is_custodian === true &&
+        daysLeft !== null &&
+        daysLeft > 0 &&
+        daysLeft <= 7
+      )
+      .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number))[0];
     if (expiring) {
+      const days = expiring.daysLeft as number;
+      const dayLabel = days <= 1 ? '1 jour' : `${days} jours`;
       return {
         type: 'renew_custody',
         label: 'Renouveler garde',
-        sublabel: zoneIdToName(expiring.zone_id),
-        target: expiring.zone_id,
+        sublabel: `${zoneIdToName(expiring.zone.zone_id)} · expire dans ${dayLabel}`,
+        target: expiring.zone.zone_id,
+        daysToExpiry: days,
       };
     }
   }
@@ -209,7 +220,7 @@ export function LivingQuest({ onNavigate }: LivingQuestProps) {
           padding: '16px 20px',
           background: 'rgba(0,61,44,0.03)',
           borderRadius: 8,
-          marginBottom: 24,
+          marginBottom: 18,
           opacity: 0.5,
         }}
       >
@@ -236,21 +247,21 @@ export function LivingQuest({ onNavigate }: LivingQuestProps) {
       style={{
         width: '100%',
         padding: '16px 20px',
-        background: 'rgba(0,61,44,0.04)',
-        border: '1px solid rgba(0,61,44,0.1)',
+        background: 'rgba(0,61,44,0.05)',
+        border: '1px solid rgba(0,61,44,0.12)',
         borderRadius: 8,
-        marginBottom: 24,
+        marginBottom: 18,
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'background 0.2s ease, border-color 0.2s ease',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(0,61,44,0.08)';
-        e.currentTarget.style.borderColor = 'rgba(0,61,44,0.2)';
+        e.currentTarget.style.background = 'rgba(0,61,44,0.09)';
+        e.currentTarget.style.borderColor = 'rgba(0,61,44,0.22)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'rgba(0,61,44,0.04)';
-        e.currentTarget.style.borderColor = 'rgba(0,61,44,0.1)';
+        e.currentTarget.style.background = 'rgba(0,61,44,0.05)';
+        e.currentTarget.style.borderColor = 'rgba(0,61,44,0.12)';
       }}
     >
       {/* Indicator dot */}

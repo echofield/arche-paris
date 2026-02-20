@@ -4,9 +4,10 @@ import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 import { useIsMobile } from './ui/use-mobile';
 import { LivingQuest } from './LivingQuest';
+import { motion } from '../design/motion';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
-const MAP_STROKE_OPACITY = 0.5;
+const MAP_STROKE_OPACITY = 0.62;
 
 interface HomepageV1Props {
   /** When set, show quiet card id (e.g. PS-0001) in identity zone — engraved, no label (optional, for future iPhone) */
@@ -49,9 +50,23 @@ export function HomepageV1({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   const [mounted, setMounted] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapBreathing, setMapBreathing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (motion.prefersReducedMotion()) {
+      setMapReady(true);
+      setMapBreathing(false);
+      return;
+    }
+    setMapReady(true);
+    setMapBreathing(true);
+    const timer = window.setTimeout(() => setMapBreathing(false), motion.t('contemplative') * 2);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -101,12 +116,12 @@ export function HomepageV1({
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: '#003D2C',
-            opacity: 0.6,
+            opacity: 0.52,
             cursor: 'pointer',
             transition: 'opacity 0.3s ease'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.88')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.52')}
         >
           {t('nav.quests')}
         </button>
@@ -198,12 +213,12 @@ export function HomepageV1({
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: '#B8860B',
-            opacity: 0.8,
+            opacity: 0.68,
             cursor: 'pointer',
             transition: 'opacity 0.3s ease'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.8')}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.68')}
         >
           {t('nav.seuil')}
         </button>
@@ -403,9 +418,17 @@ export function HomepageV1({
           style={{
             width: 'clamp(280px, 50vw, 400px)',
             height: 'clamp(200px, 35vw, 300px)',
-            marginBottom: '32px',
+            marginBottom: '16px',
             cursor: 'pointer',
-            transition: 'opacity 0.3s ease'
+            opacity: mapReady ? 1 : 0,
+            transform: `translateY(${mapReady ? 0 : -10}px) scale(${mapBreathing ? 1.03 : 1})`,
+            filter: mapReady ? 'blur(0px)' : 'blur(0.5px)',
+            transition: motion.transition([
+              { property: 'opacity', durationMs: motion.t('measured'), easing: motion.ease('appear') },
+              { property: 'transform', durationMs: motion.t('measured'), easing: motion.ease('appear') },
+              { property: 'filter', durationMs: motion.t('measured'), easing: motion.ease('appear') },
+            ]),
+            willChange: 'opacity, transform, filter'
           }}
         >
           <img
@@ -415,7 +438,8 @@ export function HomepageV1({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              opacity: MAP_STROKE_OPACITY
+              opacity: MAP_STROKE_OPACITY,
+              filter: 'contrast(1.08)'
             }}
           />
         </div>
@@ -428,7 +452,7 @@ export function HomepageV1({
             letterSpacing: '0.08em',
             color: '#003D2C',
             opacity: 0.5,
-            marginBottom: '24px'
+            marginBottom: '20px'
           }}
         >
           {getTodaySummary().approxKm === 0
@@ -467,10 +491,10 @@ export function HomepageV1({
         <p
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: 'clamp(18px, 3vw, 24px)',
+            fontSize: 'clamp(16px, 2.6vw, 20px)',
             fontStyle: 'italic',
             color: '#1A1A1A',
-            opacity: 0.6,
+            opacity: 0.48,
             lineHeight: 1.5
           }}
         >
@@ -483,7 +507,7 @@ export function HomepageV1({
         type="button"
         style={{
           position: 'absolute',
-          left: '24px',
+          left: '28px',
           top: '50%',
           transform: 'translateY(-50%)',
           background: 'transparent',
