@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
+import { AuraFieldDiagram, deriveAuraFieldModel } from './AuraFieldDiagram';
 import { loadCompanion } from '../utils/companion-service';
 import { getCompanionWord, getReflectiveQuestion, getAuraInterpretation } from '../data/oracle';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
@@ -372,6 +373,11 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     return `Ici, ${h3} : la présence reste discrète.`;
   }, [currentH3, language, outsideCoverage, worldSnapshot]);
 
+  const auraFieldModel = useMemo(
+    () => deriveAuraFieldModel(worldSnapshot, complexion, currentH3),
+    [worldSnapshot, complexion, currentH3]
+  );
+
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
     let cancelled = false;
@@ -470,6 +476,8 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       >
         {word}
       </p>
+
+      <AuraFieldDiagram model={auraFieldModel} />
 
       <div
         style={{
@@ -573,6 +581,13 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             const presenceDots = pointsToDots(presence_points);
             const wisdomDots = pointsToDots(wisdom_points);
             const shadowDots = pointsToDots(shadow_points);
+            const dPresence = Number((data.last_delta?.d_presence as number) ?? 0);
+            const dWisdom = Number((data.last_delta?.d_wisdom as number) ?? 0);
+            const dShadow = Number((data.last_delta?.d_shadow as number) ?? 0);
+            const fmtDelta = (v: number) => {
+              if (!Number.isFinite(v) || v === 0) return '0.00';
+              return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
+            };
 
             // Determine dominant
             let dominant: 'presence' | 'wisdom' | 'shadow' | null = null;
@@ -640,6 +655,25 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                     }}>Ombre</span>
                     {renderDots(shadowDots, 6, '#1A1A1A')}
                   </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 8,
+                    marginTop: 12,
+                  }}
+                >
+                  <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 10, color: '#6B6455' }}>
+                    d_presence {fmtDelta(dPresence)}
+                  </p>
+                  <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 10, color: '#6B6455' }}>
+                    d_wisdom {fmtDelta(dWisdom)}
+                  </p>
+                  <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: 10, color: '#6B6455' }}>
+                    d_shadow {fmtDelta(dShadow)}
+                  </p>
                 </div>
 
                 {/* Poetic interpretation */}
