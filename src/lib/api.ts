@@ -23,9 +23,17 @@ function getRuntimeCardCode(): string | null {
 async function invoke<T>(
   fn: string,
   body?: Record<string, unknown>,
-  options?: { includeCardHeader?: boolean }
+  options?: { includeCardHeader?: boolean; requireUserSession?: boolean }
 ): Promise<ApiResult<T>> {
   const includeCardHeader = options?.includeCardHeader ?? true;
+  const requireUserSession = options?.requireUserSession ?? false;
+  if (requireUserSession) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) {
+      return { data: null, error: 'AUTH_SKIPPED_NO_USER_SESSION' };
+    }
+  }
   const cardCode = getRuntimeCardCode();
   const headers = includeCardHeader && cardCode ? { 'X-ARCHE-CARD-CODE': cardCode } : undefined;
   const { data, error } = await supabase.functions.invoke(fn, {
@@ -440,7 +448,11 @@ export const api = {
   meArchiveLedger: (day: string) =>
     invoke<LedgerData>('me-archive-ledger', { day }),
 
-  meComplexion: () => invoke<ComplexionData>('me-complexion', undefined, { includeCardHeader: false }),
+  meComplexion: () =>
+    invoke<ComplexionData>('me-complexion', undefined, {
+      includeCardHeader: false,
+      requireUserSession: true,
+    }),
 
   // Feed
   feedNext: (params?: { lat?: number; lng?: number }) =>
