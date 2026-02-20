@@ -44,7 +44,7 @@ export function MapLayers({
 }: MapLayersProps) {
   return (
     <>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
         {(['traces', 'ville', 'rituels'] as const).map((mode) => {
           const labels = { traces: tracesTabLabel, ville: cityTabLabel, rituels: momentsTabLabel };
           const isActive = mapMode === mode;
@@ -59,12 +59,12 @@ export function MapLayers({
                 fontSize: 11,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
-                color: isActive ? '#FAF8F2' : '#003D2C',
-                background: isActive ? '#003D2C' : 'transparent',
-                border: `1px solid ${isActive ? '#003D2C' : 'rgba(0,61,44,0.2)'}`,
-                borderRadius: mode === 'traces' ? '4px 0 0 4px' : mode === 'rituels' ? '0 4px 4px 0' : 0,
+                color: '#003D2C',
+                background: isActive ? 'rgba(0,61,44,0.10)' : 'transparent',
+                border: `1px solid ${isActive ? 'rgba(0,61,44,0.30)' : 'rgba(0,61,44,0.16)'}`,
+                borderRadius: 999,
                 cursor: 'pointer',
-                opacity: isActive ? 1 : 0.84,
+                opacity: isActive ? 0.96 : 0.68,
                 transform: `translateY(0) scale(${isActive ? 1 : 0.99})`,
                 transition: motion.transition([
                   { property: 'opacity', durationMs: motion.t('brisk'), easing: motion.ease('appear') },

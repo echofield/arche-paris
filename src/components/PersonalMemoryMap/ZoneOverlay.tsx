@@ -138,8 +138,8 @@ export function ZoneOverlay({
               left: `${pos.x}%`,
               top: `${pos.y}%`,
               transform: 'translate(-50%, -50%)',
-              width: isComplete ? 36 : 32,
-              height: isComplete ? 36 : 32,
+              width: isComplete ? 34 : 28,
+              height: isComplete ? 34 : 28,
               borderRadius: '50%',
               background: isComplete
                 ? 'linear-gradient(135deg, #007850 0%, #003D2C 100%)'
@@ -152,7 +152,7 @@ export function ZoneOverlay({
               alignItems: 'center',
               justifyContent: 'center',
               padding: 0,
-              opacity: isAnchorZone ? 0.94 : isLawLocked ? 0.62 : 0.76,
+              opacity: isAnchorZone ? 0.92 : isLawLocked ? 0.58 : 0.72,
               ...(isCustodian ? custodyGlow : {
                 border: isComplete ? '2px solid rgba(255,215,0,0.4)' : 'none',
                 boxShadow: isComplete ? '0 2px 8px rgba(0,61,44,0.3)' : 'none',
@@ -162,20 +162,20 @@ export function ZoneOverlay({
           >
             <span
               style={{
-                width: isComplete ? 28 : 24,
-                height: isComplete ? 28 : 24,
+                width: isComplete ? 26 : 20,
+                height: isComplete ? 26 : 20,
                 borderRadius: '50%',
                 background: isComplete ? 'transparent' : '#FAF8F2',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontFamily: 'var(--font-sans)',
-                fontSize: isComplete ? 12 : 9,
+                fontSize: isComplete ? 11 : 9,
                 fontWeight: isComplete ? 600 : 500,
                 color: isComplete ? '#FAF8F2' : objectivesComplete > 0 ? '#003D2C' : '#8E8982',
               }}
             >
-              {isComplete ? 'OK' : isUnexplored ? 'O' : arr}
+              {isComplete ? 'OK' : isUnexplored ? '•' : arr}
             </span>
           </button>
         );

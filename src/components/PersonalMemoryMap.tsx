@@ -21,7 +21,6 @@ import { listTraces, loadTracesV1 } from '../utils/trace-service';
 import { getTodayKey, getTodaySummary, addManualWalk } from '../utils/walk-service';
 import { bump } from '../utils/companion-service';
 import { getRuns, isTemporalMeridiansUnlocked } from '../utils/quest-run-service';
-import { CompanionBlock } from './CompanionBlock';
 import { useTranslation } from '../utils/i18n';
 import { getRefusedArrondissements, isRefused, setRefused } from '../utils/refused-arrondissements';
 import { postInscription } from '../utils/card-gate-map-client';
@@ -680,6 +679,32 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           alignItems: 'center'
         }}
       >
+        <header style={{ textAlign: 'center', marginBottom: '20px', width: '100%' }}>
+          <h1
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: 'clamp(32px, 4vw, 48px)',
+              fontWeight: '400',
+              color: '#1A1A1A',
+              marginBottom: '8px',
+              letterSpacing: '-0.02em'
+            }}
+          >
+            {t('myparis.title')}
+          </h1>
+          <p
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              color: '#003D2C',
+              opacity: 0.5,
+              marginTop: '4px'
+            }}
+          >
+            {collectedCount} / {totalCount} {t('map.stats.symbols')}
+          </p>
+        </header>
+
         <MapLayers
           mapMode={mapMode}
           setMapMode={setMapMode}
@@ -796,7 +821,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              opacity: 0.92,
+              filter: 'contrast(1.08)'
             }}
           />
           <TraceRenderer
@@ -874,10 +901,12 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                       fontSize: '12px',
                       color: '#003D2C',
                       background: 'transparent',
-                      border: '1px dashed rgba(0, 61, 44, 0.3)',
-                      padding: '6px 12px',
+                      border: 'none',
+                      borderBottom: '1px solid rgba(0, 61, 44, 0.26)',
+                      padding: '2px 0',
                       cursor: 'pointer',
-                      borderRadius: 2
+                      borderRadius: 0,
+                      opacity: 0.78,
                     }}
                   >
                     {arr}e
@@ -1146,44 +1175,6 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
 
         {/* Content below the map — full width of container */}
         <div style={{ width: '100%' }}>
-        <header style={{ textAlign: 'center', marginBottom: '24px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 0, right: 0 }}>
-            <CompanionBlock />
-          </div>
-          <h1
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 'clamp(32px, 4vw, 48px)',
-              fontWeight: '400',
-              color: '#1A1A1A',
-              marginBottom: '8px',
-              letterSpacing: '-0.02em'
-            }}
-          >
-            {t('myparis.title')}
-          </h1>
-          <p
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: '12px',
-              color: '#003D2C',
-              opacity: 0.6
-            }}
-          >
-            {t('myparis.savedOnDevice')}
-          </p>
-          <p
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: '11px',
-              color: '#003D2C',
-              opacity: 0.5,
-              marginTop: '4px'
-            }}
-          >
-            {collectedCount} / {totalCount} {t('map.stats.symbols')}
-          </p>
-        </header>
 
         {/* Today — walking summary (no tracking: quest closes + manual only) */}
         <div
@@ -1204,7 +1195,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               marginBottom: '6px'
             }}
           >
-            Today
+            {language === 'fr' ? "Aujourd'hui" : 'Today'}
           </div>
           <p style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', color: '#1A1A1A', marginBottom: '8px' }}>
             {todaySummary.approxKm === 0
@@ -1244,13 +1235,13 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                 padding: 0
               }}
             >
-              Add a walk
+              {language === 'fr' ? 'Ajouter une marche' : 'Add a walk'}
             </button>
           ) : (
             <div style={{ marginTop: '12px' }}>
               <input
                 type="text"
-                placeholder="Label"
+                placeholder={language === 'fr' ? 'Libelle' : 'Label'}
                 value={addWalkLabel}
                 onChange={(e) => setAddWalkLabel(e.target.value)}
                 style={{
@@ -1266,7 +1257,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               />
               <input
                 type="text"
-                placeholder="km (optional)"
+                placeholder={language === 'fr' ? 'km (optionnel)' : 'km (optional)'}
                 value={addWalkKm}
                 onChange={(e) => setAddWalkKm(e.target.value)}
                 style={{
@@ -1282,7 +1273,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               />
               <input
                 type="text"
-                placeholder="minutes (optional)"
+                placeholder={language === 'fr' ? 'minutes (optionnel)' : 'minutes (optional)'}
                 value={addWalkMinutes}
                 onChange={(e) => setAddWalkMinutes(e.target.value)}
                 style={{
@@ -1328,7 +1319,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                     cursor: 'pointer'
                   }}
                 >
-                  Save
+                  {language === 'fr' ? 'Sauver' : 'Save'}
                 </button>
                 <button
                   type="button"
@@ -1349,7 +1340,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                     cursor: 'pointer'
                   }}
                 >
-                  Cancel
+                  {language === 'fr' ? 'Annuler' : 'Cancel'}
                 </button>
               </div>
             </div>
@@ -1541,14 +1532,15 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             rows={3}
             style={{
               width: '100%',
-              padding: '14px 16px',
+              padding: '10px 0',
               fontFamily: 'var(--font-serif)',
               fontSize: '15px',
               fontWeight: 300,
               color: '#1A1A1A',
               background: 'transparent',
-              border: '0.5px solid rgba(0, 61, 44, 0.2)',
-              borderRadius: '2px',
+              border: 'none',
+              borderBottom: '1px solid rgba(0, 61, 44, 0.26)',
+              borderRadius: 0,
               resize: 'vertical',
               boxSizing: 'border-box'
             }}
@@ -1593,6 +1585,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           )}
           <span style={{ fontSize: '10px', color: '#6B6455', opacity: 0.6 }}>
             {t('myparis.staysOnDevice')}
+          </span>
+          <span style={{ fontSize: '10px', color: '#6B6455', opacity: 0.52 }}>
+            {t('myparis.savedOnDevice')}
           </span>
         </div>
 
