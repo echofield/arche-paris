@@ -328,6 +328,15 @@ export interface WorldSnapshotData {
     authenticated: boolean;
     card_id: string | null;
     zones: Record<string, WorldMeZoneOverlay>;
+    character?: {
+      id: string;
+      name: string;
+      lines: string[];
+      echo?: {
+        location_hint: string;
+        symbol: string;
+      };
+    } | null;
   };
 }
 

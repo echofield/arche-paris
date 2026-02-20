@@ -378,6 +378,11 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     [worldSnapshot, complexion, currentH3]
   );
 
+  const encounter = useMemo(() => {
+    if (outsideCoverage) return null;
+    return worldSnapshot?.me?.character ?? null;
+  }, [outsideCoverage, worldSnapshot]);
+
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
     let cancelled = false;
@@ -526,6 +531,79 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       </div>
 
       {/* Miroir — daily sentence with historical anecdote */}
+      {encounter && (
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 340,
+            marginBottom: 'clamp(14px, 3vw, 18px)',
+            padding: '10px 12px',
+            border: '1px solid rgba(0,61,44,0.12)',
+            borderRadius: 6,
+            background: 'rgba(0,61,44,0.02)',
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 10,
+              color: '#003D2C',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              opacity: 0.72,
+            }}
+          >
+            {language === 'fr' ? 'Rencontre' : 'Encounter'}
+          </p>
+          <p
+            style={{
+              margin: '6px 0 8px',
+              fontFamily: 'var(--font-serif)',
+              fontSize: 15,
+              color: '#1A1A1A',
+              opacity: 0.88,
+            }}
+          >
+            {encounter.name}
+          </p>
+          {encounter.lines.slice(0, 2).map((line, idx) => (
+            <p
+              key={`${encounter.id}-line-${idx}`}
+              style={{
+                margin: idx === 0 ? '0 0 6px' : 0,
+                fontFamily: 'var(--font-serif)',
+                fontSize: 13,
+                color: '#1A1A1A',
+                opacity: 0.8,
+                lineHeight: 1.45,
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {line}
+            </p>
+          ))}
+          {encounter.echo?.location_hint && (
+            <p
+              style={{
+                margin: '8px 0 0',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 11,
+                color: '#003D2C',
+                opacity: 0.62,
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {language === 'fr'
+                ? `Écho: ${encounter.echo.location_hint}`
+                : `Echo: ${encounter.echo.location_hint}`}
+            </p>
+          )}
+        </div>
+      )}
+
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
 
       {/* ARCHÉ State Dashboard — Poetic dots, one rare number */}

@@ -175,6 +175,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
+  const [worldSnapshotState, setWorldSnapshotState] = useState<WorldSnapshotData | null>(null);
   const [outsideCoverage, setOutsideCoverage] = useState(false);
   // GPS + perception marker
   const [presenceMarker, setPresenceMarker] = useState<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
@@ -270,6 +271,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   };
 
   const applySnapshot = useCallback((snap: WorldSnapshotData) => {
+    setWorldSnapshotState(snap);
     const mappedMapState: MapState = {
       inscriptions: (snap.world.map.inscriptions ?? []).map((ins) => {
         const arr = parseArrondissementFromH3(ins.h3);
@@ -373,12 +375,18 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         throw new Error(result.error ?? 'world snapshot unavailable');
       })
       .catch(() => {
+        setWorldSnapshotState(null);
         setMapState(null);
         setCityMapState(null);
         setZoneLawMap({});
         setAnchorZoneMap({});
       });
   }, [applySnapshot]);
+
+  const encounter = useMemo(() => {
+    if (outsideCoverage) return null;
+    return worldSnapshotState?.me?.character ?? null;
+  }, [outsideCoverage, worldSnapshotState]);
 
   useEffect(() => {
     if (!hasLocalSecret(cardId)) return;
@@ -648,6 +656,75 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           cityTabLabel={t('map.tabs.city')}
           momentsTabLabel={t('map.tabs.moments')}
         />
+
+        {encounter && mapMode === 'ville' && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              marginBottom: 12,
+              padding: '10px 12px',
+              border: '1px solid rgba(0,61,44,0.12)',
+              borderRadius: 6,
+              background: 'rgba(0,61,44,0.02)',
+              textAlign: 'left',
+            }}
+          >
+            <p style={{
+              margin: 0,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 10,
+              color: '#003D2C',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              opacity: 0.72,
+            }}>
+              {language === 'fr' ? 'Rencontre' : 'Encounter'}
+            </p>
+            <p style={{
+              margin: '6px 0 8px',
+              fontFamily: 'var(--font-serif)',
+              fontSize: 15,
+              color: '#1A1A1A',
+              opacity: 0.88,
+            }}>
+              {encounter.name}
+            </p>
+            {encounter.lines.slice(0, 2).map((line, idx) => (
+              <p
+                key={`${encounter.id}-map-line-${idx}`}
+                style={{
+                  margin: idx === 0 ? '0 0 6px' : 0,
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 13,
+                  color: '#1A1A1A',
+                  opacity: 0.8,
+                  lineHeight: 1.45,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {line}
+              </p>
+            ))}
+            {encounter.echo?.location_hint && (
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  color: '#003D2C',
+                  opacity: 0.62,
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 2,
+                }}
+              >
+                {language === 'fr'
+                  ? `Écho: ${encounter.echo.location_hint}`
+                  : `Echo: ${encounter.echo.location_hint}`}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Map: homepage size or a bit bigger, then all content below */}
         <div

@@ -917,6 +917,18 @@ type MeridianAnchor = {
   constraints?: AnchorConstraint;
 };
 
+type CharacterFragmentKind = "hint" | "witness" | "echo" | "threshold" | "warning";
+
+type ResolvedCharacter = {
+  id: string;
+  name: string;
+  lines: string[];
+  echo?: {
+    location_hint: string;
+    symbol: string;
+  };
+};
+
 const LAW_VERSION = "2026-02-19.1";
 const WORLD_VERSION = "2026-02-19.1";
 const PROTECTED_INTENTS = new Set(["ritual.start"]);
@@ -926,6 +938,7 @@ const PRESENCE_PULSE_MIN_FOR_RITUAL = 3;
 const WHISPER_MIN_PRESENCE = 6;
 const WHISPER_ROTATION_MINUTES = 15;
 const WHISPER_COOLDOWN_MINUTES = 10;
+const CHARACTER_COOLDOWN_HOURS = 3;
 
 const DEFAULT_WHISPERS = [
   "Measure is a kind of power.",
@@ -1298,6 +1311,232 @@ function computeZoneWhisper(
   const idx = rotationBucket % pool.length;
   const whisper = pool[idx] ?? null;
   return whisper ? normalizeLegacyText(whisper) : null;
+}
+
+function stableHash(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function parisDayKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function pickWeightedIndex<T extends { weight: number }>(items: T[], seed: string): number {
+  if (!items.length) return -1;
+  const total = items.reduce((sum, item) => sum + Math.max(1, item.weight), 0);
+  const target = total > 0 ? stableHash(seed) % total : 0;
+  let acc = 0;
+  for (let i = 0; i < items.length; i++) {
+    acc += Math.max(1, items[i].weight);
+    if (target < acc) return i;
+  }
+  return 0;
+}
+
+function firstPreferredKind(
+  items: Array<{ kind: CharacterFragmentKind }>,
+  preferred: CharacterFragmentKind[]
+): CharacterFragmentKind | null {
+  for (const kind of preferred) {
+    if (items.some((v) => v.kind === kind)) return kind;
+  }
+  return items[0]?.kind ?? null;
+}
+
+async function resolveCharacter(params: {
+  supabase: ReturnType<typeof createClient>;
+  cardId: string | null;
+  zoneH3: string | null;
+  acceptLanguage: string | undefined;
+}): Promise<ResolvedCharacter | null> {
+  const { supabase, cardId, zoneH3, acceptLanguage } = params;
+  if (!zoneH3 || !/^PAR-\d{2}$/i.test(zoneH3)) return null;
+
+  const anchorTypes = anchorsForZone(zoneH3).map((a) => a.type.toLowerCase());
+  const anchorTypeSet = new Set(anchorTypes);
+  const preferredLang = acceptLanguage?.toLowerCase().includes("en") ? "en" : "fr";
+
+  const fetchFragments = async (lang: "fr" | "en") => {
+    const { data, error } = await supabase
+      .from("character_fragments")
+      .select(`
+        id,
+        character_id,
+        lang,
+        kind,
+        text,
+        symbols,
+        anchors,
+        zones,
+        cooldown_minutes,
+        weight,
+        characters!inner(
+          id,
+          slug,
+          name,
+          rules_json,
+          is_active
+        )
+      `)
+      .eq("is_active", true)
+      .eq("lang", lang)
+      .eq("characters.is_active", true)
+      .limit(200);
+    if (error) {
+      console.error("[card-gate] resolve character fragments:", error);
+      return [];
+    }
+    return data ?? [];
+  };
+
+  let rows = await fetchFragments(preferredLang as "fr" | "en");
+  if (!rows.length && preferredLang === "en") {
+    rows = await fetchFragments("fr");
+  }
+  if (!rows.length) return null;
+
+  const filtered = rows.filter((row: any) => {
+    const zones = (row.zones as string[] | null) ?? [];
+    const anchors = ((row.anchors as string[] | null) ?? []).map((v) => String(v).toLowerCase());
+    const zoneMatch = zones.length === 0 || zones.includes(zoneH3);
+    const anchorMatch = anchors.length === 0 || anchors.some((a) => anchorTypeSet.has(a));
+    return zoneMatch && anchorMatch;
+  });
+  if (!filtered.length) return null;
+
+  type Fragment = {
+    id: string;
+    character_id: string;
+    kind: CharacterFragmentKind;
+    text: string;
+    symbols: string[];
+    cooldown_minutes: number;
+    weight: number;
+    character: { id: string; slug: string; name: string; rules_json: Record<string, unknown> | null };
+  };
+  const fragments: Fragment[] = filtered.map((row: any) => ({
+    id: String(row.id),
+    character_id: String(row.character_id),
+    kind: (row.kind ?? "hint") as CharacterFragmentKind,
+    text: normalizeLegacyText(String(row.text ?? "")),
+    symbols: ((row.symbols as string[] | null) ?? []).map((v) => String(v)),
+    cooldown_minutes: Number(row.cooldown_minutes ?? 180),
+    weight: Number(row.weight ?? 1),
+    character: {
+      id: String(row.characters.id),
+      slug: String(row.characters.slug),
+      name: normalizeLegacyText(String(row.characters.name ?? "")),
+      rules_json: (row.characters.rules_json as Record<string, unknown> | null) ?? null,
+    },
+  }));
+
+  const now = new Date();
+  const cooldownSinceIso = new Date(now.getTime() - CHARACTER_COOLDOWN_HOURS * 60 * 60 * 1000).toISOString();
+  const blockedCharacters = new Set<string>();
+  if (cardId) {
+    const { data: cooldownRows, error: cooldownError } = await supabase
+      .from("character_encounters")
+      .select("character_id")
+      .eq("card_id", cardId)
+      .eq("zone_h3", zoneH3)
+      .gte("created_at", cooldownSinceIso)
+      .limit(200);
+    if (cooldownError) {
+      console.error("[card-gate] resolve character cooldown:", cooldownError);
+    } else {
+      for (const row of cooldownRows ?? []) {
+        const id = row.character_id as string | null;
+        if (id) blockedCharacters.add(id);
+      }
+    }
+  }
+
+  const byCharacter = new Map<string, Fragment[]>();
+  for (const fragment of fragments) {
+    if (blockedCharacters.has(fragment.character_id)) continue;
+    const arr = byCharacter.get(fragment.character_id) ?? [];
+    arr.push(fragment);
+    byCharacter.set(fragment.character_id, arr);
+  }
+  if (!byCharacter.size) return null;
+
+  const dayKey = parisDayKey(now);
+  const characterCandidates = Array.from(byCharacter.values()).map((group) => {
+    const sample = group[0];
+    return {
+      id: sample.character_id,
+      name: sample.character.name,
+      slug: sample.character.slug,
+      rules: sample.character.rules_json,
+      fragments: group,
+      weight: Math.max(1, group.reduce((sum, f) => sum + Math.max(1, f.weight), 0)),
+    };
+  });
+  const charSeed = `${cardId ?? "anon"}|${zoneH3}|${dayKey}|character`;
+  const characterIndex = pickWeightedIndex(characterCandidates, charSeed);
+  const selected = characterCandidates[characterIndex];
+  if (!selected) return null;
+
+  const preferredKinds: CharacterFragmentKind[] = ["witness", "hint", "threshold", "echo", "warning"];
+  const firstKind = firstPreferredKind(selected.fragments, preferredKinds);
+  const firstPool = selected.fragments.filter((f) => f.kind === firstKind);
+  const firstIdx = pickWeightedIndex(firstPool, `${cardId ?? "anon"}|${zoneH3}|${dayKey}|line-1`);
+  const first = firstPool[firstIdx] ?? selected.fragments[0];
+  const remaining = selected.fragments.filter((f) => f.id !== first.id);
+  const secondKind = firstPreferredKind(
+    remaining,
+    first.kind === "echo" ? ["witness", "hint", "threshold", "warning"] : ["echo", "hint", "threshold", "warning", "witness"]
+  );
+  const secondPool = remaining.filter((f) => f.kind === secondKind);
+  const secondIdx = pickWeightedIndex(secondPool, `${cardId ?? "anon"}|${zoneH3}|${dayKey}|line-2`);
+  const second = secondPool[secondIdx] ?? null;
+
+  const lines = [first?.text, second?.text]
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    .slice(0, 2);
+  if (!lines.length) return null;
+
+  const echoFragment = [first, second].find((f) => f?.kind === "echo") ?? null;
+  const echoSymbol = (echoFragment?.symbols?.[0] ?? selected.rules?.echo_symbol ?? null);
+  const echoLocationHint = (selected.rules?.echo_location_hint as string | undefined) ?? undefined;
+  const echo = echoFragment && echoLocationHint
+    ? {
+        location_hint: normalizeLegacyText(echoLocationHint),
+        symbol: normalizeLegacyText(String(echoSymbol ?? "echo")),
+      }
+    : undefined;
+
+  if (cardId) {
+    const fragmentForLog = echoFragment ?? first;
+    const { error: logError } = await supabase
+      .from("character_encounters")
+      .insert({
+        card_id: cardId,
+        character_id: selected.id,
+        zone_h3: zoneH3,
+        fragment_id: fragmentForLog?.id ?? null,
+      });
+    if (logError) {
+      console.error("[card-gate] resolve character log:", logError);
+    }
+  }
+
+  return {
+    id: selected.slug,
+    name: selected.name,
+    lines,
+    ...(echo ? { echo } : {}),
+  };
 }
 
 // ----- Presence: POST /presence/pulse -----
@@ -1904,6 +2143,27 @@ app.get("/world/snapshot", async (c) => {
     }
   }
 
+  const h3CenterRaw = c.req.query("h3_center");
+  const centerZone = parseLawZone(h3CenterRaw);
+  const outsideCharacterScope = Boolean(h3CenterRaw && !centerZone);
+  let characterZoneH3 = centerZone?.h3 ?? zonesInView[0]?.h3 ?? null;
+  if (!centerZone && isAuthed) {
+    let best: { h3: string; pulses: number } | null = null;
+    for (const [h3, zone] of Object.entries(meZones)) {
+      const pulses = Number(zone?.presence?.pulses_20m ?? 0);
+      if (!best || pulses > best.pulses) best = { h3, pulses };
+    }
+    if (best?.h3) characterZoneH3 = best.h3;
+  }
+  const resolvedCharacter = outsideCharacterScope
+    ? null
+    : await resolveCharacter({
+        supabase,
+        cardId: isAuthed && payload ? payload.card_id : null,
+        zoneH3: characterZoneH3,
+        acceptLanguage: c.req.header("Accept-Language"),
+      });
+
   const response = {
     now: nowIso,
     policy: {
@@ -1937,6 +2197,7 @@ app.get("/world/snapshot", async (c) => {
       authenticated: isAuthed,
       card_id: isAuthed && payload ? payload.card_id : null,
       zones: meZones,
+      character: resolvedCharacter,
     },
   };
 
