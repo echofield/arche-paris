@@ -12,6 +12,8 @@
  * - If Card Gate fails: queue locally / show offline.
  */
 
+import { normalizeDisplayText } from './text-normalize';
+
 const CARD_GATE_BASE = (() => {
   // Production: use same-origin proxy to avoid Supabase gateway CORS (*)
   if (import.meta.env.PROD) return '/api/card-gate';
@@ -771,7 +773,11 @@ export async function loadMirrorToday(cardId: string): Promise<MirrorToday> {
   const res = await gateFetch(cardId, '/mirror/today');
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error ?? `Load mirror today failed: ${res.status}`);
-  return data as MirrorToday;
+  return {
+    ...(data as MirrorToday),
+    sentence: normalizeDisplayText((data?.sentence as string) ?? ''),
+    anecdote: data?.anecdote ? normalizeDisplayText(String(data.anecdote)) : null,
+  };
 }
 
 /**
@@ -781,7 +787,11 @@ export async function loadMirrorKept(cardId: string): Promise<KeptSentenceItem[]
   const res = await gateFetch(cardId, '/mirror/kept');
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error ?? `Load mirror kept failed: ${res.status}`);
-  return (data?.items as KeptSentenceItem[]) ?? [];
+  const items = (data?.items as KeptSentenceItem[]) ?? [];
+  return items.map((item) => ({
+    ...item,
+    sentence: normalizeDisplayText(item.sentence),
+  }));
 }
 
 /**
