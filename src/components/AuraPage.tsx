@@ -18,6 +18,8 @@ import { useTranslation } from '../utils/i18n';
 import { api, type WorldSnapshotData, type ComplexionData, generateIdempotencyKey, clientTs } from '../lib/api';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
+import { useAuraMeasure } from '../hooks/useAuraMeasure';
+import { createAuraWaveNoise, createAuraWavePath } from '../lib/aura-geometry';
 
 const MAP_VIEWBOX_WIDTH = 2037.566;
 const MAP_VIEWBOX_HEIGHT = 1615.5;
@@ -186,9 +188,12 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [oracleVisible, setOracleVisible] = useState(false);
   const [oracleStep, setOracleStep] = useState<0 | 1 | 2>(0);
   const [sealError, setSealError] = useState<string | null>(null);
+  const [auraWavePhase, setAuraWavePhase] = useState(0);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
   const word = getCompanionWord(level);
+  const auraWaveNoiseRef = useRef(createAuraWaveNoise(cardId ?? 'arche-aura'));
+  const auraWaveMeasure = useAuraMeasure<HTMLDivElement>();
 
   // Load ARCHÉ zone progress + complexion (real backend data)
   const loadComplexionData = useCallback(async () => {
@@ -364,6 +369,14 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     return () => window.clearTimeout(id);
   }, [vectorSignature]);
 
+  useEffect(() => {
+    if (motion.prefersReducedMotion()) return;
+    const timer = window.setInterval(() => {
+      setAuraWavePhase((prev) => prev + 0.06);
+    }, 180);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const presenceLine = useMemo(() => {
     if (outsideCoverage) {
       return language === 'fr' ? 'La ville vous attend.' : 'The city is waiting for you.';
@@ -385,6 +398,23 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const auraFieldModel = useMemo(
     () => deriveAuraFieldModel(worldSnapshot, complexion, currentH3),
     [worldSnapshot, complexion, currentH3]
+  );
+
+  const auraWave = useMemo(
+    () =>
+      createAuraWavePath(
+        {
+          width: auraWaveMeasure.width,
+          height: 42,
+          phase: auraWavePhase,
+          movement: auraFieldModel.field.movement,
+          shadow: auraFieldModel.field.shadow,
+          echo: auraFieldModel.field.echo,
+          alignment: auraFieldModel.field.alignment,
+        },
+        auraWaveNoiseRef.current
+      ),
+    [auraWaveMeasure.width, auraWavePhase, auraFieldModel.field.movement, auraFieldModel.field.shadow, auraFieldModel.field.echo, auraFieldModel.field.alignment]
   );
 
   const encounter = useMemo(() => {
@@ -573,7 +603,38 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
         {word}
       </p>
 
-      <AuraFieldDiagram model={auraFieldModel} />
+      <div ref={auraWaveMeasure.ref} style={{ width: '100%', maxWidth: 360 }}>
+        <AuraFieldDiagram model={auraFieldModel} />
+        <svg
+          aria-hidden="true"
+          viewBox={`0 0 ${Math.max(1, Math.round(auraWaveMeasure.width))} 42`}
+          preserveAspectRatio="none"
+          style={{
+            width: '100%',
+            height: 42,
+            display: 'block',
+            marginTop: -4,
+            marginBottom: 8,
+            opacity: 0.62,
+          }}
+        >
+          <path
+            d={auraWave.ghostPath}
+            fill="none"
+            stroke="rgba(0,61,44,0.22)"
+            strokeWidth={1}
+            strokeDasharray="4 5"
+            strokeLinecap="round"
+          />
+          <path
+            d={auraWave.path}
+            fill="none"
+            stroke="rgba(0,120,80,0.65)"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
 
       <div
         style={{
