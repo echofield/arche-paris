@@ -524,7 +524,7 @@ export default function App() {
         ) : (
           <TerritoryResolverProvider>
             <SnapshotDebugProvider>
-              <TerritoryDebugStrip />
+              {(import.meta.env.DEV || import.meta.env.VITE_DEBUG_TERRITORY === '1') && <TerritoryDebugStrip />}
               <LanguageSelector />
               {renderScreen()}
               <CardDrawer />

@@ -5,55 +5,15 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "redirects": [
-    {
-      "source": "/dev",
-      "destination": "/demo",
-      "permanent": false
-    },
-    {
-      "source": "/dev/:path*",
-      "destination": "/demo/:path*",
-      "permanent": false
-    }
+    { "source": "/dev", "destination": "/demo", "permanent": false },
+    { "source": "/dev/:path*", "destination": "/demo/:path*", "permanent": false }
   ],
   "rewrites": [
-    {
-      "source": "/api/card-gate/:path*",
-      "destination": "/api/card-gate?path=:path*"
-    },
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/card-gate/:path*", "destination": "/api/card-gate?path=:path*" },
+    { "source": "/((?!api/|manifest\\.json|icon\\.svg|favicon\\.ico|assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
-    {
-      "source": "/api/card-gate/map-state/community",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, s-maxage=120, stale-while-revalidate=600"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
-    }
+    { "source": "/api/card-gate/map-state/community", "headers": [{ "key": "Cache-Control", "value": "public, s-maxage=120, stale-while-revalidate=600" }] },
+    { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "X-Frame-Options", "value": "DENY" }, { "key": "X-XSS-Protection", "value": "1; mode=block" }] }
   ]
 }
-
-
