@@ -20,9 +20,14 @@ function getRuntimeCardCode(): string | null {
   }
 }
 
-async function invoke<T>(fn: string, body?: Record<string, unknown>): Promise<ApiResult<T>> {
+async function invoke<T>(
+  fn: string,
+  body?: Record<string, unknown>,
+  options?: { includeCardHeader?: boolean }
+): Promise<ApiResult<T>> {
+  const includeCardHeader = options?.includeCardHeader ?? true;
   const cardCode = getRuntimeCardCode();
-  const headers = cardCode ? { 'X-ARCHE-CARD-CODE': cardCode } : undefined;
+  const headers = includeCardHeader && cardCode ? { 'X-ARCHE-CARD-CODE': cardCode } : undefined;
   const { data, error } = await supabase.functions.invoke(fn, {
     body: body ? JSON.stringify(body) : undefined,
     headers,
@@ -274,6 +279,7 @@ export interface WorldZoneSnapshot {
   h3: string;
   title: string;
   fog: { level: number };
+  anchors?: Array<{ id: string; type: string }>;
   signals: {
     inscriptions_recent: number;
     champ_recent: number;
@@ -434,7 +440,7 @@ export const api = {
   meArchiveLedger: (day: string) =>
     invoke<LedgerData>('me-archive-ledger', { day }),
 
-  meComplexion: () => invoke<ComplexionData>('me-complexion'),
+  meComplexion: () => invoke<ComplexionData>('me-complexion', undefined, { includeCardHeader: false }),
 
   // Feed
   feedNext: (params?: { lat?: number; lng?: number }) =>
