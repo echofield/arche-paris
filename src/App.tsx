@@ -27,6 +27,7 @@ import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-r
 import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
+import { SnapshotDebugProvider } from './contexts/SnapshotDebugContext';
 import { TerritoryResolverProvider } from './contexts/TerritoryResolverContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
