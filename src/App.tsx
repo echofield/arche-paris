@@ -27,6 +27,7 @@ import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-r
 import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
+import { TerritoryResolverProvider } from './contexts/TerritoryResolverContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
