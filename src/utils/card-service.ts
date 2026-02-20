@@ -134,6 +134,18 @@ export async function initializeCard(): Promise<CardStatus | null> {
   }
 
   if (codeFromUrl) {
+    // If URL card matches an already valid cookie session, skip CardGate.
+    const session = await checkSession();
+    if (session.valid && session.cardId && session.cardId === codeFromUrl) {
+      setStoredCard(codeFromUrl);
+      return {
+        valid: true,
+        status: 'WELCOME_BACK',
+        message: 'Bon retour.',
+        cardId: codeFromUrl,
+      };
+    }
+
     return {
       valid: false,
       status: 'NEEDS_GATE',
@@ -276,3 +288,4 @@ export async function afterCardGateAuthenticated(cardData: {
   setStoredCard(cardId);
   authInProgress = false;
 }
+
