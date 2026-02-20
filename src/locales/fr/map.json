@@ -14,7 +14,7 @@
   "myparis.absence.title": "Absence",
   "myparis.absence.refused": "Refusé:",
   "myparis.absence.promptTitle": "Tu n'as pas marché ici",
-  "myparis.absence.prompt": "Tu n'as pas marché ici. Est-ce un choix ?",
+  "myparis.absence.prompt": "Tu n'as pas marche ici. Est-ce un choix ?",
   "myparis.absence.yes": "Oui",
   "myparis.absence.no": "Non",
   "myparis.ecrire.title": "Écrire",
@@ -27,7 +27,6 @@
   "myparis.layers.segments": "Segments gravés",
   "myparis.layers.inscriptions": "Inscriptions",
   "tagline.walkReveal": "Marchez. La ville se révèle.",
-
   "map.roles.traveler.name": "Voyageur",
   "map.roles.traveler.title": "Tu commences ton parcours",
   "map.roles.guide.name": "Guide",
@@ -36,21 +35,17 @@
   "map.roles.hero.title": "Collectionneur aguerri",
   "map.roles.guardian.name": "Gardien",
   "map.roles.guardian.title": "Protecteur de la mémoire",
-
   "map.stats.collected": "symboles collectés",
   "map.stats.nextRole": "Prochain rôle: {role} (encore {count} symboles)",
   "map.stats.yourRank": "Ton rang",
   "map.stats.symbols": "symboles",
-
   "map.legend.toDiscover": "À découvrir",
   "map.legend.inProgress": "En cours",
   "map.legend.completed": "Complété",
-
   "map.tabs.traces": "Mes traces",
   "map.tabs.city": "La Ville",
   "map.tabs.moments": "Moments",
   "map.panel.arrondissement": "Arrondissement",
-
   "map.detail.collect": "Collecter ce symbole",
   "map.detail.collected": "Symbole déjà collecté",
   "map.detail.location": "Localisation:",
@@ -62,9 +57,7 @@
   "map.detail.iFoundIt": "Je l'ai trouvé",
   "map.detail.inCollection": "Dans ta collection",
   "map.detail.close": "Fermer",
-
   "map.footer": "Chaque symbole trouvé allume un neurone dans le cerveau de Paris.",
-
   "map.arrondissements": {
     "1": "1er — Louvre",
     "2": "2e — Bourse",
@@ -87,7 +80,6 @@
     "19": "19e — Buttes-Chaumont",
     "20": "20e — Ménilmontant"
   },
-
   "map.messages.empty": "Aucun symbole dans cet arrondissement",
   "map.messages.select": "Sélectionne un arrondissement sur la carte"
 }

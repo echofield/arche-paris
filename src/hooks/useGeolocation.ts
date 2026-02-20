@@ -61,16 +61,16 @@ export function useGeolocation(options?: PositionOptions): UseGeolocationReturn 
           resolve(position);
         },
         (err) => {
-          let errorMsg = 'Failed to get location';
+          let errorMsg = 'Localisation indisponible';
           switch (err.code) {
             case err.PERMISSION_DENIED:
-              errorMsg = 'Location permission denied';
+              errorMsg = 'Autorisez la localisation puis reessayez.';
               break;
             case err.POSITION_UNAVAILABLE:
-              errorMsg = 'Location unavailable';
+              errorMsg = 'Signal GPS indisponible. Essayez pres d une fenetre ou a l exterieur.';
               break;
             case err.TIMEOUT:
-              errorMsg = 'Location request timed out';
+              errorMsg = 'Le GPS met trop de temps. Restez immobile quelques secondes puis reessayez.';
               break;
           }
           setState((prev) => ({

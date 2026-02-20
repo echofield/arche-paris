@@ -45,7 +45,7 @@ const TYPOLOGIES: Typologie[] = [
     titre: 'Coupole commerciale',
     fonction: 'Produire un espace spectaculaire.',
     formes: 'Grands magasins.',
-    effet: 'Fascination, circulation ralentie, consommation ritualisée.'
+    effet: 'Fascination, circulation ralentie, consommation codifiée.'
   },
   {
     titre: 'Coupole urbaine / signal',

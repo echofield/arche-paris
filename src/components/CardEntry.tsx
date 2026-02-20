@@ -166,17 +166,31 @@ export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: Car
         </h1>
 
         {status === 'invalid' ? (
-          <p
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: '16px',
-              color: '#DC2626',
-              marginBottom: 'var(--space-lg)',
-              lineHeight: '1.6'
-            }}
-          >
-            Carte non reconnue.
-          </p>
+          <>
+            <p
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '16px',
+                color: '#DC2626',
+                marginBottom: '12px',
+                lineHeight: '1.6'
+              }}
+            >
+              {cardStatus?.message || 'Carte non reconnue.'}
+            </p>
+            <p
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: '12px',
+                color: '#1A1A1A',
+                opacity: 0.65,
+                marginBottom: 'var(--space-lg)',
+                lineHeight: '1.5'
+              }}
+            >
+              Si le réseau est instable, réessayez dans quelques secondes.
+            </p>
+          </>
         ) : (
           <p
             style={{

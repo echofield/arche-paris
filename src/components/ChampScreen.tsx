@@ -409,6 +409,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                 color: '#1A1A1A',
                 opacity: 0.7,
                 lineHeight: 1.7,
+                whiteSpace: 'pre-wrap',
               }}
             >
               {normalizeDisplayText(fullItems.find(f => f.id === selectedItem.id)?.textFull || selectedItem.textExcerpt)}

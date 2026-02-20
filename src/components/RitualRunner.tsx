@@ -107,7 +107,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
 
     if (result.error || !result.data) {
       setState('rejected');
-      setError({ code: 'START_FAILED', message: result.error || 'Impossible de démarrer le rituel' });
+      setError({ code: 'START_FAILED', message: result.error || 'Impossible de démarrer le moment' });
       haptic('error');
       return;
     }
@@ -149,7 +149,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
     const position = await geo.refresh();
     if (!position) {
       setState('rejected');
-      setError({ code: 'GPS_FAILED', message: 'GPS perdu pendant le rituel' });
+      setError({ code: 'GPS_FAILED', message: 'GPS perdu pendant le moment' });
       haptic('error');
       return;
     }

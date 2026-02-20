@@ -35,6 +35,7 @@ async function gateMapFetch(
   return fetch(`${base}${path}`, {
     method: options.method ?? "GET",
     headers,
+    credentials: "include",
     body: options.body,
   });
 }

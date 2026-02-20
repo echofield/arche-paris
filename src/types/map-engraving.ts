@@ -50,3 +50,20 @@ export interface MapState {
   segments: EngravedSegment[];
   meridian_proofs: MeridianProof[];
 }
+
+export interface CityArrondissementSignal {
+  arrondissement: number;
+  signalStrength: number; // 0..1
+  inscriptionCount: number;
+  verifiedInscriptions: number;
+  pendingInscriptions: number;
+  segmentCount: number;
+  lastActivityAt: string | null;
+  sampleLines: string[];
+}
+
+export interface CityMapState {
+  generatedAt: string;
+  windowDays: number;
+  arrondissements: CityArrondissementSignal[];
+}

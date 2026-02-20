@@ -19,7 +19,7 @@ interface ZoneEntryFeedbackProps {
 
 const ERROR_MESSAGES: Record<string, string> = {
   NO_GPS: 'Position GPS requise',
-  BAD_COORDS: 'Coordonnées invalides',
+  BAD_COORDS: 'Coordonnées GPS invalides',
   ACCURACY_TOO_LOW: 'Signal GPS trop faible',
   OUTSIDE_ZONE: 'Vous êtes hors de cette zone',
   ZONE_NOT_FOUND: 'Zone inconnue',
@@ -27,6 +27,23 @@ const ERROR_MESSAGES: Record<string, string> = {
   MISSING_ZONE_ID: 'Zone non spécifiée',
   MISSING_IDEMPOTENCY_KEY: 'Erreur système',
 };
+
+function getGpsGuidance(error: ZoneEntryError | null): string | null {
+  if (!error) return null;
+
+  switch (error.code) {
+    case 'GPS_FAILED':
+      return 'Activez la localisation précise, puis attendez 5 à 10 secondes à l extérieur.';
+    case 'ACCURACY_TOO_LOW':
+      return 'Signal faible: éloignez-vous des murs hauts, restez immobile, puis réessayez.';
+    case 'OUTSIDE_ZONE':
+      return 'Approchez du centre de l arrondissement puis relancez la vérification.';
+    case 'NO_GPS':
+      return 'Sans GPS actif, la présence ne peut pas être validée.';
+    default:
+      return null;
+  }
+}
 
 export function ZoneEntryFeedback({
   status,
@@ -38,6 +55,7 @@ export function ZoneEntryFeedback({
   if (status === 'idle') return null;
 
   const arrNum = zoneId?.replace('PAR-', '');
+  const guidance = getGpsGuidance(error);
 
   return (
     <div
@@ -149,11 +167,24 @@ export function ZoneEntryFeedback({
             marginBottom: 16,
           }}
         >
-          {status === 'acquiring_gps' && 'Localisation en cours...'}
+          {status === 'acquiring_gps' && 'Localisation en cours. Restez immobile quelques secondes...'}
           {status === 'submitting' && 'Validation de la position...'}
           {status === 'accepted' && 'Votre présence est enregistrée'}
           {status === 'rejected' && (error ? ERROR_MESSAGES[error.code] || error.message : 'Erreur inconnue')}
         </p>
+
+        {guidance && status === 'rejected' && (
+          <p
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 11,
+              color: '#6B6455',
+              marginBottom: 14,
+            }}
+          >
+            {guidance}
+          </p>
+        )}
 
         {/* GPS Details (for debugging/transparency) */}
         {gpsData.lat !== null && (

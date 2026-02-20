@@ -1,11 +1,9 @@
 {
   "origin.title": "Origine",
   "origin.protocol": "Protocole de Marche",
-
   "origin.modal.submit": "Déposer la preuve",
   "origin.modal.describe": "Décrire le seuil...",
   "origin.modal.seal": "Sceller l'étape",
-
   "origin.points": [
     {
       "id": "p01",

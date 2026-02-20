@@ -447,10 +447,7 @@ export default function App() {
       case 'aura':
         return (
           <ArcheInterface
-            onBack={() => navigateTo('homepage')}
-            cardId={cardStatus?.cardId ?? null}
-            onOpenKept={() => navigateTo('kept')}
-            onEnterChamp={() => navigateTo('champ')}
+            onExit={() => navigateTo('homepage')}
           />
         );
       case 'kept':
