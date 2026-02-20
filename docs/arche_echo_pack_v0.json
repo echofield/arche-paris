@@ -1,0 +1,225 @@
+{
+  "version": "v0",
+  "zones": {
+    "PAR-01": {
+      "doors": [
+        "Où la pierre se souvient-elle du passage ?",
+        "Quel seuil sépare le musée de la rue ?",
+        "Où le regard s'arrête-t-il entre deux colonnades ?",
+        "Quelle cour garde encore le silence ?",
+        "Quel axe traverse les siècles sans bouger ?"
+      ],
+      "vestiges": ["pierre lisse / pulsation lente / attente", "marbre et ombre / respiration / tension du vide", "colonnes et lumière / battement régulier / seuil"],
+      "anchorType": "passage"
+    },
+    "PAR-02": {
+      "doors": [
+        "Où l'argent et le temps se croisent-ils ?",
+        "Quel passage mène sous les arcades ?",
+        "Quelle façade cache encore un atelier ?",
+        "Où la Bourse écoute-t-elle la ville ?",
+        "Quel seuil sépare le commerce du rêve ?"
+      ],
+      "vestiges": ["bronze et verre / rythme boursier / densité du nombre", "pierre grise / flux des passants / tension de l'échange", "marbre noir / silence des couloirs / vide habité"],
+      "anchorType": "seuil"
+    },
+    "PAR-03": {
+      "doors": [
+        "Où le Temple a-t-il laissé une trace ?",
+        "Quelle cour respire entre deux murs ?",
+        "Quel atelier garde l'odeur du cuir ?",
+        "Où la mode et le silence se rencontrent-ils ?",
+        "Quel passage mène à un jardin caché ?"
+      ],
+      "vestiges": ["brique et fer / battement artisanal / densité du faire", "bois et tissu / respiration des ateliers / seuil", "pierre ocre / pulsation des cours / tension douce"],
+      "anchorType": "atelier"
+    },
+    "PAR-04": {
+      "doors": [
+        "Où l'Hôtel de Ville regarde-t-il la place ?",
+        "Quel axe relie l'eau et la pierre ?",
+        "Quelle façade raconte encore la Commune ?",
+        "Où le vide devient-il place ?",
+        "Quel seuil mène sous les arcades ?"
+      ],
+      "vestiges": ["pierre blanche / rythme civique / tension de l'histoire", "eau et grès / flux de la Seine / densité du centre", "ardoise et or / battement des cloches / vide sacré"],
+      "anchorType": "axe"
+    },
+    "PAR-05": {
+      "doors": [
+        "Où le Panthéon pèse-t-il sur le quartier ?",
+        "Quelle cour d'un lycée garde le silence ?",
+        "Quel passage mène à une librairie cachée ?",
+        "Où la science et la pierre se parlent-elles ?",
+        "Quel seuil sépare la Sorbonne de la rue ?"
+      ],
+      "vestiges": ["marbre et plomb / pulsation lente / densité du savoir", "pierre grise / respiration des cours / tension studieuse", "bois et cuir / battement des pages / seuil"],
+      "anchorType": "cour"
+    },
+    "PAR-06": {
+      "doors": [
+        "Où le Luxembourg écoute-t-il les pas ?",
+        "Quel axe traverse le jardin sans fin ?",
+        "Quelle façade regarde encore les marronniers ?",
+        "Où la fontaine garde-t-elle un secret ?",
+        "Quel passage mène de l'ombre à la lumière ?"
+      ],
+      "vestiges": ["verdure et fer / rythme des saisons / tension du calme", "eau et pierre / pulsation des fontaines / densité douce", "sable et ombre / respiration des allées / seuil"],
+      "anchorType": "vide"
+    },
+    "PAR-07": {
+      "doors": [
+        "Où la Tour se tait quand la foule parle ?",
+        "Quel axe mène du fleuve au palais ?",
+        "Quelle cour garde le souvenir des expositions ?",
+        "Où le métal et la pierre se répondent-ils ?",
+        "Quel seuil sépare le quai du jardin ?"
+      ],
+      "vestiges": ["fer et lumière / pulsation verticale / tension du vide", "pierre blonde / rythme des régimes / densité du pouvoir", "eau et grès / battement des péniches / seuil"],
+      "anchorType": "façade"
+    },
+    "PAR-08": {
+      "doors": [
+        "Où les Champs s'ouvrent-ils vers l'infini ?",
+        "Quel passage mène sous les arcades ?",
+        "Quelle façade cache encore un palace ?",
+        "Où le luxe et le vide se croisent-ils ?",
+        "Quel seuil mène au jardin des Tuileries ?"
+      ],
+      "vestiges": ["marbre et or / rythme des cortèges / densité du paraître", "verre et pierre / pulsation commerciale / tension de l'axe", "ombre et lumière / respiration des terrasses / vide habité"],
+      "anchorType": "axe"
+    },
+    "PAR-09": {
+      "doors": [
+        "Où l'Opéra écoute-t-il la rue ?",
+        "Quel passage mène sous les galeries ?",
+        "Quelle façade raconte encore les grands magasins ?",
+        "Où le spectacle et le quotidien se touchent-ils ?",
+        "Quel seuil sépare la scène du trottoir ?"
+      ],
+      "vestiges": ["doré et velours / pulsation du rideau / tension du spectacle", "verre et fer / rythme des vitrines / densité du désir", "pierre sculptée / battement des foules / seuil"],
+      "anchorType": "passage"
+    },
+    "PAR-10": {
+      "doors": [
+        "Où la gare envoie-t-elle ses voyageurs ?",
+        "Quel axe mène du canal à la rue ?",
+        "Quelle cour garde encore un atelier ?",
+        "Où le passage et l'attente se mélangent-ils ?",
+        "Quel seuil sépare le quai de la ville ?"
+      ],
+      "vestiges": ["fer et verre / rythme des départs / densité du passage", "brique et suie / pulsation des machines / tension du départ", "marbre noir / respiration des halls / vide traversé"],
+      "anchorType": "seuil"
+    },
+    "PAR-11": {
+      "doors": [
+        "Où la Bastille a-t-elle laissé un vide ?",
+        "Quel passage mène à une cour populaire ?",
+        "Quelle façade cache encore un bal ?",
+        "Où la nuit et le jour se croisent-ils ?",
+        "Quel seuil mène au canal ?"
+      ],
+      "vestiges": ["béton et lumière / pulsation nocturne / tension de la fête", "pierre et tag / rythme des manifs / densité du peuple", "eau et pierre / battement des écluses / seuil"],
+      "anchorType": "vide"
+    },
+    "PAR-12": {
+      "doors": [
+        "Où le bois de Vincennes commence-t-il en ville ?",
+        "Quel axe mène de la gare au parc ?",
+        "Quelle cour garde le souvenir des entrepôts ?",
+        "Où le vin et la pierre se sont-ils rencontrés ?",
+        "Quel seuil sépare Bercy du fleuve ?"
+      ],
+      "vestiges": ["pierre et lierre / rythme des entrepôts / densité abandonnée", "verdure et béton / pulsation du parc / tension douce", "rail et gravier / respiration des voies / vide reconquis"],
+      "anchorType": "cour"
+    },
+    "PAR-13": {
+      "doors": [
+        "Où la Bibliothèque regarde-t-elle la Seine ?",
+        "Quel passage mène sous les tours ?",
+        "Quelle façade garde encore l'usine ?",
+        "Où le livre et le béton se touchent-ils ?",
+        "Quel seuil mène aux ateliers cachés ?"
+      ],
+      "vestiges": ["verre et bois / pulsation du savoir / tension du silence", "béton et livre / rythme des salles / densité de l'archive", "acier et lumière / battement des ascenseurs / seuil"],
+      "anchorType": "façade"
+    },
+    "PAR-14": {
+      "doors": [
+        "Où l'Observatoire écoute-t-il les étoiles ?",
+        "Quel axe traverse le cimetière sans bruit ?",
+        "Quelle cour garde le souvenir des ateliers ?",
+        "Où la science et le silence habitent-ils ?",
+        "Quel seuil mène au parc Montsouris ?"
+      ],
+      "vestiges": ["cuivre et pierre / pulsation du télescope / tension du regard", "marbre et nom / rythme des tombes / densité du souvenir", "verdure et grille / respiration du parc / vide mesuré"],
+      "anchorType": "axe"
+    },
+    "PAR-15": {
+      "doors": [
+        "Où la tour et le pavillon se regardent-ils ?",
+        "Quel passage mène à un marché caché ?",
+        "Quelle façade garde encore un atelier ?",
+        "Où le béton et le jardin se partagent-ils ?",
+        "Quel seuil sépare la gare du quartier ?"
+      ],
+      "vestiges": ["béton et tôle / rythme des ateliers / densité ouvrière", "pierre et store / pulsation résidentielle / tension calme", "fer et verre / battement des halls / seuil"],
+      "anchorType": "atelier"
+    },
+    "PAR-16": {
+      "doors": [
+        "Où le Bois s'ouvre-t-il sur la ville ?",
+        "Quel axe mène du Trocadéro à la Seine ?",
+        "Quelle façade cache encore un musée ?",
+        "Où le silence et la pierre habitent-ils ?",
+        "Quel seuil mène à une villa cachée ?"
+      ],
+      "vestiges": ["pierre blonde / rythme des musées / densité du patrimoine", "verdure et grille / pulsation du Bois / tension du calme", "marbre et jardin / respiration des villas / vide bourgeois"],
+      "anchorType": "passage"
+    },
+    "PAR-17": {
+      "doors": [
+        "Où les Batignolles gardent-ils leur village ?",
+        "Quel passage mène au square caché ?",
+        "Quelle façade raconte encore le chemin de fer ?",
+        "Où le marché et l'église se croisent-ils ?",
+        "Quel seuil mène au parc Monceau ?"
+      ],
+      "vestiges": ["brique et fer / rythme des trains / densité du passage", "pierre et marronnier / pulsation du square / tension douce", "verre et zinc / battement des terrasses / seuil"],
+      "anchorType": "cour"
+    },
+    "PAR-18": {
+      "doors": [
+        "Où le Sacré-Cœur écoute-t-il la Butte ?",
+        "Quel passage mène à une vigne cachée ?",
+        "Quelle façade garde encore un cabaret ?",
+        "Où l'art et la rue se mélangent-ils ?",
+        "Quel seuil mène aux escaliers sans fin ?"
+      ],
+      "vestiges": ["plâtre et lumière / pulsation de la Butte / tension du regard", "pierre et vigne / rythme des montées / densité du quartier", "couleur et ombre / battement des ateliers / seuil"],
+      "anchorType": "façade"
+    },
+    "PAR-19": {
+      "doors": [
+        "Où les Buttes-Chaumont ouvrent-ils le ciel ?",
+        "Quel axe mène du canal à la colline ?",
+        "Quelle cour garde le souvenir des carrières ?",
+        "Où l'eau et le vert se répondent-ils ?",
+        "Quel seuil mène à la Villette ?"
+      ],
+      "vestiges": ["gazon et roche / pulsation du parc / tension du vide", "eau et béton / rythme des canaux / densité industrielle", "fer et verre / battement des halls / seuil"],
+      "anchorType": "vide"
+    },
+    "PAR-20": {
+      "doors": [
+        "Où le Père-Lachaise garde-t-il le silence ?",
+        "Quel passage mène à une rue en pente ?",
+        "Quelle façade cache encore un atelier ?",
+        "Où la vie et la mort se côtoient-ils ?",
+        "Quel seuil mène au Belleville caché ?"
+      ],
+      "vestiges": ["marbre et lierre / rythme des tombes / densité du souvenir", "brique et tag / pulsation du quartier / tension vive", "pierre et escalier / respiration des ruelles / seuil"],
+      "anchorType": "densité"
+    }
+  }
+}

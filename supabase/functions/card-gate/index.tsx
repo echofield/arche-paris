@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ARCHÃ‰ â€” Card Gate Edge Function (V1)
  *
  * INVARIANTS (documented):
@@ -16,6 +16,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
+import { getFieldPack } from "./field-packs.ts";
+import { selectDailySentence, todayParis } from "./field-daily.ts";
 
 const app = new Hono().basePath("/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
@@ -2164,6 +2166,96 @@ app.get("/world/snapshot", async (c) => {
         acceptLanguage: c.req.header("Accept-Language"),
       });
 
+  const zoneIdForField = centerZone?.h3 ?? null;
+  const fieldPack = zoneIdForField ? getFieldPack(zoneIdForField) : null;
+
+  // ----- me.aura: single source of truth for Aura page -----
+  let meAura: {
+    mode: "seek" | "scan" | "archive" | "ritual";
+    title: string;
+    nextTitle?: string | null;
+    axes: { clarte: number; anchorage: number; echo: number; mouvement: number; alignement: number; ombre: number };
+    reading: { cycle: number; tension: number; trend: -1 | 0 | 1; waveSeed: string };
+    vestige: { status: "none" | "detected" | "crystallizing" | "figure" | "named"; hint?: string | null; statueKey?: string | null; revealLocked?: boolean };
+    questCallout: {
+      id: string;
+      title: string;
+      subtitle?: string | null;
+      ctaLabel: string;
+      action: "open_oracle" | "open_place" | "open_map" | "none";
+      locked?: boolean;
+      reasonLocked?: string | null;
+    } | null;
+    oracle: { eligible: boolean; message: string | null; source: "daily" | "event" | "manual"; cooldownEndsAt: string | null };
+    seals: string[];
+    dailySentence?: string;
+    dailySentenceMeta?: { source: "fieldPack"; zoneId: string; date: string } | null;
+  };
+  if (isAuthed && payload) {
+    const { data: auraRow } = await supabase.from("aura_profiles").select("aura_level, aura_points, status, last_quest_at, seals").eq("card_id", payload.card_id).single();
+    const auraLevel = auraRow?.aura_level ?? 0;
+    const auraPoints = auraRow?.aura_points ?? 0;
+    const status = auraRow?.status ?? "Quiet";
+    const cardId = payload.card_id;
+    const dateSeed = new Date().toISOString().slice(0, 10);
+    const seedStr = `${cardId}:${dateSeed}`;
+    let seedNum = 0;
+    for (let i = 0; i < seedStr.length; i++) seedNum = (seedNum * 31 + seedStr.charCodeAt(i)) >>> 0;
+    const tension = (seedNum % 1000) / 1000;
+    const cycle = 1 + (Math.floor(seedNum / 1000) % 4);
+    const trend = (seedNum % 3) - 1 as -1 | 0 | 1;
+    const waveSeed = seedStr.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(36);
+    const baseAxis = Math.min(1, 0.2 + (auraPoints / 100) * 0.3);
+    const axes = {
+      clarte: Math.min(1, baseAxis + (seedNum % 17) / 100),
+      anchorage: Math.min(1, baseAxis + ((seedNum >> 4) % 17) / 100),
+      echo: Math.min(1, baseAxis + ((seedNum >> 8) % 17) / 100),
+      mouvement: Math.min(1, baseAxis + ((seedNum >> 12) % 17) / 100),
+      alignement: Math.min(1, baseAxis + ((seedNum >> 16) % 17) / 100),
+      ombre: Math.min(1, baseAxis + ((seedNum >> 20) % 17) / 100),
+    };
+    const vestigeStatus = axes.ombre > 0.55 ? "detected" : "none";
+    meAura = {
+      mode: "seek",
+      title: status,
+      nextTitle: null,
+      axes,
+      reading: { cycle, tension, trend, waveSeed },
+      vestige: { status: vestigeStatus, hint: vestigeStatus === "detected" ? "Une forme commence..." : null, statueKey: null, revealLocked: false },
+      questCallout: { id: "question", title: "Question", subtitle: "La ville répond.", ctaLabel: "ÉCOUTER →", action: "open_oracle", locked: false, reasonLocked: null },
+      oracle: { eligible: true, message: null, source: "daily", cooldownEndsAt: null },
+      seals: Array.isArray(auraRow?.seals) ? auraRow.seals : [],
+    };
+  } else {
+    const dateSeed = new Date().toISOString().slice(0, 10);
+    const seedStr = `anon:${dateSeed}`;
+    let seedNum = 0;
+    for (let i = 0; i < seedStr.length; i++) seedNum = (seedNum * 31 + seedStr.charCodeAt(i)) >>> 0;
+    const tension = (seedNum % 1000) / 1000;
+    const cycle = 1 + (Math.floor(seedNum / 1000) % 4);
+    const trend = (seedNum % 3) - 1 as -1 | 0 | 1;
+    const waveSeed = seedStr.split("").reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(36);
+    meAura = {
+      mode: "seek",
+      title: "Citoyen",
+      nextTitle: null,
+      axes: { clarte: 0.2, anchorage: 0.2, echo: 0.2, mouvement: 0.2, alignement: 0.2, ombre: 0.2 },
+      reading: { cycle, tension, trend, waveSeed },
+      vestige: { status: "none", hint: null, statueKey: null, revealLocked: false },
+      questCallout: null,
+      oracle: { eligible: false, message: null, source: "daily", cooldownEndsAt: null },
+      seals: [],
+    };
+  }
+
+  if (fieldPack && zoneIdForField && !meAura.dailySentence?.trim()) {
+    const { sentence, meta } = selectDailySentence(fieldPack, payload?.card_id ?? "anon", zoneIdForField, todayParis());
+    if (sentence) {
+      meAura.dailySentence = sentence;
+      meAura.dailySentenceMeta = meta ?? null;
+    }
+  }
+
   const response = {
     now: nowIso,
     policy: {
@@ -2192,12 +2284,14 @@ app.get("/world/snapshot", async (c) => {
       }),
       map: include.has("map") ? { inscriptions: worldMapItems.slice(0, 300) } : { inscriptions: [] },
       champ: include.has("champ") ? { items: worldChampItems.slice(0, 100) } : { items: [] },
+      field: fieldPack ?? null,
     },
     me: {
       authenticated: isAuthed,
       card_id: isAuthed && payload ? payload.card_id : null,
       zones: meZones,
       character: resolvedCharacter,
+      aura: meAura,
     },
   };
 

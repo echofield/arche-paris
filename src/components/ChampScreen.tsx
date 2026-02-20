@@ -14,7 +14,7 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { project } from '../utils/map-project';
 import { postInscription } from '../utils/card-gate-map-client';
 import { normalizeDisplayText } from '../utils/text-normalize';
-import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
+import { inferArrondissementFromGeo } from '../utils/territory';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 
 interface ChampScreenProps {
@@ -63,29 +63,6 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const traceValidationError = validateChampTrace(traceDraft);
   const traceWordCount = countWords(traceDraft);
   const canSubmitTrace = !traceSaving && geo.lat !== null && geo.lng !== null && traceDraft.trim().length > 0 && !traceValidationError;
-
-  const inferArrondissementFromGeo = (lat: number, lng: number): number | null => {
-    const VIEWBOX_WIDTH = 2037.566;
-    const VIEWBOX_HEIGHT = 1615.5;
-    const p = project(lat, lng);
-    const xPct = (p.x / VIEWBOX_WIDTH) * 100;
-    const yPct = (p.y / VIEWBOX_HEIGHT) * 100;
-    if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return null;
-    let bestArr: number | null = null;
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (let arr = 1; arr <= 20; arr++) {
-      const center = ARRONDISSEMENT_MAP_POSITION[arr];
-      if (!center) continue;
-      const dx = center.x - xPct;
-      const dy = center.y - yPct;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < bestDist) {
-        bestDist = d;
-        bestArr = arr;
-      }
-    }
-    return bestArr;
-  };
 
   useEffect(() => {
     let cancelled = false;

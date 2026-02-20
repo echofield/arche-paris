@@ -53,6 +53,46 @@ Goal: backend is rich, UI is calm but readable. Mechanics surfaced via poetic in
 - "L'ombre recule."
 - Flow: user completes action -> backend writes delta -> Aura reflects change on open
 
+## Handy References
+- UI/layout/mobile consistency: [docs/UI_STABILIZATION_AND_MOBILE_GUIDE.md](UI_STABILIZATION_AND_MOBILE_GUIDE.md)
+- PassportLayerModule is placed below the main Aura dashboard in a flex wrapper: row on desktop (dashboard left, module right), column on mobile. Single Aura page, same instrument/panel language.
+
+## Passport / Fund backend activation
+
+To show the Passport module on Aura, the world/snapshot response must include at least:
+
+- `me.passport: { hasPassport: true }`
+- `me.fund: { enabled: true, total: N, monumentPhase: 'reserve' }`
+
+All other fields (lastAllocation, userContribution, reliquaire, etc.) can be omitted; the UI stays stable and shows the locked/empty state when data is missing.
+
+## Field Cartography (data layer, not user-facing)
+
+Canonical field store is **backend-only**: `world.field` in `/world/snapshot` (Supabase card-gate). Packs live in `supabase/functions/card-gate/field-packs.ts`; deterministic daily sentence comes from `field-daily.ts` (Paris date + FNV-1a over `userId|zoneId`) and is set on `me.aura.dailySentence` when the backend does not already provide it. **Do not render `world.field` as UI/lore**; only the single selected line is exposed via `me.aura.dailySentence` (and optional `dailySentenceMeta`). Symbolic territories (PAR-XX) only; no PostGIS.
+
+### Daily sentence determinism contract
+
+**Inputs:** `userId` (or `card_id`; use `"anon"` when unauthenticated), Paris local date (`YYYY-MM-DD`, Europe/Paris), `zoneId` (normalized PAR-01..PAR-20). **Output:** exactly one signal-sized line (≤140 chars, no newlines). Same (userId, date, zoneId) ⇒ same sentence across refreshes; different user, date, or zone ⇒ sentence may differ. Selector runs only when `world.field` exists and `me.aura.dailySentence` is missing/null/empty; backend never overrides an existing daily sentence.
+
+## DEPLOY_CHECKLIST (card-gate + snapshot)
+
+1. **Local sanity:** `npm install` then `npm run build` (must pass).
+2. **Supabase deploy:** `supabase login`, `supabase link --project-ref <PROJECT_REF>`, `supabase functions deploy card-gate`.
+3. **Prod snapshot checks (manual):**
+   - **PAR-13 (field present):**  
+     `GET /api/card-gate/world/snapshot?h3_center=PAR-13`  
+     Expect: `world.field` is object, `world.field.zoneId === "PAR-13"`; `me.aura.dailySentence` present (string ≤140 chars, no newlines).
+   - **Other zone (field null):**  
+     `GET /api/card-gate/world/snapshot?h3_center=PAR-14`  
+     Expect: `world.field === null`; `me.aura.dailySentence` either absent or from another source (no crash).
+   - **Determinism:** Same user + same Paris day + same zone ⇒ same `dailySentence`; different user or zone or next day ⇒ may differ.
+
+Example (replace base URL with your Supabase function URL):
+
+```bash
+curl -s "https://<PROJECT_REF>.supabase.co/functions/v1/card-gate/world/snapshot?h3_center=PAR-13" -H "Content-Type: application/json" | jq '{ world_field: .world.field.zoneId, dailySentence: .me.aura.dailySentence }'
+```
+
 ## Key Files
 - `src/App.tsx` - router (hash navigation)
 - `src/components/HomepageV1.tsx` - homepage with LivingQuest integrated

@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { motion } from '../../design/motion';
 
-export type MapLayerMode = 'traces' | 'ville' | 'rituels';
+export type MapLayerMode = 'traces' | 'ville' | 'moments';
 
 interface MapLayersProps {
   mapMode: MapLayerMode;
@@ -45,8 +45,8 @@ export function MapLayers({
   return (
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-        {(['traces', 'ville', 'rituels'] as const).map((mode) => {
-          const labels = { traces: tracesTabLabel, ville: cityTabLabel, rituels: momentsTabLabel };
+        {(['traces', 'ville', 'moments'] as const).map((mode) => {
+          const labels = { traces: tracesTabLabel, ville: cityTabLabel, moments: momentsTabLabel };
           const isActive = mapMode === mode;
           return (
             <button
@@ -202,14 +202,14 @@ export function MapLayers({
         })()
       )}
 
-      {mapMode === 'rituels' && (
+      {mapMode === 'moments' && (
         <div style={{ display: 'flex', gap: 16, marginBottom: 12, justifyContent: 'center', fontSize: 10, fontFamily: 'var(--font-sans)', color: '#6B6455' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#e5e5e5', border: '1px solid #ccc' }} />
             Inexplore
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#d4af37' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#6b9b7a' }} />
             Entre
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

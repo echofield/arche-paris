@@ -384,6 +384,7 @@ export default function App() {
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
             onEnterChamp={() => navigateTo('champ')}
+            onEnterAura={() => navigateTo('aura')}
             onEnterSeuil={() => navigateTo('seuil')}
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
@@ -518,11 +519,14 @@ export default function App() {
             />
           )
         ) : (
-          <>
-            <LanguageSelector />
-            {renderScreen()}
-            <CardDrawer />
-          </>
+          <TerritoryResolverProvider>
+            <SnapshotDebugProvider>
+              <TerritoryDebugStrip />
+              <LanguageSelector />
+              {renderScreen()}
+              <CardDrawer />
+            </SnapshotDebugProvider>
+          </TerritoryResolverProvider>
         )}
 
         {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura and Kept pages. */}

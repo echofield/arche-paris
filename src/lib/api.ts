@@ -313,6 +313,93 @@ export interface WorldMeZoneOverlay {
   };
 }
 
+/** Passport (civic participation) — snapshot only. */
+export interface PassportSnapshot {
+  hasPassport: boolean;
+  since: string | null;
+  tier?: 'standard' | 'founder' | null;
+}
+
+/** Last allocation from the fund (redistribution proof). */
+export interface LastAllocation {
+  kind: string;
+  date: string;
+  proofId?: string;
+}
+
+/** Fund (Fonds) — redistribution ledger. */
+export interface FundSnapshot {
+  enabled: boolean;
+  total: number;
+  lastAllocation?: LastAllocation;
+  userContribution?: number;
+  monumentPhase: 'reserve' | 'chamber' | 'sanctuary' | 'archive';
+}
+
+/** Reliquaire — civic object for passport holders; statueKey/phaseKey drives geometry variant. */
+export interface ReliquaireSnapshot {
+  status: string;
+  hint?: string | null;
+  statueKey?: string | null;
+  phaseKey?: string;
+}
+
+/** Single source of truth for Aura page. Backend projects this from events/aura_profiles. */
+export interface AuraSnapshot {
+  mode: 'seek' | 'scan' | 'archive' | 'ritual';
+  title: string;
+  nextTitle?: string | null;
+  axes: {
+    clarte: number;
+    anchorage: number;
+    echo: number;
+    mouvement: number;
+    alignement: number;
+    ombre: number;
+  };
+  reading: { cycle: number; tension: number; trend: -1 | 0 | 1; waveSeed: string };
+  vestige: {
+    status: 'none' | 'detected' | 'crystallizing' | 'figure' | 'named';
+    hint?: string | null;
+    statueKey?: string | null;
+    revealLocked?: boolean;
+  };
+  questCallout: {
+    id: string;
+    title: string;
+    subtitle?: string | null;
+    ctaLabel: string;
+    action: 'open_oracle' | 'open_place' | 'open_map' | 'none';
+    locked?: boolean;
+    reasonLocked?: string | null;
+  } | null;
+  oracle: {
+    eligible: boolean;
+    message: string | null;
+    source: 'daily' | 'event' | 'manual';
+    cooldownEndsAt: string | null;
+  };
+  seals: string[];
+  reliquaire?: ReliquaireSnapshot;
+}
+
+/** Territory field from /world/snapshot (server-only packs). Signal reservoir only; never render as lore. */
+export interface WorldFieldSnapshot {
+  zoneId: string;
+  version?: string;
+  source?: 'bundle' | 'remote';
+  coreTension: string;
+  temperature: string;
+  whispers: string[];
+  nodes: Array<{
+    id: string;
+    designation: string;
+    echo: string;
+    fieldSentence: string;
+    activation?: string;
+  }>;
+}
+
 export interface WorldSnapshotData {
   now: string;
   policy: {
@@ -323,6 +410,8 @@ export interface WorldSnapshotData {
     zones: WorldZoneSnapshot[];
     map: { inscriptions: Array<{ id: string; h3: string; ts: string; excerpt: string }> };
     champ: { items: Array<{ id: string; h3: string; ts: string; excerpt: string }> };
+    /** Territory field for h3_center when a pack exists; null otherwise. */
+    field?: WorldFieldSnapshot | null;
   };
   me: {
     authenticated: boolean;
@@ -337,6 +426,12 @@ export interface WorldSnapshotData {
         symbol: string;
       };
     } | null;
+    /** Present when backend extends world/snapshot with me.aura (single source of truth for Aura page). */
+    aura?: AuraSnapshot;
+    /** Passport (civic participation); enables PassportLayerModule when hasPassport && fund.enabled. */
+    passport?: PassportSnapshot;
+    /** Fund (Fonds) redistribution ledger; module renders only when passport.hasPassport && fund.enabled. */
+    fund?: FundSnapshot;
   };
 }
 

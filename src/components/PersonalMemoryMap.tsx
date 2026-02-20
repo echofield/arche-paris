@@ -725,7 +725,86 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           momentsTabLabel={t('map.tabs.moments')}
         />
 
-        {encounter && mapMode === 'ville' && (
+        {mapMode === 'ville' && zoneDetailArr && (() => {
+          const pack = getEchoZonePack(echoPack, zoneIdToH3(zoneDetailArr));
+          if (!pack) return null;
+          return (
+            <div
+              key={`echo-${zoneDetailArr}`}
+              style={{
+                width: '100%',
+                maxWidth: 420,
+                marginBottom: 12,
+                padding: '12px 14px',
+                border: '1px solid rgba(0,61,44,0.12)',
+                borderRadius: 6,
+                background: 'rgba(0,61,44,0.02)',
+                textAlign: 'left',
+              }}
+            >
+              <p style={{
+                margin: 0,
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                color: '#003D2C',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                opacity: 0.72,
+              }}>
+                {language === 'fr' ? 'Portes' : 'Doors'}
+              </p>
+              <ul style={{ margin: '6px 0 10px', paddingLeft: 18, listStyle: 'none' }}>
+                {pack.doors.map((door, idx) => (
+                  <li
+                    key={idx}
+                    style={{
+                      marginBottom: 6,
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: 13,
+                      color: '#1A1A1A',
+                      opacity: 0.88,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {door}
+                  </li>
+                ))}
+              </ul>
+              <p style={{
+                margin: '10px 0 4px',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                color: '#003D2C',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                opacity: 0.72,
+              }}>
+                {language === 'fr' ? 'Vestiges' : 'Vestiges'}
+              </p>
+              <p style={{
+                margin: 0,
+                fontFamily: 'var(--font-serif)',
+                fontSize: 12,
+                color: '#1A1A1A',
+                opacity: 0.8,
+                lineHeight: 1.5,
+              }}>
+                {pack.vestiges.join(' · ')}
+              </p>
+              <p style={{
+                margin: '8px 0 0',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                color: '#003D2C',
+                opacity: 0.58,
+                letterSpacing: '0.06em',
+              }}>
+                {language === 'fr' ? 'Ancre' : 'Anchor'}: {pack.anchorType}
+              </p>
+            </div>
+          );
+        })()}
+        {encounter && mapMode === 'ville' && !zoneDetailArr && (
           <div
             style={{
               width: '100%',
@@ -792,6 +871,23 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               </p>
             )}
           </div>
+        )}
+        {mapMode === 'ville' && !zoneDetailArr && !encounter && (
+          <p
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              marginBottom: 12,
+              fontFamily: 'var(--font-serif)',
+              fontSize: 13,
+              color: '#003D2C',
+              opacity: 0.5,
+              textAlign: 'center',
+              fontStyle: 'italic',
+            }}
+          >
+            {language === 'fr' ? 'Choisis un arrondissement sur la carte.' : 'Select an arrondissement on the map.'}
+          </p>
         )}
 
         {/* Map: homepage size or a bit bigger, then all content below */}
