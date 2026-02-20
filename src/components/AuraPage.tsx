@@ -9,6 +9,7 @@ import { ArcheSymbol } from './ArcheSymbol';
 import { BackButton } from './BackButton';
 import { MiroirSurface } from './MiroirSurface';
 import { AuraFieldDiagram, deriveAuraFieldModel } from './AuraFieldDiagram';
+import { OracleMessageFlow, type OracleMode } from './OracleMessageFlow';
 import { loadCompanion } from '../utils/companion-service';
 import { getCompanionWord, getReflectiveQuestion, getAuraInterpretation } from '../data/oracle';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
@@ -179,6 +180,9 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const inFlightPulseRef = useRef(false);
   const lastSnapshotRefreshAtRef = useRef<number>(0);
   const [vectorFadeIn, setVectorFadeIn] = useState(true);
+  const [activeInvocation, setActiveInvocation] = useState<'question' | null>(null);
+  const [oracleVisible, setOracleVisible] = useState(false);
+  const [oracleStep, setOracleStep] = useState<0 | 1 | 2>(0);
   const [sealError, setSealError] = useState<string | null>(null);
   const state = loadCompanion();
   const level = (state.level ?? 0) as 0 | 1 | 2 | 3;
@@ -383,6 +387,40 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     return worldSnapshot?.me?.character ?? null;
   }, [outsideCoverage, worldSnapshot]);
 
+  const oracleMode = useMemo<OracleMode>(() => {
+    const combined = `${encounter?.lines?.join(' ') ?? ''} ${encounter?.echo?.symbol ?? ''}`.toLowerCase();
+    if (combined.includes('echo') || combined.includes('archive') || combined.includes('inscription')) return 'archive';
+    if (combined.includes('threshold') || combined.includes('bridge') || combined.includes('river')) return 'ritual';
+    if (combined.includes('measure') || combined.includes('axis') || combined.includes('meridian')) return 'scan';
+    return 'seek';
+  }, [encounter]);
+
+  const handleOpenOracle = useCallback(() => {
+    if (!encounter) return;
+    setActiveInvocation('question');
+    setOracleStep(0);
+    setOracleVisible(true);
+  }, [encounter]);
+
+  const handleCloseOracle = useCallback(() => {
+    setOracleVisible(false);
+    setActiveInvocation(null);
+  }, []);
+
+  const handleAdvanceOracle = useCallback(() => {
+    const hasLine2 = Boolean(encounter?.lines?.[1]);
+    const hasEcho = Boolean(encounter?.echo?.location_hint);
+    if (oracleStep === 0 && hasLine2) {
+      setOracleStep(1);
+      return;
+    }
+    if ((oracleStep === 0 || oracleStep === 1) && hasEcho) {
+      setOracleStep(2);
+      return;
+    }
+    handleCloseOracle();
+  }, [encounter, handleCloseOracle, oracleStep]);
+
   useEffect(() => {
     if (!cardId || cardId === 'DEMO-DEV') return;
     let cancelled = false;
@@ -409,6 +447,43 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       }}
     >
       <BackButton onClick={onBack} />
+
+      <button
+        type="button"
+        onClick={handleOpenOracle}
+        disabled={!encounter}
+        aria-label={language === 'fr' ? 'Invocation question' : 'Question invocation'}
+        style={{
+          position: 'fixed',
+          right: 18,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 20,
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          border: '1px solid rgba(0,61,44,0.25)',
+          background: 'rgba(250,248,242,0.88)',
+          color: '#003D2C',
+          opacity: encounter ? 0.55 : 0.2,
+          fontFamily: 'var(--font-sans)',
+          fontSize: 12,
+          cursor: encounter ? 'pointer' : 'default',
+        }}
+      >
+        ?
+      </button>
+
+      <OracleMessageFlow
+        visible={oracleVisible && activeInvocation === 'question' && Boolean(encounter)}
+        mode={oracleMode}
+        line1={encounter?.lines?.[0] ?? ''}
+        line2={encounter?.lines?.[1] ?? null}
+        echoHint={encounter?.echo?.location_hint ?? null}
+        step={oracleStep}
+        onAdvance={handleAdvanceOracle}
+        onClose={handleCloseOracle}
+      />
 
       {/* Header — minimal */}
       <h1
