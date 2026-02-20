@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Globe, Sparkles } from 'lucide-react';
+import { ArrowLeft, Globe, Sparkles, Fingerprint } from 'lucide-react';
 
 interface ArcheInterfaceProps {
   onExit: () => void;
 }
 
 type LensType = 'NEUTRAL' | 'CLARTE' | 'ANCRAGE' | 'ECHO' | 'MOUVEMENT' | 'ALIGNEMENT' | 'OMBRE';
+type CivicState = 'CITOYEN' | 'TEMOIN' | 'VEILLEUR';
 
 // --- DATA CONFIGURATION ---
 const MOCK_DATA: Record<LensType, { current: number; previous: number; phase: string; label: string; unit?: string }> = {
@@ -31,16 +32,17 @@ const LENS_CONFIG: Record<LensType, { label: string; sentence: string; unlockTex
 
 // --- HELPER COMPONENTS ---
 
-function LiveReading({ base, previous, label, unit = '' }: { base: number, previous: number, label: string, unit?: string }) {
+function LiveReading({ base, previous, label, unit = '', stability = 0.2 }: { base: number, previous: number, label: string, unit?: string, stability?: number }) {
     const [displayValue, setDisplayValue] = useState(base);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const drift = (Math.random() - 0.5) * 0.01;
+            const driftAmplitude = 0.01 * (1 - Math.min(1, Math.max(0, stability)) * 0.8);
+            const drift = (Math.random() - 0.5) * driftAmplitude;
             setDisplayValue(v => Number((base + drift).toFixed(3)));
         }, 800);
         return () => clearInterval(interval);
-    }, [base]);
+    }, [base, stability]);
 
     const formatted = unit === 'm' ? (displayValue * 500).toFixed(1) : displayValue.toFixed(3);
     const isUp = displayValue > previous;
@@ -123,12 +125,79 @@ function WaveformReading({ lens, current, previous }: { lens: LensType, current:
   );
 }
 
+function FieldStatue({ lens, civicState }: { lens: LensType; civicState: CivicState }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const isTemoin = civicState === 'TEMOIN' || civicState === 'VEILLEUR';
+
+  return (
+    <div
+      style={{ position: 'absolute', bottom: '180px', right: '10%', zIndex: 35, pointerEvents: 'auto' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <motion.div
+        key={lens}
+        initial={{ opacity: 0, rotate: 0, scale: 1 }}
+        animate={{ opacity: isTemoin ? 0.9 : 0.6, rotate: [0, 4, -4, 0], scale: [1, 1.03, 1] }}
+        transition={{ duration: 1.5, ease: 'easeInOut' }}
+        style={{ width: '64px', height: '80px', filter: `blur(${isTemoin ? '0px' : '1px'})` }}
+      >
+        <svg width="64" height="80" viewBox="0 0 64 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 0L64 20V60L32 80L0 60V20L32 0Z" fill="#003D2C" fillOpacity="0.05" />
+          <path d="M32 0L64 20L32 40L0 20L32 0Z" fill="#003D2C" fillOpacity="0.1" />
+          <path d="M0 20L32 40V80L0 60V20Z" fill="#003D2C" fillOpacity="0.15" />
+          <path d="M64 20L32 40V80L64 60V20Z" fill="#003D2C" fillOpacity="0.08" />
+          {isTemoin && (
+            <motion.path
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 2 }}
+              d="M32 20L48 30V50L32 60L16 50V30L32 20Z"
+              fill="#003D2C"
+              fillOpacity="0.2"
+            />
+          )}
+        </svg>
+      </motion.div>
+
+      <AnimatePresence>
+        {isHovered && (
+          <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 5 }}
+            transition={{ duration: 0.4 }}
+            style={{
+              position: 'absolute',
+              right: '80px',
+              top: 0,
+              width: '150px',
+              borderRight: '1px solid #003D2C',
+              paddingRight: '12px',
+              textAlign: 'right'
+            }}
+          >
+            <h4 style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#003D2C', margin: 0 }}>
+              Vestige detecte
+            </h4>
+            <p style={{ fontSize: '9px', fontStyle: 'italic', opacity: 0.6, marginTop: '4px', lineHeight: 1.4 }}>
+              Une forme commence a se cristalliser dans le champ.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // --- MAIN COMPONENT ---
 
 export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
   const [activeLens, setActiveLens] = useState<LensType>('NEUTRAL');
   const [lang, setLang] = useState<'FR' | 'EN'>('FR');
   const [visibleSentence, setVisibleSentence] = useState(LENS_CONFIG.NEUTRAL.sentence);
+  const [civicState, setCivicState] = useState<CivicState>('CITOYEN');
+  const [coherence, setCoherence] = useState(0.2);
 
   const data = MOCK_DATA[activeLens];
   const isQuestUnlocked = data.current >= 0.8;
@@ -137,6 +206,18 @@ export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
     const timer = setTimeout(() => { setVisibleSentence(LENS_CONFIG[activeLens].sentence); }, 250);
     return () => clearTimeout(timer);
   }, [activeLens]);
+
+  useEffect(() => {
+    let labelTimer: number | null = null;
+    const timer = window.setTimeout(() => {
+      setCoherence(0.8);
+      labelTimer = window.setTimeout(() => setCivicState('TEMOIN'), 2000);
+    }, 10000);
+    return () => {
+      window.clearTimeout(timer);
+      if (labelTimer) window.clearTimeout(labelTimer);
+    };
+  }, []);
 
   const isClarte = activeLens === 'CLARTE';
   const isAncrage = activeLens === 'ANCRAGE';
@@ -172,6 +253,15 @@ export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
           <ArrowLeft size={12} strokeWidth={1} />
           <span>Retour</span>
         </button>
+        <motion.div
+          key={civicState}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Fingerprint size={12} style={{ opacity: coherence > 0.5 ? 0.8 : 0.4 }} />
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', opacity: 0.8 }}>{civicState}</span>
+        </motion.div>
         <button onClick={() => setLang(l => l === 'FR' ? 'EN' : 'FR')} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.4, border: 'none', background: 'transparent', cursor: 'pointer', color: '#003D2C' }}>
           <Globe size={10} strokeWidth={1} />
           <span>{lang}</span>
@@ -224,6 +314,7 @@ export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
                  />
              )}
         </div>
+        <FieldStatue lens={activeLens} civicState={civicState} />
         {/* Center Dot */}
         <motion.div
             style={{ position: 'relative', zIndex: 20, width: '6px', height: '6px', backgroundColor: '#003D2C', borderRadius: '50%' }}
@@ -263,7 +354,7 @@ export function ArcheInterface({ onExit }: ArcheInterfaceProps) {
                                 <span style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontSize: '8px', opacity: 0.5, color: '#003D2C', marginBottom: '2px' }}>Cycle</span>
                                 <span style={{ fontSize: '10px', letterSpacing: '0.15em', fontStyle: 'italic', color: '#003D2C', opacity: 0.8 }}>{data.phase}</span>
                              </div>
-                             <LiveReading base={data.current} previous={data.previous} label={data.label} unit={data.unit} />
+                             <LiveReading base={data.current} previous={data.previous} label={data.label} unit={data.unit} stability={coherence} />
                          </div>
                     </motion.div>
                 </motion.div>
