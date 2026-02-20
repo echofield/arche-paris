@@ -29,6 +29,7 @@ import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { SnapshotDebugProvider } from './contexts/SnapshotDebugContext';
 import { TerritoryResolverProvider } from './contexts/TerritoryResolverContext';
+import { TerritoryDebugStrip } from './components/TerritoryDebugStrip';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
