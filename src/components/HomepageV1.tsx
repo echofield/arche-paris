@@ -6,6 +6,7 @@ import { useIsMobile } from './ui/use-mobile';
 import { LivingQuest } from './LivingQuest';
 import { motion } from '../design/motion';
 import { api, type WorldSnapshotData } from '../lib/api';
+import { useSnapshotDebug } from '../contexts/SnapshotDebugContext';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.62;
@@ -50,6 +51,7 @@ export function HomepageV1({
   onOpenKept
 }: HomepageV1Props) {
   const { t } = useTranslation();
+  const { setLocationTrust } = useSnapshotDebug();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   const [mounted, setMounted] = useState(false);

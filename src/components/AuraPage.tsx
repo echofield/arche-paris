@@ -21,6 +21,7 @@ import { useAuraMeasure } from '../hooks/useAuraMeasure';
 import { createAuraWaveNoise, createAuraWavePath } from '../lib/aura-geometry';
 import { PassportLayerModule } from './PassportLayerModule';
 import { useIsMobile } from './ui/use-mobile';
+import { useSnapshotDebug } from '../contexts/SnapshotDebugContext';
 
 const MAP_VIEWBOX_WIDTH = 2037.566;
 const MAP_VIEWBOX_HEIGHT = 1615.5;
@@ -194,6 +195,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const auraWaveNoiseRef = useRef(createAuraWaveNoise(cardId ?? 'arche-aura'));
   const auraWaveMeasure = useAuraMeasure<HTMLDivElement>();
   const isMobile = useIsMobile();
+  const { setLocationTrust } = useSnapshotDebug();
 
   // Load ARCHÉ zone progress + complexion (real backend data)
   const loadComplexionData = useCallback(async () => {
