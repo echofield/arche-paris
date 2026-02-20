@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ComplexionData, WorldSnapshotData } from '../lib/api';
+import { motion } from '../design/motion';
 
 export type AuraField = {
   clarity: number;
@@ -82,13 +83,11 @@ export function deriveAuraFieldModel(
   };
 }
 
-function useAnimatedAuraField(target: AuraField, durationMs: number = 4000): AuraField {
+function useAnimatedAuraField(target: AuraField, durationMs: number = motion.t('contemplative')): AuraField {
   const [displayed, setDisplayed] = useState<AuraField>(target);
   const currentRef = useRef<AuraField>(target);
   const animRef = useRef({ start: target, startTime: 0, target });
-  const reducedMotion = typeof window !== 'undefined'
-    && window.matchMedia
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = motion.prefersReducedMotion();
 
   useEffect(() => {
     if (reducedMotion) {
@@ -108,7 +107,7 @@ function useAnimatedAuraField(target: AuraField, durationMs: number = 4000): Aur
       const { start, startTime, target: t } = animRef.current;
       let progress = (now - startTime) / durationMs;
       if (progress >= 1) progress = 1;
-      const ease = 1 - Math.pow(1 - progress, 4);
+      const ease = motion.interpolate('transition', progress);
       const nextField: AuraField = {
         clarity: start.clarity + (t.clarity - start.clarity) * ease,
         shadow: start.shadow + (t.shadow - start.shadow) * ease,
@@ -149,7 +148,7 @@ const AXIS_CONFIG: Array<{ key: keyof AuraField; label: string }> = [
 ];
 
 export function AuraFieldDiagram({ model }: { model: AuraFieldModel }) {
-  const animatedField = useAnimatedAuraField(model.field, 4000);
+  const animatedField = useAnimatedAuraField(model.field, motion.t('contemplative'));
   const size = 210;
   const center = size / 2;
   const maxRadius = 82;
@@ -262,4 +261,3 @@ export function AuraFieldDiagram({ model }: { model: AuraFieldModel }) {
     </div>
   );
 }
-

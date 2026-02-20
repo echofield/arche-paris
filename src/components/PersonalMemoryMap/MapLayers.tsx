@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { motion } from '../../design/motion';
 
 export type MapLayerMode = 'traces' | 'ville' | 'rituels';
 
@@ -63,7 +64,13 @@ export function MapLayers({
                 border: `1px solid ${isActive ? '#003D2C' : 'rgba(0,61,44,0.2)'}`,
                 borderRadius: mode === 'traces' ? '4px 0 0 4px' : mode === 'rituels' ? '0 4px 4px 0' : 0,
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                opacity: isActive ? 1 : 0.84,
+                transform: `translateY(0) scale(${isActive ? 1 : 0.99})`,
+                transition: motion.transition([
+                  { property: 'opacity', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                  { property: 'transform', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                  { property: 'filter', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                ]),
               }}
             >
               {labels[mode]}
@@ -100,7 +107,13 @@ export function MapLayers({
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
             cursor: 'pointer',
-            transition: 'background 0.2s ease, border-color 0.2s ease'
+            opacity: 0.9,
+            transform: 'translateY(0)',
+            transition: motion.transition([
+              { property: 'opacity', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+              { property: 'transform', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+              { property: 'filter', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+            ])
           };
           const pillChecked: CSSProperties = {
             background: 'rgba(31,59,46,0.06)',
@@ -124,12 +137,6 @@ export function MapLayers({
                 ...pillBase,
                 ...(checked ? pillChecked : {}),
                 outline: 'none'
-              }}
-              onMouseEnter={(e) => {
-                if (!checked) e.currentTarget.style.background = 'rgba(31,59,46,0.04)';
-              }}
-              onMouseLeave={(e) => {
-                if (!checked) e.currentTarget.style.background = '#FAF8F3';
               }}
             >
               <input

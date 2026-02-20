@@ -4,6 +4,7 @@ import { project } from '../../utils/map-project';
 import { QUETES_DATA } from '../QueteDetail';
 import type { MapState, EngravedSegment, CityMapState } from '../../types/map-engraving';
 import type { MapLayerMode } from './MapLayers';
+import { motion } from '../../design/motion';
 
 const VIEWBOX_WIDTH = 2037.566;
 const VIEWBOX_HEIGHT = 1615.5;
@@ -30,6 +31,7 @@ interface TraceRendererProps {
   cityMapState: CityMapState | null;
   runs: QuestRunLike[];
   points: TracePoint[];
+  anchorZoneMap: Record<string, boolean>;
 }
 
 export function TraceRenderer({
@@ -41,6 +43,7 @@ export function TraceRenderer({
   cityMapState,
   runs,
   points,
+  anchorZoneMap,
 }: TraceRendererProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [popover, setPopover] = useState<{ runId: string; questId: string; nodeId: string; name: string; geste: string; evidenceCount: number } | null>(null);
@@ -62,7 +65,9 @@ export function TraceRenderer({
             const pos = ARRONDISSEMENT_MAP_POSITION[sig.arrondissement];
             if (!pos) return null;
             const size = 10 + sig.signalStrength * 22;
-            const opacity = 0.25 + sig.signalStrength * 0.65;
+            const zoneId = `paris-${sig.arrondissement}`;
+            const anchorBoost = anchorZoneMap[zoneId] ? 0.08 : 0;
+            const opacity = Math.min(0.9, 0.2 + sig.signalStrength * 0.55 + anchorBoost);
             return (
               <div
                 key={`city-${sig.arrondissement}`}
@@ -138,7 +143,7 @@ export function TraceRenderer({
                 stroke="#003D2C"
                 strokeWidth={isPending ? 1.5 : 2}
                 strokeDasharray={isPending ? '4 4' : 'none'}
-                opacity={isPending ? 0.5 : 0.85}
+                opacity={isPending ? 0.35 : 0.56}
               />
             );
           })}
@@ -166,7 +171,7 @@ export function TraceRenderer({
                     height: 8,
                     borderRadius: '50%',
                     background: '#003D2C',
-                    opacity: 0.6,
+                    opacity: 0.4,
                     pointerEvents: 'none'
                   }}
                 />
@@ -274,7 +279,12 @@ export function TraceRenderer({
               borderRadius: '50%',
               background: '#003D2C',
               cursor: 'default',
-              transition: 'transform 0.2s ease',
+              opacity: hoveredId === symbol.id ? 0.94 : 0.82,
+              transition: motion.transition([
+                { property: 'opacity', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                { property: 'transform', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                { property: 'filter', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+              ]),
               transform: hoveredId === symbol.id ? 'scale(1.4)' : 'scale(1)'
             }}
           />

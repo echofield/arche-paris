@@ -36,6 +36,7 @@ import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
 import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
 import { project } from '../utils/map-project';
+import { motion } from '../design/motion';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAP_VIEWBOX_WIDTH = 2037.566;
@@ -188,6 +189,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const markerTargetRef = useRef<{ lat: number; lng: number } | null>(null);
   const markerLastMoveAtRef = useRef<number>(0);
   const markerAnimationRef = useRef<number | null>(null);
+  const stoneReleaseRef = useRef<(() => void) | null>(null);
   const recognitionShownRef = useRef(false);
   const recognitionHideTimerRef = useRef<number | null>(null);
   const pulsePauseTimerRef = useRef<number | null>(null);
@@ -348,7 +350,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       }
       recognitionHideTimerRef.current = window.setTimeout(() => {
         setRecognitionLine(null);
-      }, 4000);
+      }, motion.t('contemplative') * 4);
     }
 
     const zone = (snap.world.zones ?? []).find((z) => z.h3 === zoneH3);
@@ -360,7 +362,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       }
       pulsePauseTimerRef.current = window.setTimeout(() => {
         setPresenceMarker((prev) => (prev ? { ...prev, pulsePaused: false } : prev));
-      }, 1000);
+      }, motion.t('contemplative'));
     }
     lastZoneWhisperRef.current = whisper;
   }, [language]);
@@ -415,13 +417,37 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     };
 
     const animateMarker = (from: { lat: number; lng: number }, to: { lat: number; lng: number }, durationMs: number) => {
+      if (motion.prefersReducedMotion()) {
+        setPresenceMarker((prev) => ({
+          lat: to.lat,
+          lng: to.lng,
+          moving: false,
+          pulsePaused: prev?.pulsePaused ?? false,
+        }));
+        return;
+      }
       if (markerAnimationRef.current != null) {
         cancelAnimationFrame(markerAnimationRef.current);
       }
+      if (stoneReleaseRef.current) {
+        stoneReleaseRef.current();
+        stoneReleaseRef.current = null;
+      }
+      const releaseStone = motion.acquireStone('presence-marker');
+      if (!releaseStone) {
+        setPresenceMarker((prev) => ({
+          lat: to.lat,
+          lng: to.lng,
+          moving: false,
+          pulsePaused: prev?.pulsePaused ?? false,
+        }));
+        return;
+      }
+      stoneReleaseRef.current = releaseStone;
       const start = performance.now();
       const tick = (now: number) => {
         const t = Math.min(1, (now - start) / durationMs);
-        const eased = 1 - Math.pow(1 - t, 3);
+        const eased = motion.interpolate('transition', t);
         const lat = from.lat + (to.lat - from.lat) * eased;
         const lng = from.lng + (to.lng - from.lng) * eased;
         setPresenceMarker((prev) => ({
@@ -434,6 +460,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           markerAnimationRef.current = requestAnimationFrame(tick);
         } else {
           markerAnimationRef.current = null;
+          if (stoneReleaseRef.current) {
+            stoneReleaseRef.current();
+            stoneReleaseRef.current = null;
+          }
         }
       };
       markerAnimationRef.current = requestAnimationFrame(tick);
@@ -460,7 +490,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           ? { lat: presenceMarkerRef.current.lat, lng: presenceMarkerRef.current.lng }
           : prevTarget;
         const smoothedIncoming = lerpPoint(from, incoming, MARKER_LERP_ALPHA);
-        const durationMs = Math.max(300, Math.min(600, 280 + movedMeters * 14));
+        const minMs = motion.t('paper');
+        const maxMs = motion.t('glass');
+        const durationMs = Math.max(minMs, Math.min(maxMs, Math.round(minMs + movedMeters * 12)));
         markerTargetRef.current = smoothedIncoming;
         setPresenceMarker((prev) => ({ lat: from.lat, lng: from.lng, moving: true, pulsePaused: prev?.pulsePaused ?? false }));
         animateMarker(from, smoothedIncoming, durationMs);
@@ -482,6 +514,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       if (markerAnimationRef.current != null) {
         cancelAnimationFrame(markerAnimationRef.current);
         markerAnimationRef.current = null;
+      }
+      if (stoneReleaseRef.current) {
+        stoneReleaseRef.current();
+        stoneReleaseRef.current = null;
       }
       if (recognitionHideTimerRef.current != null) {
         window.clearTimeout(recognitionHideTimerRef.current);
@@ -576,11 +612,11 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     navigator.clipboard.writeText(url).then(
       () => {
         setShareStatus('copied');
-        setTimeout(() => setShareStatus('idle'), 2500);
+        setTimeout(() => setShareStatus('idle'), motion.t('stone') * 2);
       },
       () => {
         setShareStatus('error');
-        setTimeout(() => setShareStatus('idle'), 2500);
+        setTimeout(() => setShareStatus('idle'), motion.t('stone') * 2);
       }
     );
   }, []);
@@ -603,7 +639,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           50% { opacity: 0.22; transform: scale(1.02); }
         }
         .my-paris-map-breathe {
-          animation: my-paris-breathe 8s ease-in-out infinite;
+          animation: my-paris-breathe ${motion.t('contemplative') * 8}ms ${motion.ease('transition')} infinite;
         }
         @keyframes you-are-here-pulse {
           0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
@@ -620,7 +656,14 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
         }
         .zone-unexplored {
-          animation: zone-invite 3s ease-in-out infinite;
+          animation: zone-invite ${motion.t('contemplative') * 3}ms ${motion.ease('transition')} infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .my-paris-map-breathe,
+          .zone-unexplored {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+          }
         }
       `}</style>
 
@@ -1528,7 +1571,11 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               color: '#0E3F2F',
               border: '0.5px solid rgba(14, 63, 47, 0.3)',
               cursor: 'pointer',
-              transition: 'all 0.3s ease',
+              transition: motion.transition([
+                { property: 'opacity', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                { property: 'transform', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+                { property: 'filter', durationMs: motion.t('brisk'), easing: motion.ease('appear') },
+              ]),
               minHeight: 44
             }}
           >

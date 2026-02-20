@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { motion } from '../design/motion';
 
 type OracleMode = 'seek' | 'scan' | 'archive' | 'ritual';
 
@@ -32,6 +33,11 @@ export function OracleMessageFlow({
 }: OracleMessageFlowProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const color = modeColors[mode];
+  const reducedMotion = motion.prefersReducedMotion();
+  const layered = motion.stagger(5, 'layeredEntrance');
+  const appearMs = reducedMotion ? motion.reducedMs() : motion.t('measured');
+  const dismissMs = reducedMotion ? motion.reducedMs() : Math.round(appearMs * 1.5);
+  const pulseMs = reducedMotion ? motion.reducedMs() : motion.t('contemplative');
 
   useEffect(() => {
     if (!visible) return;
@@ -69,13 +75,17 @@ export function OracleMessageFlow({
         justifyContent: 'flex-start',
         paddingTop: 96,
         background: 'rgba(250,248,242,0.42)',
-        animation: 'oracle-fade-in 400ms ease-out',
+        animation: `oracle-fade-in ${appearMs}ms ${motion.ease('appear')}`,
       }}
     >
       <style>{`
         @keyframes oracle-fade-in {
-          0% { opacity: 0; transform: translateY(-10px); }
-          100% { opacity: 1; transform: translateY(0); }
+          0% { opacity: ${motion.transforms.appear.from.opacity}; transform: ${motion.transforms.appear.from.transform}; }
+          100% { opacity: ${motion.transforms.appear.to.opacity}; transform: ${motion.transforms.appear.to.transform}; }
+        }
+        @keyframes oracle-fade-out {
+          0% { opacity: ${motion.transforms.dismiss.from.opacity}; transform: ${motion.transforms.dismiss.from.transform}; }
+          100% { opacity: ${motion.transforms.dismiss.to.opacity}; transform: ${motion.transforms.dismiss.to.transform}; }
         }
         @keyframes oracle-rot {
           from { transform: translateX(-50%) rotate(0deg); }
@@ -85,9 +95,29 @@ export function OracleMessageFlow({
           0%,100% { height: 8px; opacity: 0.22; }
           50% { height: 16px; opacity: 0.35; }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .oracle-spin,
+          .oracle-bars span {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+          }
+        }
       `}</style>
 
-      <div aria-hidden="true" style={{ position: 'absolute', top: 128, left: '50%', transform: 'translateX(-50%)', width: 300, height: 300, animation: 'oracle-rot 60s linear infinite' }}>
+      <div
+        aria-hidden="true"
+        className="oracle-spin"
+        style={{
+          position: 'absolute',
+          top: 128,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 300,
+          height: 300,
+          animation: `oracle-rot ${motion.t('ambient')}ms ${motion.ease('continuous')} infinite`,
+          animationDelay: `${layered[0]}ms`,
+        }}
+      >
         <svg viewBox="0 0 300 300" width="300" height="300">
           {Array.from({ length: 16 }, (_, i) => {
             const angle = (i / 16) * Math.PI * 2;
@@ -116,6 +146,14 @@ export function OracleMessageFlow({
           border: `1px solid ${color}20`,
           cursor: 'pointer',
           pointerEvents: 'auto',
+          animation: `oracle-fade-in ${appearMs}ms ${motion.ease('appear')}`,
+          animationDelay: `${layered[2]}ms`,
+          transition: motion.transition([
+            { property: 'opacity', durationMs: dismissMs, easing: motion.ease('dismiss') },
+            { property: 'transform', durationMs: dismissMs, easing: motion.ease('dismiss') },
+            { property: 'filter', durationMs: dismissMs, easing: motion.ease('dismiss') },
+          ]),
+          willChange: 'opacity, transform, filter',
         }}
       >
         <p id="oracle-label" style={{ margin: '0 0 16px', fontFamily: 'monospace', fontSize: 8, letterSpacing: '0.3em', textTransform: 'uppercase', textAlign: 'center', color, opacity: 0.4 }}>
@@ -124,7 +162,7 @@ export function OracleMessageFlow({
         <p id="oracle-message" style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontWeight: 400, fontSize: 16, lineHeight: 1.625, textAlign: 'center', color }}>
           {displayText}
         </p>
-        <div aria-hidden="true" style={{ marginTop: 16, display: 'flex', gap: 4, justifyContent: 'center' }}>
+        <div aria-hidden="true" className="oracle-bars" style={{ marginTop: 16, display: 'flex', gap: 4, justifyContent: 'center' }}>
           {[0, 1, 2].map((i) => (
             <span
               key={i}
@@ -133,8 +171,8 @@ export function OracleMessageFlow({
                 height: 8,
                 background: color,
                 opacity: 0.3,
-                animation: 'oracle-bar 1s ease-in-out infinite',
-                animationDelay: `${i * 150}ms`,
+                animation: `oracle-bar ${pulseMs}ms ${motion.ease('transition')} infinite`,
+                animationDelay: `${motion.stagger(3, 'staggeredPulse')[i]}ms`,
               }}
             />
           ))}
@@ -166,4 +204,3 @@ export function OracleMessageFlow({
 }
 
 export type { OracleMode };
-

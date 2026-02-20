@@ -17,6 +17,7 @@ import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-clien
 import { useTranslation } from '../utils/i18n';
 import { api, type WorldSnapshotData, type ComplexionData, generateIdempotencyKey, clientTs } from '../lib/api';
 import { project } from '../utils/map-project';
+import { motion } from '../design/motion';
 
 const MAP_VIEWBOX_WIDTH = 2037.566;
 const MAP_VIEWBOX_HEIGHT = 1615.5;
@@ -180,6 +181,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const inFlightPulseRef = useRef(false);
   const lastSnapshotRefreshAtRef = useRef<number>(0);
   const [vectorFadeIn, setVectorFadeIn] = useState(true);
+  const [invocationPressed, setInvocationPressed] = useState(false);
   const [activeInvocation, setActiveInvocation] = useState<'question' | null>(null);
   const [oracleVisible, setOracleVisible] = useState(false);
   const [oracleStep, setOracleStep] = useState<0 | 1 | 2>(0);
@@ -355,7 +357,10 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
   useEffect(() => {
     setVectorFadeIn(false);
-    const id = window.setTimeout(() => setVectorFadeIn(true), 40);
+    const id = window.setTimeout(
+      () => setVectorFadeIn(true),
+      motion.prefersReducedMotion() ? motion.reducedMs() : motion.t('instant')
+    );
     return () => window.clearTimeout(id);
   }, [vectorSignature]);
 
@@ -451,13 +456,19 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       <button
         type="button"
         onClick={handleOpenOracle}
+        onPointerDown={() => {
+          setInvocationPressed(true);
+          window.setTimeout(() => setInvocationPressed(false), motion.t('instant'));
+        }}
+        onPointerUp={() => setInvocationPressed(false)}
+        onPointerLeave={() => setInvocationPressed(false)}
         disabled={!encounter}
         aria-label={language === 'fr' ? 'Invocation question' : 'Question invocation'}
         style={{
           position: 'fixed',
           right: 18,
           top: '50%',
-          transform: 'translateY(-50%)',
+          transform: `translateY(-50%) scale(${invocationPressed ? 0.96 : 1})`,
           zIndex: 20,
           width: 28,
           height: 28,
@@ -469,6 +480,11 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
           fontFamily: 'var(--font-sans)',
           fontSize: 12,
           cursor: encounter ? 'pointer' : 'default',
+          transition: motion.transition([
+            { property: 'opacity', durationMs: motion.t('instant'), easing: motion.ease('appear') },
+            { property: 'transform', durationMs: motion.t('instant'), easing: motion.ease('appear') },
+            { property: 'filter', durationMs: motion.t('instant'), easing: motion.ease('appear') },
+          ]),
         }}
       >
         ?
@@ -585,7 +601,11 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             flexDirection: 'column',
             gap: 6,
             opacity: vectorFadeIn ? 0.72 : 0.18,
-            transition: 'opacity 520ms ease',
+            transform: `translateY(${vectorFadeIn ? 0 : 4}px)`,
+            transition: motion.transition([
+              { property: 'opacity', durationMs: motion.t('measured'), easing: motion.ease('appear') },
+              { property: 'transform', durationMs: motion.t('measured'), easing: motion.ease('appear') },
+            ]),
           }}
         >
           {auraVectors.map((v) => (
@@ -1148,7 +1168,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
                     setSealOpen(false);
                     setSealContent('');
                     setSealSaved(false);
-                  }, 1200);
+                  }, motion.t('stone'));
                 }}
                 style={{
                   fontFamily: 'var(--font-sans)',
