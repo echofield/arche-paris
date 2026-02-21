@@ -53,6 +53,19 @@ Goal: backend is rich, UI is calm but readable. Mechanics surfaced via poetic in
 - "L'ombre recule."
 - Flow: user completes action -> backend writes delta -> Aura reflects change on open
 
+## Handy References
+- UI/layout/mobile consistency: [docs/UI_STABILIZATION_AND_MOBILE_GUIDE.md](UI_STABILIZATION_AND_MOBILE_GUIDE.md)
+- PassportLayerModule is placed below the main Aura dashboard in a flex wrapper: row on desktop (dashboard left, module right), column on mobile. Single Aura page, same instrument/panel language.
+
+## Passport / Fund backend activation
+
+To show the Passport module on Aura, the world/snapshot response must include at least:
+
+- `me.passport: { hasPassport: true }`
+- `me.fund: { enabled: true, total: N, monumentPhase: 'reserve' }`
+
+All other fields (lastAllocation, userContribution, reliquaire, etc.) can be omitted; the UI stays stable and shows the locked/empty state when data is missing.
+
 ## Key Files
 - `src/App.tsx` - router (hash navigation)
 - `src/components/HomepageV1.tsx` - homepage with LivingQuest integrated

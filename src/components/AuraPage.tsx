@@ -13,13 +13,14 @@ import { OracleMessageFlow, type OracleMode } from './OracleMessageFlow';
 import { loadCompanion } from '../utils/companion-service';
 import { getCompanionWord, getReflectiveQuestion, getAuraInterpretation } from '../data/oracle';
 import { appendAuraSealToJournal } from '../utils/journal-sync';
-import { getAuraProfile, type AuraProfileResult } from '../utils/card-gate-client';
 import { useTranslation } from '../utils/i18n';
 import { api, type WorldSnapshotData, type ComplexionData, generateIdempotencyKey, clientTs } from '../lib/api';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
 import { useAuraMeasure } from '../hooks/useAuraMeasure';
 import { createAuraWaveNoise, createAuraWavePath } from '../lib/aura-geometry';
+import { PassportLayerModule } from './PassportLayerModule';
+import { useIsMobile } from './ui/use-mobile';
 
 const MAP_VIEWBOX_WIDTH = 2037.566;
 const MAP_VIEWBOX_HEIGHT = 1615.5;
@@ -167,8 +168,6 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const [sealOpen, setSealOpen] = useState(false);
   const [sealContent, setSealContent] = useState('');
   const [sealSaved, setSealSaved] = useState(false);
-  const [auraProfile, setAuraProfile] = useState<AuraProfileResult | null>(null);
-  const [auraProfileLoading, setAuraProfileLoading] = useState(false);
   const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
   const [complexion, setComplexion] = useState<ComplexionData | null>(null);
   const [complexionHint, setComplexionHint] = useState<string | null>(null);
@@ -194,6 +193,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
   const word = getCompanionWord(level);
   const auraWaveNoiseRef = useRef(createAuraWaveNoise(cardId ?? 'arche-aura'));
   const auraWaveMeasure = useAuraMeasure<HTMLDivElement>();
+  const isMobile = useIsMobile();
 
   // Load ARCHÉ zone progress + complexion (real backend data)
   const loadComplexionData = useCallback(async () => {
@@ -456,16 +456,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
     handleCloseOracle();
   }, [encounter, handleCloseOracle, oracleStep]);
 
-  useEffect(() => {
-    if (!cardId || cardId === 'DEMO-DEV') return;
-    let cancelled = false;
-    setAuraProfileLoading(true);
-    getAuraProfile(cardId)
-      .then((p) => { if (!cancelled) setAuraProfile(p); })
-      .catch(() => { if (!cancelled) setAuraProfile(null); })
-      .finally(() => { if (!cancelled) setAuraProfileLoading(false); });
-    return () => { cancelled = true; };
-  }, [cardId]);
+  const meAura = worldSnapshot?.me?.aura ?? null;
 
   return (
     <div
@@ -554,9 +545,9 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
           marginBottom: 8
         }}
       >
-        {auraProfileLoading ? '…' : auraProfile?.status ?? 'Présence'}
+        {meAura ? meAura.title : 'Présence'}
       </p>
-      {auraProfile && auraProfile.seals.length > 0 && (
+      {meAura && meAura.seals.length > 0 && (
         <p
           style={{
             fontFamily: 'var(--font-sans)',
@@ -567,15 +558,15 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             marginBottom: 'clamp(24px, 6vw, 48px)'
           }}
         >
-          {auraProfile.seals.length === 1
+          {meAura.seals.length === 1
             ? t('aura.oneMark')
-            : t('aura.marks', { count: auraProfile.seals.length })}
-          {auraProfile.seals.length > 0 && (
-            <> — {t('aura.lastSeal', { seal: auraProfile.seals[auraProfile.seals.length - 1] })}</>
+            : t('aura.marks', { count: meAura.seals.length })}
+          {meAura.seals.length > 0 && (
+            <> — {t('aura.lastSeal', { seal: meAura.seals[meAura.seals.length - 1] })}</>
           )}
         </p>
       )}
-      {(!auraProfile || auraProfile.seals.length === 0) && !auraProfileLoading && (
+      {(!meAura || meAura.seals.length === 0) && (
         <div style={{ marginBottom: 'clamp(24px, 6vw, 48px)' }} />
       )}
 
@@ -762,18 +753,29 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
 
       <MiroirSurface cardId={cardId} onOpenKept={onOpenKept} />
 
-      {/* ARCHÉ State Dashboard — Poetic dots, one rare number */}
-      {(worldSnapshot || complexion) && (
-        <div
-          style={{
-            marginTop: 'clamp(24px, 5vw, 40px)',
-            padding: '20px 24px',
-            background: 'rgba(0, 61, 44, 0.03)',
-            borderRadius: 8,
-            maxWidth: 320,
-            width: '100%',
-          }}
-        >
+      {/* Dashboard + Passport module: row on desktop (passport right), column on mobile. Single Aura page, same instrument language. */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: 24,
+          marginTop: 'clamp(24px, 5vw, 40px)',
+          alignItems: 'flex-start',
+          justifyContent: isMobile ? 'stretch' : 'center',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* ARCHÉ State Dashboard — Poetic dots, one rare number */}
+        {(worldSnapshot || complexion) && (
+          <div
+            style={{
+              padding: '20px 24px',
+              background: 'rgba(0, 61, 44, 0.03)',
+              borderRadius: 8,
+              maxWidth: 320,
+              width: '100%',
+            }}
+          >
           {/* Complexion hint — feedback after action */}
           {complexionHint && (
             <p
@@ -956,7 +958,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             const total_rituals = complexion?.completed_rituals_count ?? 0;
             const zones_complete = Object.values(worldSnapshot?.me.zones ?? {}).filter((z) => z.progress?.engraved).length;
             const custodianships = 0;
-            const seals = auraProfile?.seals ?? [];
+            const seals = worldSnapshot?.me?.aura?.seals ?? [];
 
             // Calculate next goal
             let nextGoal: string | null = null;
@@ -1020,7 +1022,15 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
             </p>
           )}
         </div>
-      )}
+        )}
+
+        <PassportLayerModule
+          passport={worldSnapshot?.me?.passport}
+          fund={worldSnapshot?.me?.fund}
+          reliquaire={worldSnapshot?.me?.aura?.reliquaire}
+          isSecondaryWeight={isMobile}
+        />
+      </div>
 
       {/* Optional: Graver un moment */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>

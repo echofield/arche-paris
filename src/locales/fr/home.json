@@ -45,5 +45,6 @@
   "instruments.manual.cta": "Compris",
   "instruments.usage.meridian": "Mesure ta relation à l'axe méridien : proximité, tenue, reconnaissance des sites.",
   "instruments.usage.depth": "Calibre une lecture verticale : profondeur, vides, strates. (Étalonnage)",
-  "instruments.usage.coherence": "Calibre la cohérence du mouvement : stabilité, continuité, friction. (Étalonnage)"
+  "instruments.usage.coherence": "Calibre la cohérence du mouvement : stabilité, continuité, friction. (Étalonnage)",
+  "instruments.manual.close": "Fermer"
 }
