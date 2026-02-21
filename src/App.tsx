@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -19,7 +20,6 @@ import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
-import { InstrumentsCabinet } from './components/InstrumentsCabinet';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -28,12 +28,9 @@ import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-r
 import { LanguageProvider } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
-import { SnapshotDebugProvider } from './contexts/SnapshotDebugContext';
-import { TerritoryResolverProvider } from './contexts/TerritoryResolverContext';
-import { TerritoryDebugStrip } from './components/TerritoryDebugStrip';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'instruments' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 const LazyMeridiensLive = lazy(() =>
@@ -318,8 +315,6 @@ export default function App() {
         }
       } else if (hash === 'aura') {
         setCurrentScreen('aura');
-      } else if (hash === 'instruments') {
-        setCurrentScreen('instruments');
       } else if (hash === 'meridiens') {
         setCurrentScreen('meridiens');
       } else if (hash === 'champ') {
@@ -394,7 +389,7 @@ export default function App() {
             onEnterSeuil={() => navigateTo('seuil')}
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
-            onEnterInstruments={() => navigateTo('instruments')}
+            onEnterMeridiens={() => navigateTo('meridiens')}
             onDisconnect={cardStatus?.cardId === 'DEMO-DEV' ? undefined : handleDisconnect}
             onLogin={cardStatus?.cardId === 'DEMO-DEV' ? handleSwitchToLogin : undefined}
           />
@@ -464,18 +459,11 @@ export default function App() {
             cardId={cardStatus?.cardId ?? null}
           />
         );
-      case 'instruments':
-        return (
-          <InstrumentsCabinet
-            onBack={() => navigateTo('homepage')}
-            onOpenMeridian={() => navigateTo('meridiens')}
-          />
-        );
       case 'meridiens':
         return (
           <Suspense fallback={renderScreenLoading('Chargement des Meridiens...')}>
             <LazyMeridiensLive
-              onBack={() => navigateTo('instruments')}
+              onBack={() => navigateTo('homepage')}
               cardId={cardStatus?.cardId ?? null}
             />
           </Suspense>
@@ -532,14 +520,11 @@ export default function App() {
             />
           )
         ) : (
-          <TerritoryResolverProvider>
-            <SnapshotDebugProvider>
-              {(import.meta.env.DEV || import.meta.env.VITE_DEBUG_TERRITORY === '1') && <TerritoryDebugStrip />}
-              <LanguageSelector />
-              {renderScreen()}
-              <CardDrawer />
-            </SnapshotDebugProvider>
-          </TerritoryResolverProvider>
+          <>
+            <LanguageSelector />
+            {renderScreen()}
+            <CardDrawer />
+          </>
         )}
 
         {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura and Kept pages. */}
