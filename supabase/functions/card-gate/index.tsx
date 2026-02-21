@@ -18,6 +18,14 @@ import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 import { getFieldPack } from "./field-packs.ts";
 import { selectDailySentence, todayParis } from "./field-daily.ts";
+import {
+  computeMeridianInstrument,
+  defaultMeridianInstrument,
+  placesInRadius,
+  type MeridianInstrument,
+} from "./meridian-instrument.ts";
+import { getMeridianConfig } from "./meridians-config.ts";
+import type { MeridianPlaceId } from "./meridians-config.ts";
 
 const app = new Hono().basePath("/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
@@ -2256,6 +2264,133 @@ app.get("/world/snapshot", async (c) => {
     }
   }
 
+  // ----- world.meridian: instrument from position (snapshot-only, no UI) -----
+  const debugMeridian = c.req.query("debug") === "1";
+  const acceptLanguage = c.req.header("Accept-Language");
+  let recognizedPlaceIds: MeridianPlaceId[] = [];
+  if (isAuthed && payload) {
+    const { data: recognizedRows } = await supabase
+      .from("meridian_place_recognized")
+      .select("place_id")
+      .eq("card_id", payload.card_id);
+    recognizedPlaceIds = (recognizedRows ?? []).map((r) => r.place_id as MeridianPlaceId);
+  }
+  const meridianConfig = getMeridianConfig();
+  const latRaw = c.req.query("lat");
+  const lngRaw = c.req.query("lng");
+  const headingRaw = c.req.query("heading");
+  const speedRaw = c.req.query("speed");
+  const lat = latRaw != null ? Number(latRaw) : NaN;
+  const lng = lngRaw != null ? Number(lngRaw) : NaN;
+  const heading = headingRaw != null ? Number(headingRaw) : undefined;
+  const speed = speedRaw != null ? Number(speedRaw) : undefined;
+  const positionValid =
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180;
+  let meridianResult: MeridianInstrument;
+  if (positionValid) {
+    const inRadiusPlaceIds = placesInRadius(lat, lng, meridianConfig);
+    if (isAuthed && payload) {
+      for (const placeId of inRadiusPlaceIds) {
+        await supabase.from("meridian_place_recognized").upsert(
+          { card_id: payload.card_id, place_id: placeId, recognized_at: nowIso },
+          { onConflict: "card_id,place_id", ignoreDuplicates: true }
+        );
+        if (!recognizedPlaceIds.includes(placeId)) {
+          recognizedPlaceIds = [...recognizedPlaceIds, placeId];
+        }
+      }
+    } else {
+      recognizedPlaceIds = inRadiusPlaceIds;
+    }
+    let prevAlignmentIndex = 0;
+    let prevHold: { accumulatedHoldSeconds: number; lastAlignableAt: string | null } | undefined;
+    if (isAuthed && payload) {
+      const [{ data: stateRow }, { data: holdRow }] = await Promise.all([
+        supabase
+          .from("meridian_instrument_state")
+          .select("alignment_index")
+          .eq("card_id", payload.card_id)
+          .single(),
+        supabase
+          .from("meridian_hold")
+          .select("accumulated_hold_seconds, last_alignable_at")
+          .eq("card_id", payload.card_id)
+          .single(),
+      ]);
+      prevAlignmentIndex = stateRow?.alignment_index ?? 0;
+      if (holdRow && (holdRow.accumulated_hold_seconds != null || holdRow.last_alignable_at != null)) {
+        prevHold = {
+          accumulatedHoldSeconds: Number(holdRow.accumulated_hold_seconds) || 0,
+          lastAlignableAt: holdRow.last_alignable_at ? String(holdRow.last_alignable_at) : null,
+        };
+      }
+    }
+    meridianResult = computeMeridianInstrument({
+      lat,
+      lng,
+      heading,
+      speed,
+      timestamp: nowIso,
+      zoneId: zoneIdForField,
+      recognizedPlaceIds,
+      inRadiusPlaceIds,
+      prevAlignmentIndex,
+      prevHold,
+      debug: debugMeridian,
+      acceptLanguage,
+    });
+    if (isAuthed && payload) {
+      const upserts: Promise<unknown>[] = [
+        supabase.from("meridian_instrument_state").upsert(
+          {
+            card_id: payload.card_id,
+            alignment_index: meridianResult.alignmentIndex,
+            updated_at: nowIso,
+          },
+          { onConflict: "card_id" }
+        ),
+      ];
+      if (meridianResult.persistedHold) {
+        upserts.push(
+          supabase.from("meridian_hold").upsert(
+            {
+              card_id: payload.card_id,
+              accumulated_hold_seconds: meridianResult.persistedHold.accumulatedHoldSeconds,
+              last_alignable_at: meridianResult.persistedHold.lastAlignableAt,
+              updated_at: nowIso,
+            },
+            { onConflict: "card_id" }
+          )
+        );
+      }
+      await Promise.all(upserts);
+    }
+  } else {
+    meridianResult = defaultMeridianInstrument({
+      zoneId: zoneIdForField,
+      recognizedPlaceIds,
+      acceptLanguage,
+    });
+  }
+  const worldMeridian: Record<string, unknown> = {
+    zoneId: meridianResult.zoneId,
+    state: meridianResult.state,
+    recognized: meridianResult.recognized,
+    nearestPlaceId: meridianResult.nearestPlaceId,
+    alignmentIndex: meridianResult.alignmentIndex,
+    holdProgress01: meridianResult.holdProgress01,
+    micro: meridianResult.micro,
+  };
+  if (debugMeridian) {
+    worldMeridian.lineDistanceM = meridianResult.lineDistanceM;
+    worldMeridian.headingErrorDeg = meridianResult.headingErrorDeg;
+  }
+
   const response = {
     now: nowIso,
     policy: {
@@ -2285,6 +2420,7 @@ app.get("/world/snapshot", async (c) => {
       map: include.has("map") ? { inscriptions: worldMapItems.slice(0, 300) } : { inscriptions: [] },
       champ: include.has("champ") ? { items: worldChampItems.slice(0, 100) } : { items: [] },
       field: fieldPack ?? null,
+      meridian: worldMeridian,
     },
     me: {
       authenticated: isAuthed,

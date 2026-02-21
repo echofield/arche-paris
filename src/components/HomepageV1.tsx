@@ -26,7 +26,7 @@ interface HomepageV1Props {
   onEnterAura?: () => void;
   onEnterSeuil?: () => void;
   onOpenKept?: () => void;
-  onEnterMeridiens?: () => void;
+  onEnterInstruments?: () => void;
   /** Déconnecter la carte sur cet appareil (pour utiliser la même carte sur un autre, ex. téléphone) */
   onDisconnect?: () => void;
   /** En mode démo : afficher « Se connecter » pour passer à l’écran de saisie de carte */
@@ -45,7 +45,7 @@ export function HomepageV1({
   onEnterChamp,
   onEnterAura,
   onEnterSeuil,
-  onEnterMeridiens,
+  onEnterInstruments,
   onDisconnect,
   onLogin,
   onOpenKept
@@ -144,9 +144,9 @@ export function HomepageV1({
         >
           {t('nav.quests')}
         </button>
-        {onEnterMeridiens && (
+        {onEnterInstruments && (
           <button
-            onClick={onEnterMeridiens}
+            onClick={onEnterInstruments}
             style={{
               background: 'transparent',
               border: 'none',
@@ -162,7 +162,7 @@ export function HomepageV1({
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
           >
-            {t('nav.meridiens')}
+            {t('nav.instruments')}
           </button>
         )}
         <button
@@ -341,7 +341,7 @@ export function HomepageV1({
             </div>
             <div className="homepage-nav-drawer-block">
               <p className="homepage-nav-drawer-section">{t('home.mobileSectionApprofondir', 'Approfondir')}</p>
-              {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.meridiens')}</button>}
+              {onEnterInstruments && <button type="button" onClick={() => { onEnterInstruments(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.instruments')}</button>}
               <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.etudes')}</button>
               <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-gold">{t('nav.seuil')}</button>
             </div>
@@ -419,7 +419,7 @@ export function HomepageV1({
               if (screen === 'collection') {
                 if (onEnterCollection) onEnterCollection();
               } else if (screen === 'meridiens') {
-                if (onEnterMeridiens) onEnterMeridiens();
+                if (onEnterInstruments) onEnterInstruments();
               }
             }}
           />

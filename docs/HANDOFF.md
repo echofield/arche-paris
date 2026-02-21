@@ -54,6 +54,7 @@ Goal: backend is rich, UI is calm but readable. Mechanics surfaced via poetic in
 - Flow: user completes action -> backend writes delta -> Aura reflects change on open
 
 ## Handy References
+- **Paradigm (feature filter):** [docs/ARCHÉ_PARADIGM.md](ARCHÉ_PARADIGM.md) — acts, emotions, friction; use to accept/reject features.
 - UI/layout/mobile consistency: [docs/UI_STABILIZATION_AND_MOBILE_GUIDE.md](UI_STABILIZATION_AND_MOBILE_GUIDE.md)
 - PassportLayerModule is placed below the main Aura dashboard in a flex wrapper: row on desktop (dashboard left, module right), column on mobile. Single Aura page, same instrument/panel language.
 
@@ -117,11 +118,16 @@ curl -s "https://<PROJECT_REF>.supabase.co/functions/v1/card-gate/world/snapshot
 - "Le Champ" -> "La Ville"
 - Remove/merge redundant "Voir la Carte" if still present
 
+## 401 on manifest.json / preview deployments
+
+If `/manifest.json` or `/api/card-gate/*` return **401** on Vercel preview URLs, the cause is usually **Vercel Deployment Protection** (password protection for previews). Fix: **Vercel Dashboard → Project → Settings → Deployment Protection** — disable it for previews or add bypass rules so static assets and your API are accessible. Headers in `vercel.json` do not bypass this; only Dashboard settings do.
+
 ## Build / Run
 ```bash
 cd C:\Users\echof\arche-paris
 npm run dev
 npm run build
+npm run lint
 ```
 
 ## Deploy (Vercel)

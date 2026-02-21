@@ -1,4 +1,13 @@
 {
+  "meridiens.instrument.title": "MÉRIDIEN",
+  "meridiens.instrument.state.egare": "ÉGARÉ",
+  "meridiens.instrument.state.dispersion": "DISPERSION",
+  "meridiens.instrument.state.interference": "INTERFÉRENCE",
+  "meridiens.instrument.state.axe": "AXE",
+  "meridiens.instrument.calibration": "CALIBRATION",
+  "meridiens.instrument.sleep": "Instrument en veille.",
+  "meridiens.instrument.seekAxis": "L'instrument cherche un axe.",
+  "meridiens.instrument.read": "Lire",
   "meridiens.title": "Méridiens",
   "meridiens.sentence": "Le méridien. L'heure. Le zéro.",
   "meridiens.state.lost": "Égaré.",

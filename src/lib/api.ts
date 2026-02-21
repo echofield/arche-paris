@@ -400,6 +400,26 @@ export interface WorldFieldSnapshot {
   }>;
 }
 
+/** Meridian place id (backend instrument). */
+export type MeridianPlaceId = 'saint-sulpice' | 'horloge' | 'point-zero';
+
+/** Meridian instrument from /world/snapshot (signal-sized; debug fields omitted in production). */
+export interface MeridianInstrumentSnapshot {
+  zoneId: string | null;
+  state: 'EGARE' | 'PROCHE' | 'SUR_LIGNE' | 'ALIGNE';
+  recognized: Array<{ placeId: MeridianPlaceId; status: 'RECONNU' | 'NON_RECONNU' }>;
+  nearestPlaceId: MeridianPlaceId | null;
+  alignmentIndex: number;
+  holdProgress01: number;
+  micro: {
+    statusLine: string;
+    hintLine?: string;
+    tone?: 'CALM' | 'PRECISE';
+  };
+  lineDistanceM?: number | null;
+  headingErrorDeg?: number | null;
+}
+
 export interface WorldSnapshotData {
   now: string;
   policy: {
@@ -412,6 +432,8 @@ export interface WorldSnapshotData {
     champ: { items: Array<{ id: string; h3: string; ts: string; excerpt: string }> };
     /** Territory field for h3_center when a pack exists; null otherwise. */
     field?: WorldFieldSnapshot | null;
+    /** Meridian instrument (alignment state, micro-lines); present when backend enriches snapshot. */
+    meridian?: MeridianInstrumentSnapshot | null;
   };
   me: {
     authenticated: boolean;
@@ -580,12 +602,20 @@ export const api = {
     h3_center?: string;
     k?: number;
     include?: string;
+    lat?: number;
+    lng?: number;
+    heading?: number;
+    speed?: number;
   }) => {
     const qs = new URLSearchParams();
     if (params?.bbox) qs.set('bbox', params.bbox);
     if (params?.h3_center) qs.set('h3_center', params.h3_center);
     if (typeof params?.k === 'number') qs.set('k', String(params.k));
     if (params?.include) qs.set('include', params.include);
+    if (typeof params?.lat === 'number' && Number.isFinite(params.lat)) qs.set('lat', String(params.lat));
+    if (typeof params?.lng === 'number' && Number.isFinite(params.lng)) qs.set('lng', String(params.lng));
+    if (typeof params?.heading === 'number' && Number.isFinite(params.heading)) qs.set('heading', String(params.heading));
+    if (typeof params?.speed === 'number' && Number.isFinite(params.speed)) qs.set('speed', String(params.speed));
     const tail = qs.toString();
     return invokeCardGate<WorldSnapshotData>(`world/snapshot${tail ? `?${tail}` : ''}`);
   },
