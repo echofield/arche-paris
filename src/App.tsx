@@ -390,7 +390,7 @@ export default function App() {
             }}
             onEnterQuetes={() => navigateTo('quetes')}
             onEnterCarnet={() => navigateTo('carnet')}
-            onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
+            onEnterHunter={() => navigateTo('tresor')}
             onEnterCollection={() => navigateTo('collection')}
             onEnterChamp={() => navigateTo('champ')}
             onEnterAura={() => navigateTo('aura')}
@@ -556,38 +556,6 @@ export default function App() {
             </AnimatePresence>
             <CardDrawer />
           </>
-        )}
-
-        {/* Trésor Caché — fixed bottom-left, hidden when TresorCache is active */}
-        {appState === 'ready' && currentScreen !== 'tresor' && (
-          <button
-            type="button"
-            onClick={() => navigateTo('tresor')}
-            title="Trésor Caché"
-            aria-label="Trésor Caché"
-            style={{
-              position: 'fixed',
-              bottom: 32,
-              left: 152,
-              zIndex: 99,
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              background: '#003D2C',
-              color: '#F2F0E9',
-              border: 'none',
-              fontFamily: 'monospace',
-              fontSize: '9px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              letterSpacing: '0.05em',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            }}
-          >
-            TC
-          </button>
         )}
 
         {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura and Kept pages. */}
