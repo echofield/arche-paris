@@ -44,6 +44,7 @@ export function HomepageV1({
   onEnterChamp,
   onEnterAura,
   onEnterSeuil,
+  onEnterInstruments,
   onEnterMeridiens,
   onDisconnect,
   onLogin,
@@ -156,27 +157,6 @@ export function HomepageV1({
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
           >
             {t('nav.meridiens')}
-          </button>
-        )}
-        {onEnterInstruments && (
-          <button
-            onClick={onEnterInstruments}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '11px',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#003D2C',
-              opacity: 0.6,
-              cursor: 'pointer',
-              transition: 'opacity 0.3s ease'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
-          >
-            {t('nav.instruments')}
           </button>
         )}
         <button
