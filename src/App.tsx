@@ -462,11 +462,7 @@ export default function App() {
         return (
           <Suspense fallback={renderScreenLoading('Chargement des Meridiens...')}>
             <LazyMeridiensLive
-              onBack={() => {
-                navigateTo('homepage');
-                setCabinetOpen(true);
-                window.location.hash = 'instruments';
-              }}
+              onBack={() => navigateTo('homepage')}
               cardId={cardStatus?.cardId ?? null}
             />
           </Suspense>
@@ -526,6 +522,20 @@ export default function App() {
           <>
             <LanguageSelector />
             {renderScreen()}
+            <AnimatePresence>
+              {cabinetOpen && currentScreen === 'homepage' && (
+                <InstrumentsCabinetOverlay
+                  onClose={() => {
+                    setCabinetOpen(false);
+                    window.location.hash = '';
+                  }}
+                  onOpenMeridian={() => {
+                    setCabinetOpen(false);
+                    navigateTo('meridiens');
+                  }}
+                />
+              )}
+            </AnimatePresence>
             <CardDrawer />
           </>
         )}

@@ -6,7 +6,6 @@ import { useIsMobile } from './ui/use-mobile';
 import { LivingQuest } from './LivingQuest';
 import { motion } from '../design/motion';
 import { api, type WorldSnapshotData } from '../lib/api';
-import { useSnapshotDebug } from '../contexts/SnapshotDebugContext';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.62;
@@ -26,7 +25,7 @@ interface HomepageV1Props {
   onEnterAura?: () => void;
   onEnterSeuil?: () => void;
   onOpenKept?: () => void;
-  onEnterInstruments?: () => void;
+  onEnterMeridiens?: () => void;
   /** Déconnecter la carte sur cet appareil (pour utiliser la même carte sur un autre, ex. téléphone) */
   onDisconnect?: () => void;
   /** En mode démo : afficher « Se connecter » pour passer à l’écran de saisie de carte */
@@ -45,13 +44,12 @@ export function HomepageV1({
   onEnterChamp,
   onEnterAura,
   onEnterSeuil,
-  onEnterInstruments,
+  onEnterMeridiens,
   onDisconnect,
   onLogin,
   onOpenKept
 }: HomepageV1Props) {
   const { t } = useTranslation();
-  const { setLocationTrust } = useSnapshotDebug();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   const [mounted, setMounted] = useState(false);
@@ -66,11 +64,6 @@ export function HomepageV1({
   useEffect(() => {
     loadSnapshot();
   }, [loadSnapshot]);
-
-  useEffect(() => {
-    setLocationTrust(worldSnapshot?.me?.locationTrust ?? null);
-    return () => setLocationTrust(null);
-  }, [worldSnapshot, setLocationTrust]);
 
   useEffect(() => {
     setMounted(true);
@@ -144,9 +137,9 @@ export function HomepageV1({
         >
           {t('nav.quests')}
         </button>
-        {onEnterInstruments && (
+        {onEnterMeridiens && (
           <button
-            onClick={onEnterInstruments}
+            onClick={onEnterMeridiens}
             style={{
               background: 'transparent',
               border: 'none',
@@ -162,7 +155,7 @@ export function HomepageV1({
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
           >
-            {t('nav.instruments')}
+            {t('nav.meridiens')}
           </button>
         )}
         <button
@@ -342,6 +335,7 @@ export function HomepageV1({
             <div className="homepage-nav-drawer-block">
               <p className="homepage-nav-drawer-section">{t('home.mobileSectionApprofondir', 'Approfondir')}</p>
               {onEnterInstruments && <button type="button" onClick={() => { onEnterInstruments(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.instruments')}</button>}
+              {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.meridiens')}</button>}
               <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.etudes')}</button>
               <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-gold">{t('nav.seuil')}</button>
             </div>
@@ -419,7 +413,7 @@ export function HomepageV1({
               if (screen === 'collection') {
                 if (onEnterCollection) onEnterCollection();
               } else if (screen === 'meridiens') {
-                if (onEnterInstruments) onEnterInstruments();
+                if (onEnterMeridiens) onEnterMeridiens();
               }
             }}
           />
@@ -491,7 +485,7 @@ export function HomepageV1({
               textTransform: 'uppercase'
             }}
           >
-            {worldSnapshot?.me?.aura?.questCallout?.title}
+            {worldSnapshot.me.aura.questCallout.title}
           </p>
         )}
 
