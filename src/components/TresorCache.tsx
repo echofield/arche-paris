@@ -215,7 +215,7 @@ function MemoryEchoes({ collected }: { collected: Set<string> }) {
       <motion.div
         key={sym.id}
         initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 0.13, y: 0 }}
+        animate={{ opacity: 0.11, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 3, ease: [0.25, 0.1, 0.25, 1] }}
         style={{
@@ -227,7 +227,7 @@ function MemoryEchoes({ collected }: { collected: Set<string> }) {
       >
         <p style={{
           fontFamily: '"Cormorant Garamond", Georgia, serif',
-          fontSize: '13px', fontStyle: 'italic', lineHeight: 1.6,
+          fontSize: '11px', fontStyle: 'italic', lineHeight: 1.6,
           margin: 0, color: C.ink,
         }}>
           {sym.poeticLine}
@@ -332,7 +332,7 @@ function SealRow({ collected, total }: { collected: Set<string>; total: Treasure
         return (
           <motion.div
             key={sym.id}
-            animate={{ opacity: sealed ? 0.6 : 0.12, scale: sealed ? 1 : 0.8 }}
+            animate={{ opacity: sealed ? 0.5 : 0.1, scale: sealed ? 1 : 0.8 }}
             transition={MO.measured}
             style={{
               width: 6, height: 6, borderRadius: '50%',
@@ -361,18 +361,18 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px',
   width: '75vw',
   maxWidth: 260,
-  letterSpacing: '0.04em',
+  letterSpacing: '0.07em',
   WebkitAppearance: 'none' as const,
   borderRadius: 0,
 };
 
 const btnSmall: React.CSSProperties = {
   background: 'transparent',
-  border: '0.5px solid rgba(0, 61, 44, 0.15)',
+  border: '0.5px solid rgba(0, 61, 44, 0.12)',
   fontFamily: '"Inter", system-ui, sans-serif',
-  fontSize: '9px',
+  fontSize: '8px',
   textTransform: 'uppercase',
-  letterSpacing: '0.2em',
+  letterSpacing: '0.24em',
   padding: '12px 32px',
   cursor: 'pointer',
   color: C.ink,
@@ -604,8 +604,8 @@ export function TresorCache({ onExit }: TresorCacheProps) {
           onClick={onExit}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            fontSize: '11px', textTransform: 'uppercase',
-            letterSpacing: '0.15em', opacity: 0.5,
+            fontSize: '9px', textTransform: 'uppercase',
+            letterSpacing: '0.2em', opacity: 0.4,
             border: 'none', background: 'transparent',
             cursor: 'pointer', color: C.ink,
             fontFamily: '"Inter", system-ui, sans-serif',
@@ -621,8 +621,8 @@ export function TresorCache({ onExit }: TresorCacheProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <SealRow collected={collected} total={MONTMARTRE_SYMBOLS} />
           <span style={{
-            fontSize: '9px', textTransform: 'uppercase',
-            letterSpacing: '0.25em', opacity: 0.3,
+            fontSize: '8px', textTransform: 'uppercase',
+            letterSpacing: '0.28em', opacity: 0.25,
           }}>
             Trésor
           </span>
@@ -652,26 +652,26 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               }}
             >
               <span style={{
-                fontSize: '8px', textTransform: 'uppercase',
-                letterSpacing: '0.3em', opacity: 0.3,
+                fontSize: '7px', textTransform: 'uppercase',
+                letterSpacing: '0.34em', opacity: 0.25,
               }}>
                 Montmartre
               </span>
 
               <span style={{
                 fontFamily: '"Cormorant Garamond", Georgia, serif',
-                fontSize: '26px', fontWeight: 300, letterSpacing: '0.04em',
+                fontSize: '22px', fontWeight: 300, letterSpacing: '0.06em',
               }}>
                 Gardien
               </span>
 
               <motion.p
                 initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 0.4, y: 0 }}
+                animate={{ opacity: 0.34, y: 0 }}
                 transition={{ ...MO.reveal, delay: 1.5 }}
                 style={{
                   ...serifBody,
-                  fontSize: '15px',
+                  fontSize: '13px',
                   maxWidth: 280, textAlign: 'center',
                 }}
               >
@@ -704,7 +704,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                 transition={{ duration: 1.5, ease: [0.25, 0.1, 0.25, 1] }}
                 style={{
                   width: 46, height: 46, borderRadius: '50%',
-                  border: `1px solid ${C.ink}`, opacity: 0.5,
+                  border: `1px solid ${C.ink}`, opacity: 0.42,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
@@ -716,18 +716,18 @@ export function TresorCache({ onExit }: TresorCacheProps) {
 
               <span style={{
                 fontFamily: '"Cormorant Garamond", Georgia, serif',
-                fontSize: '18px', fontWeight: 300, letterSpacing: '0.04em',
+                fontSize: '15px', fontWeight: 300, letterSpacing: '0.06em',
               }}>
                 {currentSymbol.name}
               </span>
 
               <motion.p
                 initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 0.4, y: 0 }}
+                animate={{ opacity: 0.34, y: 0 }}
                 transition={{ ...MO.reveal, delay: 1.2 }}
                 style={{
                   ...serifBody,
-                  fontSize: '14px',
+                  fontSize: '12px',
                   maxWidth: 260,
                 }}
               >
@@ -737,10 +737,10 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               {currentSymbol.atmosphere && (
                 <motion.span
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.22 }}
+                  animate={{ opacity: 0.18 }}
                   transition={{ ...MO.slow, delay: 2.5 }}
                   style={{
-                    fontSize: '10px', fontStyle: 'italic',
+                    fontSize: '9px', fontStyle: 'italic',
                     fontFamily: '"Cormorant Garamond", Georgia, serif',
                     maxWidth: 240, textAlign: 'center',
                   }}
@@ -752,21 +752,21 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               {currentSymbol.ghostQuote && (
                 <motion.div
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.2 }}
+                  animate={{ opacity: 0.17 }}
                   transition={{ duration: 2, delay: 3.5 }}
                   style={{ marginTop: 14, textAlign: 'right', maxWidth: 240 }}
                 >
                   <p style={{
                     fontFamily: '"Cormorant Garamond", Georgia, serif',
-                    fontSize: '11px', fontStyle: 'italic',
+                    fontSize: '9px', fontStyle: 'italic',
                     margin: 0, lineHeight: 1.5,
                   }}>
                     «&thinsp;{currentSymbol.ghostQuote}&thinsp;»
                   </p>
                   <span style={{
                     fontFamily: '"Inter", system-ui, sans-serif',
-                    fontSize: '7px',
-                    letterSpacing: '0.15em', textTransform: 'uppercase',
+                    fontSize: '6px',
+                    letterSpacing: '0.18em', textTransform: 'uppercase',
                     display: 'block', marginTop: 4,
                   }}>
                     {currentSymbol.ghostAuthor}
@@ -776,11 +776,11 @@ export function TresorCache({ onExit }: TresorCacheProps) {
 
               <motion.span
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.25 }}
+                animate={{ opacity: 0.21 }}
                 transition={{ duration: 1.5, delay: 1 }}
                 style={{
-                  fontSize: '8px', textTransform: 'uppercase',
-                  letterSpacing: '0.2em', marginTop: 10,
+                  fontSize: '7px', textTransform: 'uppercase',
+                  letterSpacing: '0.24em', marginTop: 10,
                 }}
               >
                 Le lieu reconnaît.
@@ -803,16 +803,16 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               }}
             >
               <span style={{
-                fontSize: '8px', textTransform: 'uppercase',
-                letterSpacing: '0.25em', opacity: 0.3,
+                fontSize: '7px', textTransform: 'uppercase',
+                letterSpacing: '0.28em', opacity: 0.25,
               }}>
                 Preuve requise
               </span>
 
               <p style={{
                 ...serifBody,
-                fontSize: '15px',
-                maxWidth: 280, opacity: 0.6,
+                fontSize: '13px',
+                maxWidth: 280, opacity: 0.5,
               }}>
                 {currentSymbol.proofQuestion}
               </p>
@@ -837,7 +837,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                   disabled={!answer.trim()}
                   style={{
                     ...btnSmall,
-                    opacity: answer.trim() ? 0.5 : 0.15,
+                    opacity: answer.trim() ? 0.42 : 0.12,
                     transition: 'opacity 0.3s ease',
                   }}
                 >
@@ -849,10 +849,10 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                 {error && (
                   <motion.span
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.4 }}
+                    animate={{ opacity: 0.34 }}
                     exit={{ opacity: 0 }}
                     style={{
-                      fontSize: '10px', fontStyle: 'italic',
+                      fontSize: '9px', fontStyle: 'italic',
                       fontFamily: '"Cormorant Garamond", Georgia, serif',
                     }}
                   >
@@ -878,19 +878,19 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               }}
             >
               <span style={{
-                fontSize: '8px', textTransform: 'uppercase',
-                letterSpacing: '0.25em', opacity: 0.3,
+                fontSize: '7px', textTransform: 'uppercase',
+                letterSpacing: '0.28em', opacity: 0.25,
               }}>
                 {currentSymbol.name}
               </span>
 
               <motion.p
                 initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 0.55, y: 0 }}
+                animate={{ opacity: 0.47, y: 0 }}
                 transition={{ ...MO.reveal, delay: 0.5 }}
                 style={{
                   ...serifBody,
-                  fontSize: '16px',
+                  fontSize: '14px',
                   maxWidth: 300,
                 }}
               >
@@ -899,16 +899,16 @@ export function TresorCache({ onExit }: TresorCacheProps) {
 
               <motion.button
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.5 }}
+                animate={{ opacity: 0.42 }}
                 transition={{ ...MO.slow, delay: 1.5 }}
                 onClick={tryGps}
                 disabled={gpsStatus === 'checking'}
                 style={{
                   ...btnSmall,
-                  fontSize: '10px',
+                  fontSize: '9px',
                   padding: '14px 32px',
                   marginTop: 8,
-                  opacity: gpsStatus === 'checking' ? 0.25 : 0.5,
+                  opacity: gpsStatus === 'checking' ? 0.21 : 0.42,
                 }}
               >
                 {gpsStatus === 'checking' ? 'Lecture…' : 'Je l\'ai trouvé'}
@@ -932,11 +932,11 @@ export function TresorCache({ onExit }: TresorCacheProps) {
             >
               {/* Timer */}
               <span style={{
-                fontSize: '22px',
+                fontSize: '19px',
                 fontFamily: '"Inter", system-ui, sans-serif',
                 fontVariantNumeric: 'tabular-nums',
-                opacity: riddleTimer <= 10 ? 0.7 : 0.3,
-                letterSpacing: '0.1em',
+                opacity: riddleTimer <= 10 ? 0.6 : 0.25,
+                letterSpacing: '0.14em',
                 transition: 'opacity 0.3s ease',
               }}>
                 {riddleTimer}
@@ -944,8 +944,8 @@ export function TresorCache({ onExit }: TresorCacheProps) {
 
               <p style={{
                 ...serifBody,
-                fontSize: '16px',
-                maxWidth: 300, opacity: 0.6,
+                fontSize: '14px',
+                maxWidth: 300, opacity: 0.5,
                 padding: '0 4px',
               }}>
                 {currentSymbol.riddle}
@@ -971,7 +971,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                   disabled={!answer.trim()}
                   style={{
                     ...btnSmall,
-                    opacity: answer.trim() ? 0.5 : 0.15,
+                    opacity: answer.trim() ? 0.42 : 0.12,
                     transition: 'opacity 0.3s ease',
                   }}
                 >
@@ -996,26 +996,26 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               }}
             >
               <span style={{
-                fontSize: '8px', textTransform: 'uppercase',
-                letterSpacing: '0.3em', opacity: 0.25,
+                fontSize: '7px', textTransform: 'uppercase',
+                letterSpacing: '0.34em', opacity: 0.21,
               }}>
                 Montmartre · Symbole {MONTMARTRE_SYMBOLS.indexOf(currentSymbol) + 1}
               </span>
 
               <span style={{
                 fontFamily: '"Cormorant Garamond", Georgia, serif',
-                fontSize: '24px', fontWeight: 300, letterSpacing: '0.04em',
+                fontSize: '20px', fontWeight: 300, letterSpacing: '0.06em',
               }}>
                 {currentSymbol.name}
               </span>
 
               <motion.p
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.35 }}
+                animate={{ opacity: 0.3 }}
                 transition={{ ...MO.slow, delay: 0.8 }}
                 style={{
                   ...serifBody,
-                  fontSize: '14px',
+                  fontSize: '12px',
                   maxWidth: 260,
                 }}
               >
@@ -1024,8 +1024,8 @@ export function TresorCache({ onExit }: TresorCacheProps) {
 
               {cooldown > 0 ? (
                 <span style={{
-                  fontSize: '10px', opacity: 0.25,
-                  letterSpacing: '0.1em',
+                  fontSize: '9px', opacity: 0.21,
+                  letterSpacing: '0.12em',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
                   {cooldown}s
@@ -1033,7 +1033,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               ) : (
                 <motion.button
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.45 }}
+                  animate={{ opacity: 0.38 }}
                   transition={{ ...MO.slow, delay: 1.2 }}
                   onClick={startRiddle}
                   style={{
@@ -1049,11 +1049,11 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                 {error && (
                   <motion.span
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.35 }}
+                    animate={{ opacity: 0.3 }}
                     exit={{ opacity: 0 }}
                     transition={MO.measured}
                     style={{
-                      fontSize: '10px', fontStyle: 'italic',
+                      fontSize: '9px', fontStyle: 'italic',
                       fontFamily: '"Cormorant Garamond", Georgia, serif',
                     }}
                   >
@@ -1073,7 +1073,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
       <motion.div
         key={murmurLine}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 0.16 }}
+        animate={{ opacity: 0.14 }}
         transition={{ duration: 3, ease: [0.25, 0.1, 0.25, 1] }}
         style={{
           position: 'absolute',
@@ -1084,8 +1084,8 @@ export function TresorCache({ onExit }: TresorCacheProps) {
       >
         <span style={{
           fontFamily: '"Cormorant Garamond", Georgia, serif',
-          fontSize: '11px', fontStyle: 'italic',
-          letterSpacing: '0.08em', color: C.ink,
+          fontSize: '9px', fontStyle: 'italic',
+          letterSpacing: '0.1em', color: C.ink,
         }}>
           {murmurLine}
         </span>
@@ -1095,13 +1095,13 @@ export function TresorCache({ onExit }: TresorCacheProps) {
       <motion.div
         key={zoneLabel}
         initial={{ opacity: 0 }}
-        animate={{ opacity: phase === 'veille' ? 0.08 : 0.3 }}
+        animate={{ opacity: phase === 'veille' ? 0.07 : 0.25 }}
         transition={MO.gentle}
         style={{
           position: 'absolute', bottom: 24, left: 24,
-          fontSize: '8px',
+          fontSize: '7px',
           fontFamily: '"Inter", system-ui, sans-serif',
-          textTransform: 'uppercase', letterSpacing: '0.25em',
+          textTransform: 'uppercase', letterSpacing: '0.28em',
           color: C.ink, pointerEvents: 'none', zIndex: 30,
         }}
       >
@@ -1111,9 +1111,9 @@ export function TresorCache({ onExit }: TresorCacheProps) {
       {/* Count (very faint) */}
       <div style={{
         position: 'absolute', bottom: 24, right: 24,
-        fontSize: '8px',
+        fontSize: '7px',
         fontFamily: '"Inter", system-ui, sans-serif',
-        letterSpacing: '0.15em', opacity: 0.08,
+        letterSpacing: '0.18em', opacity: 0.07,
         fontVariantNumeric: 'tabular-nums',
         color: C.ink, pointerEvents: 'none', zIndex: 30,
       }}>
