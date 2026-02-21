@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ARCHÉ Motion Language tokens.
  * Single source of truth for durations, easings, presets and allowed animated properties.
  */
@@ -42,6 +42,8 @@ export interface MotionTokenModule {
   prefersReducedMotion: () => boolean;
   reducedMs: () => number;
   acquireStone: (scope: string) => (() => void) | null;
+  /** Meridian instrument: named ms for intro phases (no raw numbers in components). */
+  ms: { introIdle: number; introCal: number };
 }
 
 const stoneAuthority: { scope: string | null } = { scope: null };
@@ -128,6 +130,14 @@ const appearDuration = durations.measured;
 const dismissDuration = Math.round(appearDuration * 1.5);
 const activateDuration = durations.brisk;
 
+/** Meridian instrument: snapshot throttle and deadband (no raw numbers in MeridiensLive). */
+export const MERIDIAN_FETCH_DEADBAND_M = 15;
+export const MERIDIAN_FETCH_DEADBAND_DEG = 15;
+export const MERIDIAN_FETCH_MIN_INTERVAL_MS = 5000;
+
+const meridianIntroIdleMs = durations.measured;
+const meridianIntroCalMs = durations.contemplative;
+
 export const motion: MotionTokenModule = {
   durations,
   weights,
@@ -204,5 +214,9 @@ export const motion: MotionTokenModule = {
     return () => {
       if (stoneAuthority.scope === scope) stoneAuthority.scope = null;
     };
+  },
+  ms: {
+    introIdle: meridianIntroIdleMs,
+    introCal: meridianIntroCalMs,
   },
 };

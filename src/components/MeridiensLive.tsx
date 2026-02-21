@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
+import { MeridiensInterface, type LocalMeridianState } from './MeridiensInterface';
 import { getThresholds, type Threshold, type ThresholdId } from '../data/meridiens';
 import { haversineMeters } from '../utils/geo';
 import {
@@ -26,6 +27,13 @@ import {
 import { appendMeridienInscription } from '../utils/journal-sync';
 import { postMeridianProof } from '../utils/card-gate-map-client';
 import { useTranslation } from '../utils/i18n';
+import { api } from '../lib/api';
+import type { WorldSnapshotData, MeridianInstrumentSnapshot } from '../lib/api';
+import {
+  MERIDIAN_FETCH_DEADBAND_M,
+  MERIDIAN_FETCH_DEADBAND_DEG,
+  MERIDIAN_FETCH_MIN_INTERVAL_MS
+} from '../design/motion';
 
 interface MeridiensLiveProps {
   onBack: () => void;
@@ -50,6 +58,13 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [expandedThresholdId, setExpandedThresholdId] = useState<ThresholdId | null>(null);
   const [expandedReadId, setExpandedReadId] = useState<ThresholdId | null>(null);
+  const [snapshot, setSnapshot] = useState<WorldSnapshotData | null>(null);
+  const lastFetchRef = useRef<{
+    lat: number;
+    lng: number;
+    heading: number | undefined;
+    ts: number;
+  } | null>(null);
 
   const thresholds = getThresholds();
   const visited = getThresholdsVisited();
@@ -80,17 +95,17 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     if (visited.length >= 3 && crossings.length === 0) addCrossing();
   }, [visited.length, crossings.length]);
 
-  // When within radius, switch to threshold view and mark visited
+  // Mark visited when in radius (no auto-switch; Patch 6: Lire doorway only)
   useEffect(() => {
-    if (nearest) {
-      markThresholdVisited(nearest.id);
-      setActiveThreshold(nearest);
-      setViewMode('threshold');
-    } else if (viewMode === 'threshold' && !nearest) {
+    if (nearest) markThresholdVisited(nearest.id);
+  }, [nearest?.id]);
+  // When leaving radius while in threshold view, return to geometric
+  useEffect(() => {
+    if (viewMode === 'threshold' && !nearest) {
       setViewMode('geometric');
       setActiveThreshold(null);
     }
-  }, [nearest?.id]);
+  }, [viewMode, nearest]);
 
   // Geolocation
   useEffect(() => {
@@ -114,6 +129,81 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       setUserPos(null);
     };
   }, []);
+
+  // Snapshot fetch with throttle and deadband (Patch 1)
+  useEffect(() => {
+    if (!userPos) return;
+    const now = Date.now();
+    const prev = lastFetchRef.current;
+    const shouldFetch =
+      !prev ||
+      haversineMeters(prev.lat, prev.lng, userPos.lat, userPos.lng) > MERIDIAN_FETCH_DEADBAND_M ||
+      (heading !== undefined && prev.heading !== undefined &&
+        Math.min(
+          Math.abs(heading - prev.heading),
+          360 - Math.abs(heading - prev.heading)
+        ) > MERIDIAN_FETCH_DEADBAND_DEG) ||
+      now - prev.ts > MERIDIAN_FETCH_MIN_INTERVAL_MS;
+
+    if (!shouldFetch) return;
+
+    lastFetchRef.current = { lat: userPos.lat, lng: userPos.lng, heading, ts: now };
+    const h3 = 'PAR-06'; // default for Saint-Sulpice area; could use TerritoryResolver later
+    api
+      .worldSnapshot({ lat: userPos.lat, lng: userPos.lng, heading, h3_center: h3 })
+      .then((res) => {
+        if (res.ok && res.data) {
+          setSnapshot(res.data);
+        }
+      })
+      .catch(() => {
+        // Keep last valid snapshot; fallback to local meridian
+      });
+  }, [userPos?.lat, userPos?.lng, heading]);
+
+  // Meridian state: from snapshot or local fallback (Patch 3 semantics)
+  const LOST_M = 100;
+  const meridian: MeridianInstrumentSnapshot | LocalMeridianState = (() => {
+    if (snapshot?.world?.meridian) return snapshot.world.meridian;
+    if (!userPos) {
+      return {
+        state: 'EGARE',
+        alignmentIndex: 0,
+        holdProgress01: 0,
+        recognized: thresholds.map((t) => ({
+          placeId: t.id,
+          status: 'NON_RECONNU' as const
+        })),
+        nearestPlaceId: null,
+        micro: { statusLine: '' }
+      };
+    }
+    const lineDistanceM = distanceToMeridianMeters(userPos.lng);
+    const localState = getMeridienState(userPos.lat, userPos.lng, heading);
+    const state: LocalMeridianState['state'] =
+      localState === 'lost'
+        ? 'EGARE'
+        : localState === 'near'
+          ? 'PROCHE'
+          : localState === 'on_line'
+            ? 'SUR_LIGNE'
+            : 'ALIGNE';
+    const alignmentIndex = Math.max(0, Math.min(1, 1 - lineDistanceM / LOST_M));
+    const visitedIds = getThresholdsVisited();
+    const nearest = getNearestThreshold(userPos.lat, userPos.lng);
+    const recognized = thresholds.map((t) => ({
+      placeId: t.id,
+      status: (visitedIds.includes(t.id) || (nearest?.id === t.id) ? 'RECONNU' : 'NON_RECONNU') as 'RECONNU' | 'NON_RECONNU'
+    }));
+    return {
+      state,
+      alignmentIndex,
+      holdProgress01: state === 'ALIGNE' ? 1 : 0,
+      recognized,
+      nearestPlaceId: nearest?.id ?? null,
+      micro: { statusLine: '' }
+    };
+  })();
 
   const isAlignedWithLatitude = (t: Threshold) => {
     if (!userPos) return false;
@@ -475,361 +565,48 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     );
   }
 
-  // —— Geometric view (default) or crossed ——
-  const showCrossed = allVisited && crossings.length > 0;
+  // —— Geometric view (default): instrument + optional Lire doorway (Patch 6)
+  const recognizedPlaceInRadius =
+    nearest &&
+    meridian.recognized.some((r) => r.placeId === nearest.id && r.status === 'RECONNU');
+
   return (
-    <div
-      className="min-h-screen relative flex flex-col items-center justify-center"
-      style={{ background: '#FAF8F2', overflow: 'hidden' }}
-    >
-      <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
-      <BackButton onClick={onBack} />
-
-      <div
-        style={{
-          maxWidth: '560px',
-          margin: '0 auto',
-          padding: 'clamp(24px, 4vw, 48px)',
-          paddingTop: 'clamp(80px, 10vh, 100px)',
-          position: 'relative',
-          zIndex: 10,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center'
-        }}
-      >
-        <p
-          style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 11,
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            color: '#003D2C',
-            opacity: 0.6,
-            marginBottom: 16
-          }}
-        >
-          {t('meridiens.title')}
-        </p>
-
-        {/* Paris outline + meridian line */}
+    <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+      <MeridiensInterface meridian={meridian} onExit={onBack} />
+      {recognizedPlaceInRadius && nearest && (
         <div
           style={{
-            position: 'relative',
-            width: 'clamp(280px, 50vw, 400px)',
-            height: 'clamp(200px, 35vw, 300px)',
-            marginBottom: 24
+            position: 'fixed',
+            bottom: 'max(24px, env(safe-area-inset-bottom))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
           }}
         >
-          <img
-            src="/Parissvg.svg"
-            alt="Paris"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              opacity: 0.2
+          <button
+            type="button"
+            onClick={() => {
+              setActiveThreshold(nearest);
+              setViewMode('threshold');
             }}
-          />
-          {/* Meridian line (vertical) */}
-          <div
             style={{
-              position: 'absolute',
-              left: '50%',
-              top: 0,
-              bottom: 0,
-              width: 2,
-              marginLeft: -1,
-              background: 'rgba(0,61,44,0.35)',
-              opacity: lineOpacity
-            }}
-          />
-          {/* Proximity halo (field activation; no exact position) */}
-          <style>{`
-            @keyframes meridiens-halo-pulse {
-              0%, 100% { transform: translate(-50%, -50%) scale(1); }
-              50% { transform: translate(-50%, -50%) scale(1.03); }
-            }
-            .meridiens-halo-pulse { animation: meridiens-halo-pulse 4s ease-in-out infinite; }
-          `}</style>
-          <div
-            className={state === 'aligned' ? 'meridiens-halo-pulse' : undefined}
-            style={{
-              position: 'absolute',
-              left: `${haloCenterLeft}%`,
-              top: `${haloCenterTop}%`,
-              width: '55%',
-              height: '55%',
-              marginLeft: '-27.5%',
-              marginTop: '-27.5%',
-              borderRadius: '9999px',
-              background: 'radial-gradient(circle, rgba(0,61,44,0.25) 0%, rgba(0,61,44,0.08) 50%, transparent 70%)',
-              filter: 'blur(12px)',
-              opacity: haloOpacity,
-              pointerEvents: 'none',
-              transform: 'translate(-50%, -50%)'
-            }}
-          />
-          {/* Threshold dots (fixed anchors; no user position dot) */}
-          {thresholds.map((t) => (
-            <div
-              key={t.id}
-              style={{
-                position: 'absolute',
-                left: `${50 + (t.lng - 2.3372) * 250}%`,
-                top: `${50 - (t.lat - 48.8566) * 500}%`,
-                width: 8,
-                height: 8,
-                marginLeft: -4,
-                marginTop: -4,
-                borderRadius: '50%',
-                background: 'rgba(0,61,44,0.5)',
-                pointerEvents: 'none'
-              }}
-            />
-          ))}
-        </div>
-
-        {showCrossed ? (
-          <>
-            <p
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: 'clamp(20px, 3.5vw, 26px)',
-                fontStyle: 'italic',
-                color: '#003D2C',
-                marginBottom: 8
-              }}
-            >
-              {t('meridiens.crossed.title')}
-            </p>
-            <p
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 13,
-                color: '#6B6455',
-                opacity: 0.9
-              }}
-            >
-              {t('meridiens.crossed.subtitle')}
-            </p>
-          </>
-        ) : (
-          <>
-            <p
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: 'clamp(18px, 3vw, 24px)',
-                fontStyle: 'italic',
-                color: '#1A1A1A',
-                opacity: 0.85,
-                lineHeight: 1.5,
-                marginBottom: 28
-              }}
-            >
-              {userPos ? t(`meridiens.state.${state}`) : t('meridiens.state.lost')}
-            </p>
-
-            {/* Threshold list (clickable → hint drawer; one expanded at a time) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 320 }}>
-              {thresholds.map((th) => {
-                const visitedThis = visited.includes(th.id);
-                const recognized = isAlignedWithLatitude(th);
-                const name = language === 'fr' ? th.subtitleFR : th.subtitleEN;
-                const hintKey = `meridiens.hint.${th.id}` as 'meridiens.hint.saint-sulpice' | 'meridiens.hint.horloge' | 'meridiens.hint.point-zero';
-                const isExpanded = expandedThresholdId === th.id;
-                const isReadExpanded = expandedReadId === th.id;
-                const arrival = language === 'fr' ? th.arrivalContentFR : th.arrivalContentEN;
-                return (
-                  <div
-                    key={th.id}
-                    style={{
-                      border: '1px solid transparent',
-                      borderColor: recognized ? 'rgba(0,61,44,0.15)' : undefined,
-                      background: recognized ? 'rgba(0,61,44,0.06)' : 'transparent',
-                      borderRadius: 0
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (expandedThresholdId === th.id) {
-                          setExpandedThresholdId(null);
-                          setExpandedReadId(null);
-                        } else {
-                          setExpandedThresholdId(th.id);
-                          setExpandedReadId(null);
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '8px 12px',
-                        width: '100%',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        opacity: visitedThis ? 0.85 : 1
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          background: visitedThis ? '#003D2C' : 'rgba(0,61,44,0.3)',
-                          flexShrink: 0
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-sans)',
-                          fontSize: 13,
-                          color: '#003D2C',
-                          opacity: recognized ? 1 : 0.7,
-                          flex: 1
-                        }}
-                      >
-                        {name}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-sans)',
-                          fontSize: 10,
-                          letterSpacing: '0.05em',
-                          color: '#6B6455',
-                          opacity: 0.8
-                        }}
-                      >
-                        {recognized ? t('meridiens.status.recognized') : t('meridiens.status.notRecognized')}
-                      </span>
-                    </button>
-                    {isExpanded && (
-                      <div
-                        style={{
-                          padding: '0 12px 12px 30px',
-                          borderTop: 'none'
-                        }}
-                      >
-                        <p
-                          style={{
-                            fontFamily: 'var(--font-serif)',
-                            fontSize: 12,
-                            color: '#1A1A1A',
-                            opacity: 0.85,
-                            lineHeight: 1.5,
-                            marginBottom: 8
-                          }}
-                        >
-                          {t(hintKey)}
-                        </p>
-                        {!isReadExpanded ? (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedReadId(th.id);
-                            }}
-                            style={{
-                              fontFamily: 'var(--font-sans)',
-                              fontSize: 11,
-                              letterSpacing: '0.05em',
-                              color: '#003D2C',
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: 0,
-                              opacity: 0.8,
-                              textDecoration: 'underline'
-                            }}
-                          >
-                            {t('meridiens.read')}
-                          </button>
-                        ) : (
-                          <>
-                            <p
-                              style={{
-                                fontFamily: 'var(--font-serif)',
-                                fontSize: 12,
-                                color: '#1A1A1A',
-                                opacity: 0.8,
-                                lineHeight: 1.55,
-                                whiteSpace: 'pre-wrap',
-                                marginBottom: 8
-                              }}
-                            >
-                              {arrival}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedReadId(null);
-                              }}
-                              style={{
-                                fontFamily: 'var(--font-sans)',
-                                fontSize: 11,
-                                letterSpacing: '0.05em',
-                                color: '#6B6455',
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: 0,
-                                opacity: 0.8,
-                                textDecoration: 'underline'
-                              }}
-                            >
-                              {t('meridiens.readLess')}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {!userPos && (
-          <p
-            style={{
-              marginTop: 24,
               fontFamily: 'var(--font-sans)',
-              fontSize: 12,
-              color: '#6B6455',
-              opacity: 0.8
+              fontSize: 11,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              opacity: 0.7,
+              textDecoration: 'underline',
+              padding: 8,
             }}
           >
-            {t('meridiens.gps.hint')}
-          </p>
-        )}
-
-        {/* Meridian Quest entry - the archetype quest */}
-        <button
-          type="button"
-          onClick={() => { window.location.hash = 'meridian-quest'; }}
-          style={{
-            marginTop: 32,
-            padding: '14px 28px',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 11,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: '#003D2C',
-            background: 'rgba(0, 61, 44, 0.06)',
-            border: '1px solid rgba(0, 61, 44, 0.2)',
-            borderRadius: 4,
-            cursor: 'pointer',
-          }}
-        >
-          Trouver la ligne
-        </button>
-      </div>
+            {t('meridiens.instrument.read')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
