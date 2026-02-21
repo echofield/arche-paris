@@ -108,6 +108,8 @@ export default function App() {
         setTimeout(() => setAppState('ready'), 1500);
       } else if (status.status === 'NEEDS_GATE' && status.cardCode) {
         setAppState('validating');
+      } else if (status.status === 'SESSION_EXPIRED') {
+        setAppState('ready');
       } else {
         setAppState('invalid');
       }
@@ -298,8 +300,6 @@ export default function App() {
         setCurrentScreen('quetes');
       } else if (hash === 'quetes/marches') {
         setCurrentScreen('quetes');
-      } else if (hash === 'etudes') {
-        setCurrentScreen('etudes');
       } else if (hash.startsWith('quete/')) {
         const queteId = hash.split('/')[1]?.trim();
         if (queteId) {
@@ -539,6 +539,26 @@ export default function App() {
         ) : (
           <>
             <LanguageSelector />
+            {cardStatus?.status === 'SESSION_EXPIRED' && (
+              <div
+                role="status"
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 10003,
+                  padding: '8px 12px',
+                  background: 'rgba(0,0,0,0.06)',
+                  color: '#555',
+                  fontSize: 12,
+                  textAlign: 'center',
+                  borderBottom: '1px solid rgba(0,0,0,0.06)',
+                }}
+              >
+                Session expirée. Utilisez le lien de votre carte pour vous reconnecter.
+              </div>
+            )}
             {renderScreen()}
             <AnimatePresence>
               {cabinetOpen && currentScreen === 'homepage' && (

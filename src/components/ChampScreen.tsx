@@ -62,7 +62,14 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const [traceError, setTraceError] = useState<string | null>(null);
   const traceValidationError = validateChampTrace(traceDraft);
   const traceWordCount = countWords(traceDraft);
-  const canSubmitTrace = !traceSaving && geo.lat !== null && geo.lng !== null && traceDraft.trim().length > 0 && !traceValidationError;
+  const isCardEligible = cardId && cardId !== 'DEMO-DEV' && cardId !== 'unknown';
+  const canSubmitTrace =
+    !traceSaving &&
+    isCardEligible &&
+    geo.lat !== null &&
+    geo.lng !== null &&
+    traceDraft.trim().length > 0 &&
+    !traceValidationError;
 
   const inferArrondissementFromGeo = (lat: number, lng: number): number | null => {
     const VIEWBOX_WIDTH = 2037.566;
@@ -305,22 +312,33 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           </div>
         )}
 
-        {/* Add trace CTA */}
-        <div style={{ textAlign: 'center', marginTop: 8 }}>
+        {/* Add trace CTA — position relative + z-index so it stays clickable above map */}
+        <div
+          style={{
+            textAlign: 'center',
+            marginTop: 16,
+            paddingBottom: 24,
+            position: 'relative',
+            zIndex: 2,
+          }}
+        >
           <button
             type="button"
             onClick={() => setShowAddTrace(true)}
+            aria-label={t('champ.leaveTrace')}
             style={{
               padding: '14px 28px',
               fontFamily: 'var(--font-sans)',
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: 500,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
               color: '#003D2C',
-              background: 'rgba(0, 61, 44, 0.06)',
-              border: '1px solid rgba(0, 61, 44, 0.2)',
-              borderRadius: 4,
+              background: 'rgba(0, 61, 44, 0.12)',
+              border: '1px solid rgba(0, 61, 44, 0.35)',
+              borderRadius: 6,
               cursor: 'pointer',
+              minHeight: 44,
             }}
           >
             Laisser une trace
@@ -435,6 +453,12 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
               Une pensée, une observation, un fragment de la ville.
             </p>
 
+            {/* Card required for Le Champ */}
+            {!isCardEligible && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#B43232', opacity: 0.9 }}>
+                Une carte activée est requise pour partager au Champ.
+              </p>
+            )}
             {/* GPS status */}
             {geo.lat !== null && geo.lng !== null ? (
               <p style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: '#007850', opacity: 0.7 }}>
@@ -475,6 +499,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
               <button
                 type="button"
                 disabled={!canSubmitTrace}
+                aria-disabled={!canSubmitTrace}
                 onClick={async () => {
                   if (!canSubmitTrace || geo.lat === null || geo.lng === null) return;
                   setTraceSaving(true);
@@ -520,16 +545,18 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                   }
                 }}
                 style={{
-                  padding: '12px 24px',
+                  padding: '12px 28px',
                   fontFamily: 'var(--font-sans)',
-                  fontSize: 11,
+                  fontSize: 12,
+                  fontWeight: 600,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  color: canSubmitTrace ? '#003D2C' : '#8E8982',
-                  background: canSubmitTrace ? 'rgba(0,61,44,0.1)' : 'rgba(0,0,0,0.03)',
-                  border: 'none',
-                  borderRadius: 4,
+                  color: canSubmitTrace ? '#FAF8F2' : '#8E8982',
+                  background: canSubmitTrace ? '#003D2C' : 'rgba(0,0,0,0.05)',
+                  border: canSubmitTrace ? '1px solid rgba(0,61,44,0.4)' : '1px solid rgba(0,0,0,0.08)',
+                  borderRadius: 6,
                   cursor: canSubmitTrace ? 'pointer' : 'not-allowed',
+                  minHeight: 44,
                 }}
               >
                 {traceSaving ? '...' : 'Envoyer'}

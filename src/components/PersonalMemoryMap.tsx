@@ -379,14 +379,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           applySnapshot(result.data);
           return;
         }
-        throw new Error(result.error ?? 'world snapshot unavailable');
+        // 401 / session expired or other error — keep previous state so map does not go blank
       })
       .catch(() => {
-        setWorldSnapshotState(null);
-        setMapState(null);
-        setCityMapState(null);
-        setZoneLawMap({});
-        setAnchorZoneMap({});
+        // Network or other failure — keep previous snapshot
       });
   }, [applySnapshot]);
 

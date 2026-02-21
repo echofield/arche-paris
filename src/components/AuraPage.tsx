@@ -15,6 +15,7 @@ import { getCompanionWord, getReflectiveQuestion, getAuraInterpretation } from '
 import { appendAuraSealToJournal } from '../utils/journal-sync';
 import { useTranslation } from '../utils/i18n';
 import { api, type WorldSnapshotData, type ComplexionData, generateIdempotencyKey, clientTs } from '../lib/api';
+import { interpretComplexionDelta } from '@/lib/meaning';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
 import { useAuraMeasure } from '../hooks/useAuraMeasure';
@@ -35,67 +36,6 @@ const PARIS_TERRITORY_BOUNDS = {
   minLng: 2.224,
   maxLng: 2.422,
 };
-
-// Hint templates based on what changed (French)
-const COMPLEXION_HINTS: Record<string, string[]> = {
-  presence_up: [
-    'Ta présence s\'est affirmée.',
-    'Le méridien te reconnaît.',
-    'Tu t\'ancres dans la ligne.',
-  ],
-  wisdom_up: [
-    'Ta sagesse s\'est densifiée.',
-    'L\'étude porte ses fruits.',
-    'Tu vois plus loin.',
-  ],
-  shadow_up: [
-    'L\'ombre s\'est épaissie.',
-    'Tu explores les marges.',
-    'Le doute nourrit la clarté.',
-  ],
-  shadow_down: [
-    'L\'ombre recule.',
-    'La lumière gagne du terrain.',
-  ],
-  neutral: [
-    'Quelque chose a changé en toi.',
-    'Le chemin continue.',
-  ],
-};
-
-// Get hint based on last_delta
-function getComplexionHint(lastDelta: Record<string, unknown> | null | undefined): string | null {
-  if (!lastDelta) return null;
-
-  const dPresence = (lastDelta.d_presence as number) ?? 0;
-  const dWisdom = (lastDelta.d_wisdom as number) ?? 0;
-  const dShadow = (lastDelta.d_shadow as number) ?? 0;
-
-  // Check if anything changed
-  if (dPresence === 0 && dWisdom === 0 && dShadow === 0) return null;
-
-  let category: keyof typeof COMPLEXION_HINTS;
-
-  if (dPresence > dWisdom && dPresence > Math.abs(dShadow) && dPresence > 0) {
-    category = 'presence_up';
-  } else if (dWisdom > dPresence && dWisdom > Math.abs(dShadow) && dWisdom > 0) {
-    category = 'wisdom_up';
-  } else if (dShadow > 0 && dShadow > dPresence && dShadow > dWisdom) {
-    category = 'shadow_up';
-  } else if (dShadow < 0) {
-    category = 'shadow_down';
-  } else {
-    category = 'neutral';
-  }
-
-  const lines = COMPLEXION_HINTS[category];
-  // Deterministic: use today's date as seed
-  const now = new Date();
-  const daySeed = now.getFullYear() * 10000 + now.getMonth() * 100 + now.getDate();
-  const index = daySeed % lines.length;
-
-  return lines[index] ?? lines[0];
-}
 
 interface AuraPageProps {
   onBack: () => void;
@@ -217,7 +157,7 @@ export function AuraPage({ onBack, cardId, onOpenKept, onEnterChamp }: AuraPageP
       if (complexionResult.data) {
         setComplexion(complexionResult.data);
         // Generate hint from last_delta
-        const hint = getComplexionHint(complexionResult.data.last_delta);
+        const hint = interpretComplexionDelta(complexionResult.data.last_delta).text;
         setComplexionHint(hint);
       }
     } catch (err) {

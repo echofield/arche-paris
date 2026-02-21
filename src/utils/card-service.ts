@@ -19,7 +19,7 @@ import {
 
 export interface CardStatus {
   valid: boolean;
-  status: 'ACTIVATED' | 'WELCOME_BACK' | 'ALREADY_ACTIVATED' | 'NOT_FOUND' | 'ERROR' | 'DEMO' | 'NEEDS_GATE';
+  status: 'ACTIVATED' | 'WELCOME_BACK' | 'ALREADY_ACTIVATED' | 'NOT_FOUND' | 'ERROR' | 'DEMO' | 'NEEDS_GATE' | 'SESSION_EXPIRED';
   message: string;
   cardId: string;
   cardCode?: string;
@@ -184,8 +184,13 @@ export async function initializeCard(): Promise<CardStatus | null> {
       cardId: storedCard,
     };
   } catch {
-    clearCard();
-    return null;
+    // Session expired (e.g. 401) — keep card so app stays usable (Trésor Caché, etc.)
+    return {
+      valid: false,
+      status: 'SESSION_EXPIRED',
+      message: 'Session expirée. Utilisez le lien de votre carte pour vous reconnecter.',
+      cardId: storedCard,
+    };
   }
 }
 

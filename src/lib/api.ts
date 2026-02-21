@@ -3,22 +3,9 @@
  * Wraps Supabase Edge Functions for type-safe calls
  */
 import { supabase } from '@/utils/supabase/client';
+import { getSessionCardCode } from '@/utils/card-gate-client';
 
 type ApiResult<T> = { data: T; error: null } | { data: null; error: string };
-
-function getRuntimeCardCode(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem('arche_card_session');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { code?: string; card_id?: string };
-    if (typeof parsed?.code === 'string' && parsed.code.trim()) return parsed.code.trim();
-    if (typeof parsed?.card_id === 'string' && parsed.card_id.trim()) return parsed.card_id.trim();
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 async function invoke<T>(
   fn: string,
@@ -34,7 +21,7 @@ async function invoke<T>(
       return { data: null, error: 'AUTH_SKIPPED_NO_USER_SESSION' };
     }
   }
-  const cardCode = getRuntimeCardCode();
+  const cardCode = getSessionCardCode();
   const headers = includeCardHeader && cardCode ? { 'X-ARCHE-CARD-CODE': cardCode } : undefined;
   const { data, error } = await supabase.functions.invoke(fn, {
     body: body ? JSON.stringify(body) : undefined,
@@ -58,7 +45,7 @@ async function invokeCardGateRequest<T>(
   body?: Record<string, unknown>
 ): Promise<ApiResult<T>> {
   try {
-    const cardCode = getRuntimeCardCode();
+    const cardCode = getSessionCardCode();
     const headers: Record<string, string> = {};
     if (body) headers['Content-Type'] = 'application/json';
     if (cardCode) headers['X-ARCHE-CARD-CODE'] = cardCode;
