@@ -21,6 +21,9 @@ interface MapLayersProps {
   tracesTabLabel: string;
   cityTabLabel: string;
   momentsTabLabel: string;
+  tracesHint: string;
+  cityHint: string;
+  momentsHint: string;
 }
 
 export function MapLayers({
@@ -41,10 +44,14 @@ export function MapLayers({
   tracesTabLabel,
   cityTabLabel,
   momentsTabLabel,
+  tracesHint,
+  cityHint,
+  momentsHint,
 }: MapLayersProps) {
+  const hintByMode = { traces: tracesHint, ville: cityHint, rituels: momentsHint };
   return (
     <>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
         {(['traces', 'ville', 'rituels'] as const).map((mode) => {
           const labels = { traces: tracesTabLabel, ville: cityTabLabel, rituels: momentsTabLabel };
           const isActive = mapMode === mode;
@@ -78,6 +85,22 @@ export function MapLayers({
           );
         })}
       </div>
+      <p
+        style={{
+          margin: 0,
+          marginBottom: 12,
+          fontFamily: 'var(--font-serif)',
+          fontSize: 12,
+          fontStyle: 'italic',
+          color: '#003D2C',
+          opacity: 0.5,
+          textAlign: 'center',
+          letterSpacing: '0.01em',
+        }}
+        aria-live="polite"
+      >
+        {hintByMode[mapMode]}
+      </p>
 
       {mapMode === 'traces' && (
         (() => {

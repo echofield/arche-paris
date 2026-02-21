@@ -21,6 +21,7 @@ import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
 import { InstrumentsCabinetOverlay } from './components/InstrumentsCabinetOverlay';
+import { TresorCache } from './components/TresorCache';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -31,7 +32,7 @@ import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest' | 'tresor';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 const LazyMeridiensLive = lazy(() =>
@@ -330,6 +331,8 @@ export default function App() {
         setCurrentScreen('zone-test');
       } else if (hash === 'meridian-quest') {
         setCurrentScreen('meridian-quest');
+      } else if (hash === 'tresor') {
+        setCurrentScreen('tresor');
       } else {
         setCurrentScreen('homepage');
       }
@@ -500,6 +503,8 @@ export default function App() {
             onComplete={() => navigateTo('aura')}
           />
         );
+      case 'tresor':
+        return <TresorCache onExit={() => navigateTo('homepage')} />;
       default:
         return null;
     }
@@ -553,8 +558,40 @@ export default function App() {
           </>
         )}
 
+        {/* Trésor Caché — fixed bottom-left, hidden when TresorCache is active */}
+        {appState === 'ready' && currentScreen !== 'tresor' && (
+          <button
+            type="button"
+            onClick={() => navigateTo('tresor')}
+            title="Trésor Caché"
+            aria-label="Trésor Caché"
+            style={{
+              position: 'fixed',
+              bottom: 32,
+              left: 152,
+              zIndex: 99,
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              background: '#003D2C',
+              color: '#F2F0E9',
+              border: 'none',
+              fontFamily: 'monospace',
+              fontSize: '9px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              letterSpacing: '0.05em',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            }}
+          >
+            TC
+          </button>
+        )}
+
         {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura and Kept pages. */}
-        {appState === 'ready' && currentScreen !== 'aura' && currentScreen !== 'kept' && (
+        {appState === 'ready' && currentScreen !== 'aura' && currentScreen !== 'kept' && currentScreen !== 'tresor' && (
           <div
             style={{
               position: 'fixed',

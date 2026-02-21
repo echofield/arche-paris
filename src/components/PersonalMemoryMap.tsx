@@ -729,6 +729,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           tracesTabLabel={t('map.tabs.traces')}
           cityTabLabel={t('map.tabs.city')}
           momentsTabLabel={t('map.tabs.moments')}
+          tracesHint={t('map.tabs.tracesHint')}
+          cityHint={t('map.tabs.cityHint')}
+          momentsHint={t('map.tabs.momentsHint')}
         />
 
         {encounter && mapMode === 'ville' && (

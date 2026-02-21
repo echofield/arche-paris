@@ -49,6 +49,9 @@
   "map.tabs.traces": "My Traces",
   "map.tabs.city": "The City",
   "map.tabs.moments": "Moments",
+  "map.tabs.tracesHint": "What you have engraved and collected.",
+  "map.tabs.cityHint": "City activity by arrondissement.",
+  "map.tabs.momentsHint": "Your arrondissements explored and sealed.",
   "map.panel.arrondissement": "Arrondissement",
 
   "map.detail.collect": "Collect this symbol",
