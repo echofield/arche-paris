@@ -388,7 +388,6 @@ export default function App() {
             onEnterSeuil={() => navigateTo('seuil')}
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
-            onEnterInstruments={() => { setCabinetOpen(true); window.location.hash = 'instruments'; }}
             onEnterMeridiens={() => navigateTo('meridiens')}
             onDisconnect={cardStatus?.cardId === 'DEMO-DEV' ? undefined : handleDisconnect}
             onLogin={cardStatus?.cardId === 'DEMO-DEV' ? handleSwitchToLogin : undefined}
@@ -523,6 +522,20 @@ export default function App() {
           <>
             <LanguageSelector />
             {renderScreen()}
+            <AnimatePresence>
+              {cabinetOpen && currentScreen === 'homepage' && (
+                <InstrumentsCabinetOverlay
+                  onClose={() => {
+                    setCabinetOpen(false);
+                    window.location.hash = '';
+                  }}
+                  onOpenMeridian={() => {
+                    setCabinetOpen(false);
+                    navigateTo('meridiens');
+                  }}
+                />
+              )}
+            </AnimatePresence>
             <CardDrawer />
           </>
         )}
