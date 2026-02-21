@@ -30,11 +30,12 @@ import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, CityMapState } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
-import { api, type ZoneProgressItem, type WorldSnapshotData } from '../lib/api';
+import { api, type ZoneProgressItem, type WorldSnapshotData, type MonParisReading } from '../lib/api';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
 import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
 import { InstrumentReadingLayer, type InstrumentState } from './PersonalMemoryMap/InstrumentReadingLayer';
+import { ReadingCard } from './PersonalMemoryMap/ReadingCard';
 import { LIEUX_PARIS, type Lieu } from '../data/lieux-paris';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
@@ -891,8 +892,39 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             letterSpacing: '0.01em',
           }}
         >
-          {t('tagline.walkReveal')}
+          {worldSnapshotState?.me?.monParis?.entry?.text ?? t('tagline.walkReveal')}
+          {(() => {
+            const link = worldSnapshotState?.me?.monParis?.entry?.link;
+            return link ? (
+              <>
+                {' · '}
+                <a
+                  href={link.href}
+                  style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: 13,
+                    fontStyle: 'italic',
+                    color: '#003D2C',
+                    opacity: 0.7,
+                    letterSpacing: '0.01em',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {link.label}
+                </a>
+              </>
+            ) : null;
+          })()}
+          {import.meta.env.VITE_DEBUG_TERRITORY && (worldSnapshotState?.me?.monParis?.entry?.code || worldSnapshotState?.me?.monParis?.reading?.code) && (
+            <span style={{ fontSize: 10, opacity: 0.4, marginLeft: 6 }} title="Mon Paris state">
+              [{[worldSnapshotState?.me?.monParis?.entry?.code, worldSnapshotState?.me?.monParis?.reading?.code].filter(Boolean).join(' | ')}]
+            </span>
+          )}
         </p>
+
+        {worldSnapshotState?.me?.monParis?.reading && (
+          <ReadingCard reading={worldSnapshotState.me.monParis.reading as MonParisReading} />
+        )}
 
         {/* Absence (Unmarked) — arrondissements with 0 symbols: tappable → "Is this choice?" → refused */}
         {(unvisitedArrondissements.length > 0 || unvisitedRefused.length > 0) && (

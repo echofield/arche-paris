@@ -313,6 +313,26 @@ export interface WorldMeZoneOverlay {
   };
 }
 
+/** Mon Paris entry line — always present, one sentence, optional link. */
+export interface MonParisEntry {
+  text: string;
+  link?: { label: string; href: string };
+  code?: string;
+}
+
+/** Mon Paris reading card — optional, one sentence, daily gated. */
+export interface MonParisReading {
+  layer: 'TRACE' | 'RELATION' | 'ECHO';
+  text: string;
+  code?: string;
+}
+
+/** Mon Paris state — entry (always) + optional reading. */
+export interface MonParisState {
+  entry: MonParisEntry;
+  reading?: MonParisReading;
+}
+
 /** Passport (civic participation) — snapshot only. */
 export interface PassportSnapshot {
   hasPassport: boolean;
@@ -409,6 +429,8 @@ export interface WorldSnapshotData {
     } | null;
     /** Present when backend extends world/snapshot with me.aura (single source of truth for Aura page). */
     aura?: AuraSnapshot;
+    /** Mon Paris entry line + optional reading card; deterministic from snapshot. */
+    monParis?: MonParisState;
     /** Passport (civic participation); enables PassportLayerModule when hasPassport && fund.enabled. */
     passport?: PassportSnapshot;
     /** Fund (Fonds) redistribution ledger; module renders only when passport.hasPassport && fund.enabled. */

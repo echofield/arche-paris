@@ -16,6 +16,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
+import { selectMonParisEntry, selectMonParisReading } from "./mon-paris-state.ts";
 
 const app = new Hono().basePath("/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
@@ -2038,6 +2039,7 @@ app.get("/world/snapshot", async (c) => {
   }
 
   const meZones: Record<string, { progress: Record<string, unknown> | null; activation: Record<string, unknown> | null; presence: { pulses_20m: number; last_ts: string | null; meaning: string } }> = {};
+  let inscriptionsCount = 0;
   if (isAuthed && payload) {
     const pulseSinceIso = new Date(Date.now() - PRESENCE_PULSE_WINDOW_MINUTES * 60 * 1000).toISOString();
     const [inscriptionsRes, segmentsRes, pulsesRes] = await Promise.all([
@@ -2064,6 +2066,7 @@ app.get("/world/snapshot", async (c) => {
         .limit(2000),
     ]);
     if (!inscriptionsRes.error && !segmentsRes.error && !pulsesRes.error) {
+      inscriptionsCount = (inscriptionsRes.data ?? []).length;
       const progressByArr = new Map<number, { entered_at: string | null; engraved_at: string | null }>();
       const presenceByH3 = new Map<string, { pulses_20m: number; last_ts: string | null }>();
       const ensure = (arr: number) => {
@@ -2276,6 +2279,12 @@ app.get("/world/snapshot", async (c) => {
       zones: meZones,
       character: resolvedCharacter,
       aura: meAura,
+      monParis: (() => {
+        const parisDate = getTodayParisDate();
+        const entry = selectMonParisEntry(meZones, meAura, inscriptionsCount, zonesInView, parisDate);
+        const reading = selectMonParisReading(meZones, meAura, inscriptionsCount, parisDate, isAuthed && payload ? payload.card_id : null);
+        return { entry, ...(reading ? { reading } : {}) };
+      })(),
     },
   };
 

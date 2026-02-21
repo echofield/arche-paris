@@ -93,12 +93,12 @@ export function InstrumentReadingLayer({
               <motion.circle
                 cx={p.x}
                 cy={p.y}
-                r={isActive ? 4 : 2.5}
+                r={isActive ? 4 : 3}
                 fill={isActive ? '#003D2C' : 'none'}
                 stroke="#003D2C"
-                strokeWidth={isActive ? 0 : 0.5}
+                strokeWidth={isActive ? 0 : 0.6}
                 animate={{
-                  opacity: isActive ? 0.85 : 0.2,
+                  opacity: isActive ? 0.85 : 0.42,
                 }}
                 transition={{
                   duration: motionTokens.t('measured') / 1000,
