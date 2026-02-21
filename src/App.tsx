@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -19,6 +20,7 @@ import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
+import { InstrumentsCabinetOverlay } from './components/InstrumentsCabinetOverlay';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -39,16 +41,6 @@ const LazyEtudesHub = lazy(() =>
   import('./components/EtudesHub').then((mod) => ({ default: mod.EtudesHub }))
 );
 
-/**
- * APP V1 — ARCHÉ
- *
- * Architecture:
- * - Each physical card has a unique QR: ?card=PS-0001
- * - Card is validated via Supabase, then stored locally
- * - First scan = activation (single use)
- * - Same device can always return
- * - Others can access but we track it
- */
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading');
   const [cardStatus, setCardStatus] = useState<CardStatus | null>(null);
@@ -56,6 +48,7 @@ export default function App() {
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
   const [showSilencePrompt, setShowSilencePrompt] = useState(false);
+  const [cabinetOpen, setCabinetOpen] = useState(false);
 
   // Force-unpair state (when session expired but card still paired on server)
   const [showForceUnpairPrompt, setShowForceUnpairPrompt] = useState(false);
@@ -64,14 +57,12 @@ export default function App() {
   const [forceUnpairError, setForceUnpairError] = useState<string | null>(null);
   const [forceUnpairLoading, setForceUnpairLoading] = useState(false);
 
-  // Initialize card on mount
   useEffect(() => {
     async function init() {
       const isBrowser = typeof window !== 'undefined';
       const pathname = isBrowser ? window.location.pathname : '';
       const isLegacyDevRoute = pathname === '/dev' || pathname.startsWith('/dev/');
 
-      // Keep /demo as the explicit demo surface and normalize legacy /dev links.
       if (isLegacyDevRoute) {
         const nextPath = pathname.replace(/^\/dev(?=\/|$)/, '/demo');
         window.history.replaceState({}, '', `${nextPath}${window.location.search}${window.location.hash}`);
@@ -101,7 +92,7 @@ export default function App() {
 
       if (status.valid) {
         setAppState('welcome');
-        setTimeout(() => setAppState('ready'), 1500);
+        setTimeout(() => setAppState('ready'), 900);
       } else if (status.status === 'NEEDS_GATE' && status.cardCode) {
         setAppState('validating');
       } else {
@@ -112,7 +103,6 @@ export default function App() {
     init();
   }, []);
 
-  // Companion decay once per session (no timers)
   useEffect(() => {
     if (appState !== 'ready') return;
     try {
@@ -122,7 +112,6 @@ export default function App() {
     } catch {}
   }, [appState]);
 
-  // Last open + silence prompt check + delayed resonance (echo) + silent milestones on ready
   useEffect(() => {
     if (appState !== 'ready') return;
     try {
@@ -134,11 +123,9 @@ export default function App() {
     } catch {}
   }, [appState]);
 
-  // Déconnecter : libérer la carte sur cet appareil pour pouvoir l'utiliser sur un autre (ex. téléphone)
   const handleDisconnect = async () => {
     const result = await unpairCard();
 
-    // If session expired but card still paired on server, show password prompt
     if (result.needsPassword && result.cardId) {
       setForceUnpairCardId(result.cardId);
       setForceUnpairPassword('');
@@ -147,7 +134,6 @@ export default function App() {
       return;
     }
 
-    // Normal disconnect succeeded
     setCardStatus(null);
     setCurrentScreen('homepage');
     setAppState('no_card');
@@ -156,7 +142,6 @@ export default function App() {
     window.history.replaceState({}, '', url.toString());
   };
 
-  // Handle force-unpair with password
   const handleForceUnpair = async () => {
     if (!forceUnpairCardId || !forceUnpairPassword) return;
 
@@ -167,7 +152,6 @@ export default function App() {
       const result = await forceUnpairCard(forceUnpairCardId, forceUnpairPassword);
 
       if (result.ok) {
-        // Success - complete the disconnect
         setShowForceUnpairPrompt(false);
         setCardStatus(null);
         setCurrentScreen('homepage');
@@ -185,7 +169,6 @@ export default function App() {
     }
   };
 
-  // Cancel force-unpair (stay logged in locally)
   const handleCancelForceUnpair = () => {
     setShowForceUnpairPrompt(false);
     setForceUnpairCardId(null);
@@ -193,13 +176,11 @@ export default function App() {
     setForceUnpairError(null);
   };
 
-  // From demo: show card entry so user can log in with a real card
   const handleSwitchToLogin = () => {
     setCardStatus(null);
     setAppState('no_card');
   };
 
-  // Manual card entry: show CardGate (check-card → activation or login)
   const handleManualEntry = (code: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set('card', code);
@@ -214,7 +195,6 @@ export default function App() {
     setAppState('validating');
   };
 
-  // After CardGate activation/login: pair, validate, store card, then ready
   const handleCardGateAuthenticated = async (cardData: { id: string; code: string; activated_at: string; password?: string }) => {
     try {
       await afterCardGateAuthenticated(cardData);
@@ -225,11 +205,10 @@ export default function App() {
         cardId: cardData.id,
       });
       setAppState('welcome');
-      setTimeout(() => setAppState('ready'), 1500);
+      setTimeout(() => setAppState('ready'), 900);
     } catch (err) {
       console.error('Card Gate after auth:', err);
 
-      // Handle "already paired" - need password to transfer
       if (err instanceof AlreadyPairedError) {
         setCardStatus({
           valid: false,
@@ -242,7 +221,6 @@ export default function App() {
         return;
       }
 
-      // Handle rate limit - show clear message, stay on current screen
       if (err instanceof RateLimitError) {
         setCardStatus({
           valid: false,
@@ -254,7 +232,6 @@ export default function App() {
         return;
       }
 
-      // Handle abort/cancel errors silently (user cancelled or navigated away)
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes('abort') || errMsg.includes('cancel') || errMsg === 'The operation was aborted.') {
         console.log('[App] Connection aborted by user');
@@ -271,7 +248,6 @@ export default function App() {
     }
   };
 
-  // Handle hash-based routing
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
@@ -294,8 +270,6 @@ export default function App() {
         setCurrentScreen('quetes');
       } else if (hash === 'quetes/marches') {
         setCurrentScreen('quetes');
-      } else if (hash === 'etudes') {
-        setCurrentScreen('etudes');
       } else if (hash.startsWith('quete/')) {
         const queteId = hash.split('/')[1]?.trim();
         if (queteId) {
@@ -314,6 +288,9 @@ export default function App() {
         }
       } else if (hash === 'aura') {
         setCurrentScreen('aura');
+      } else if (hash === 'instruments') {
+        setCabinetOpen(true);
+        setCurrentScreen('homepage');
       } else if (hash === 'meridiens') {
         setCurrentScreen('meridiens');
       } else if (hash === 'champ') {
@@ -367,7 +344,6 @@ export default function App() {
     </div>
   );
 
-  // Main app
   const renderScreen = () => {
     switch (currentScreen) {
       case 'homepage':
@@ -409,7 +385,6 @@ export default function App() {
           navigateTo('quetes');
           return null;
         }
-        // Hunter: Montmartre has its own treasure hunt component
         if (selectedQueteId === 'hunter-montmartre') {
           return <HunterMontmartre onBack={() => navigateTo('homepage')} />;
         }
@@ -462,7 +437,11 @@ export default function App() {
         return (
           <Suspense fallback={renderScreenLoading('Chargement des Meridiens...')}>
             <LazyMeridiensLive
-              onBack={() => navigateTo('homepage')}
+              onBack={() => {
+                navigateTo('homepage');
+                setCabinetOpen(true);
+                window.location.hash = 'instruments';
+              }}
               cardId={cardStatus?.cardId ?? null}
             />
           </Suspense>
@@ -522,11 +501,18 @@ export default function App() {
           <>
             <LanguageSelector />
             {renderScreen()}
+            <AnimatePresence>
+              {cabinetOpen && currentScreen === 'homepage' && (
+                <InstrumentsCabinetOverlay
+                  onClose={() => { setCabinetOpen(false); window.location.hash = ''; }}
+                  onOpenMeridian={() => { setCabinetOpen(false); navigateTo('meridiens'); }}
+                />
+              )}
+            </AnimatePresence>
             <CardDrawer />
           </>
         )}
 
-        {/* Glyph + Companion: left side, below Back so they never overlap. Click → /aura. Hidden on Aura and Kept pages. */}
         {appState === 'ready' && currentScreen !== 'aura' && currentScreen !== 'kept' && (
           <div
             style={{
@@ -562,7 +548,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Force-unpair modal: shown when session expired but card still paired on server */}
         {showForceUnpairPrompt && (
           <div
             style={{
@@ -655,7 +640,6 @@ export default function App() {
             </div>
           </div>
         )}
-        {/* Global whisper overlay for poetic feedback */}
         <Whisper />
       </div>
       </SyncStateProvider>
