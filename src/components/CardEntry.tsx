@@ -111,23 +111,6 @@ export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: Car
           >
             {cardStatus.message}
           </p>
-          <button
-            onClick={onContinue}
-            style={{
-              background: '#003D2C',
-              color: '#FAF8F2',
-              border: 'none',
-              padding: '16px 40px',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '12px',
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            Entrer
-          </button>
           <p
             style={{
               fontFamily: 'var(--font-sans)',

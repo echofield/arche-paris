@@ -1,5 +1,4 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -226,7 +225,7 @@ export default function App() {
         cardId: cardData.id,
       });
       setAppState('welcome');
-      setTimeout(() => setAppState('ready'), 1500);
+      setTimeout(() => setAppState('ready'), 900);
     } catch (err) {
       console.error('Card Gate after auth:', err);
 

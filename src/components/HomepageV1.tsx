@@ -158,6 +158,27 @@ export function HomepageV1({
             {t('nav.meridiens')}
           </button>
         )}
+        {onEnterInstruments && (
+          <button
+            onClick={onEnterInstruments}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              opacity: 0.6,
+              cursor: 'pointer',
+              transition: 'opacity 0.3s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+          >
+            {t('nav.instruments')}
+          </button>
+        )}
         <button
           onClick={onEnterEtudes}
           style={{
@@ -334,7 +355,6 @@ export function HomepageV1({
             </div>
             <div className="homepage-nav-drawer-block">
               <p className="homepage-nav-drawer-section">{t('home.mobileSectionApprofondir', 'Approfondir')}</p>
-              {onEnterInstruments && <button type="button" onClick={() => { onEnterInstruments(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.instruments')}</button>}
               {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.meridiens')}</button>}
               <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.etudes')}</button>
               <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-gold">{t('nav.seuil')}</button>
