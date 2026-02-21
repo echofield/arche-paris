@@ -1,5 +1,4 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -389,6 +388,7 @@ export default function App() {
             onEnterSeuil={() => navigateTo('seuil')}
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
+            onEnterInstruments={() => { setCabinetOpen(true); window.location.hash = 'instruments'; }}
             onEnterMeridiens={() => navigateTo('meridiens')}
             onDisconnect={cardStatus?.cardId === 'DEMO-DEV' ? undefined : handleDisconnect}
             onLogin={cardStatus?.cardId === 'DEMO-DEV' ? handleSwitchToLogin : undefined}
