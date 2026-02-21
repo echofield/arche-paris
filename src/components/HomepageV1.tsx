@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 import { useIsMobile } from './ui/use-mobile';
 import { LivingQuest } from './LivingQuest';
 import { motion } from '../design/motion';
+import { api, type WorldSnapshotData } from '../lib/api';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.62;
@@ -21,9 +22,10 @@ interface HomepageV1Props {
   onEnterHunter?: () => void;
   onEnterCollection?: () => void;
   onEnterChamp?: () => void;
+  onEnterAura?: () => void;
   onEnterSeuil?: () => void;
   onOpenKept?: () => void;
-  onEnterMeridiens?: () => void;
+  onEnterInstruments?: () => void;
   /** Déconnecter la carte sur cet appareil (pour utiliser la même carte sur un autre, ex. téléphone) */
   onDisconnect?: () => void;
   /** En mode démo : afficher « Se connecter » pour passer à l’écran de saisie de carte */
@@ -40,8 +42,9 @@ export function HomepageV1({
   onEnterHunter,
   onEnterCollection,
   onEnterChamp,
+  onEnterAura,
   onEnterSeuil,
-  onEnterMeridiens,
+  onEnterInstruments,
   onDisconnect,
   onLogin,
   onOpenKept
@@ -52,6 +55,15 @@ export function HomepageV1({
   const [mounted, setMounted] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapBreathing, setMapBreathing] = useState(false);
+  const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
+
+  const loadSnapshot = useCallback(async () => {
+    const res = await api.worldSnapshot({ include: 'law', h3_center: 'PAR-10', k: 0 });
+    if (res.data) setWorldSnapshot(res.data);
+  }, []);
+  useEffect(() => {
+    loadSnapshot();
+  }, [loadSnapshot]);
 
   useEffect(() => {
     setMounted(true);
@@ -125,25 +137,9 @@ export function HomepageV1({
         >
           {t('nav.quests')}
         </button>
-        {onEnterMeridiens && (
-          <button
-            onClick={onEnterMeridiens}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '11px',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#003D2C',
-              opacity: 0.6,
-              cursor: 'pointer',
-              transition: 'opacity 0.3s ease'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
-          >
-            {t('nav.meridiens')}
+        {onEnterInstruments && (
+          <button onClick={onEnterInstruments} style={{background:'transparent',border:'none',fontFamily:'var(--font-sans)',fontSize:'11px',letterSpacing:'0.08em',textTransform:'uppercase',color:'#003D2C',opacity:0.6,cursor:'pointer',transition:'opacity 0.3s ease'}} onMouseEnter={(e)=>(e.currentTarget.style.opacity='1')} onMouseLeave={(e)=>(e.currentTarget.style.opacity='0.6')}>
+            {t('nav.instruments')}
           </button>
         )}
         <button
@@ -322,7 +318,7 @@ export function HomepageV1({
             </div>
             <div className="homepage-nav-drawer-block">
               <p className="homepage-nav-drawer-section">{t('home.mobileSectionApprofondir', 'Approfondir')}</p>
-              {onEnterMeridiens && <button type="button" onClick={() => { onEnterMeridiens(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.meridiens')}</button>}
+              {onEnterInstruments && <button type="button" onClick={() => { onEnterInstruments(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.instruments')}</button>}
               <button type="button" onClick={() => { onEnterEtudes(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link">{t('nav.etudes')}</button>
               <button type="button" onClick={() => { onEnterSeuil(); setMobileMenuOpen(false); }} className="homepage-nav-drawer-link homepage-nav-drawer-link-gold">{t('nav.seuil')}</button>
             </div>
@@ -400,7 +396,7 @@ export function HomepageV1({
               if (screen === 'collection') {
                 if (onEnterCollection) onEnterCollection();
               } else if (screen === 'meridiens') {
-                if (onEnterMeridiens) onEnterMeridiens();
+                if (onEnterInstruments) onEnterInstruments();
               }
             }}
           />
@@ -460,10 +456,29 @@ export function HomepageV1({
             : `${t('home.walk')} : ~${getTodaySummary().approxKm.toFixed(1)} km`}
         </p>
 
+        {worldSnapshot?.me?.aura?.questCallout?.title && (
+          <p
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              letterSpacing: '0.1em',
+              color: '#003D2C',
+              opacity: 0.7,
+              marginBottom: '8px',
+              textTransform: 'uppercase'
+            }}
+          >
+            {worldSnapshot.me.aura.questCallout.title}
+          </p>
+        )}
+
         <button
           className="homepage-cta"
           onClick={() => {
-            if (onEnterChamp) {
+            const q = worldSnapshot?.me?.aura?.questCallout;
+            if (q?.action === 'open_oracle' && !q.locked && onEnterAura) {
+              onEnterAura();
+            } else if (onEnterChamp) {
               onEnterChamp();
             } else if (onEnterCollection) {
               onEnterCollection();
@@ -485,7 +500,7 @@ export function HomepageV1({
           onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}
         >
-          {t('home.invitation')}
+          {worldSnapshot?.me?.aura?.questCallout?.ctaLabel ?? t('home.invitation')}
         </button>
 
         <p
@@ -498,7 +513,7 @@ export function HomepageV1({
             lineHeight: 1.5
           }}
         >
-          {t('home.sentence')}
+          {worldSnapshot?.me?.aura?.questCallout?.subtitle ?? t('home.sentence')}
         </p>
       </div>
 

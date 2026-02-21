@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -19,6 +20,7 @@ import { ChampScreen } from './components/ChampScreen';
 import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
+import { InstrumentsCabinetOverlay } from './components/InstrumentsCabinetOverlay';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
@@ -56,6 +58,7 @@ export default function App() {
   const [selectedQueteId, setSelectedQueteId] = useState<string | null>(null);
   const [questRunId, setQuestRunId] = useState<string | null>(null);
   const [showSilencePrompt, setShowSilencePrompt] = useState(false);
+  const [cabinetOpen, setCabinetOpen] = useState(false);
 
   // Force-unpair state (when session expired but card still paired on server)
   const [showForceUnpairPrompt, setShowForceUnpairPrompt] = useState(false);
@@ -314,6 +317,9 @@ export default function App() {
         }
       } else if (hash === 'aura') {
         setCurrentScreen('aura');
+      } else if (hash === 'instruments') {
+        setCabinetOpen(true);
+        setCurrentScreen('homepage');
       } else if (hash === 'meridiens') {
         setCurrentScreen('meridiens');
       } else if (hash === 'champ') {
@@ -384,10 +390,14 @@ export default function App() {
             onEnterHunter={() => navigateTo('detail', 'hunter-montmartre')}
             onEnterCollection={() => navigateTo('collection')}
             onEnterChamp={() => navigateTo('champ')}
+            onEnterAura={() => navigateTo('aura')}
             onEnterSeuil={() => navigateTo('seuil')}
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
-            onEnterMeridiens={() => navigateTo('meridiens')}
+            onEnterInstruments={() => {
+              setCabinetOpen(true);
+              window.location.hash = 'instruments';
+            }}
             onDisconnect={cardStatus?.cardId === 'DEMO-DEV' ? undefined : handleDisconnect}
             onLogin={cardStatus?.cardId === 'DEMO-DEV' ? handleSwitchToLogin : undefined}
           />
@@ -482,7 +492,11 @@ export default function App() {
       case 'meridian-quest':
         return (
           <MeridianQuest
-            onBack={() => navigateTo('homepage')}
+            onBack={() => {
+              navigateTo('homepage');
+              setCabinetOpen(true);
+              window.location.hash = 'instruments';
+            }}
             onComplete={() => navigateTo('aura')}
           />
         );
@@ -521,6 +535,20 @@ export default function App() {
           <>
             <LanguageSelector />
             {renderScreen()}
+            <AnimatePresence>
+              {cabinetOpen && currentScreen === 'homepage' && (
+                <InstrumentsCabinetOverlay
+                  onClose={() => {
+                    setCabinetOpen(false);
+                    window.location.hash = '';
+                  }}
+                  onOpenMeridian={() => {
+                    setCabinetOpen(false);
+                    navigateTo('meridiens');
+                  }}
+                />
+              )}
+            </AnimatePresence>
             <CardDrawer />
           </>
         )}
