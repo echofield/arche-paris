@@ -34,6 +34,8 @@ import { api, type ZoneProgressItem, type WorldSnapshotData } from '../lib/api';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
 import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
+import { InstrumentReadingLayer, type InstrumentState } from './PersonalMemoryMap/InstrumentReadingLayer';
+import { LIEUX_PARIS, type Lieu } from '../data/lieux-paris';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
 
@@ -177,6 +179,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
   const [worldSnapshotState, setWorldSnapshotState] = useState<WorldSnapshotData | null>(null);
   const [outsideCoverage, setOutsideCoverage] = useState(false);
+  // Instrument reading layer (quiet → reading → interpretation)
+  const [instrumentState, setInstrumentState] = useState<InstrumentState>('quiet');
+  const [activeLieu, setActiveLieu] = useState<Lieu | null>(null);
   // GPS + perception marker
   const [presenceMarker, setPresenceMarker] = useState<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
   const presenceMarkerRef = useRef<{ lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null>(null);
@@ -847,6 +852,29 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             globalPulseActive={outsideCoverage}
             youAreHereLabel={outsideCoverage ? (language === 'fr' ? 'Paris vous attend.' : 'Paris is waiting for you.') : 'Vous etes ici / You are here'}
             recognitionLine={recognitionLine}
+          />
+          <InstrumentReadingLayer
+            lieux={LIEUX_PARIS}
+            instrumentState={instrumentState}
+            activeLieu={activeLieu}
+            onLieuTap={(lieu) => {
+              if (activeLieu?.id === lieu.id && instrumentState !== 'quiet') {
+                setInstrumentState('quiet');
+                setActiveLieu(null);
+              } else {
+                setActiveLieu(lieu);
+                setInstrumentState('reading');
+              }
+            }}
+            onBackgroundTap={() => {
+              setInstrumentState('quiet');
+              setActiveLieu(null);
+            }}
+            onTransitionToInterpretation={() => setInstrumentState('interpretation')}
+            onTransitionToQuiet={() => {
+              setInstrumentState('quiet');
+              setActiveLieu(null);
+            }}
           />
         </div>
         </div>

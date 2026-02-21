@@ -1,0 +1,13 @@
+---
+description: ARCHÉ — structural preservation; map as substrate, instruments as overlays; no new routes or layouts; motion.ts only; minimal edits.
+globs: ["**/*"]
+---
+
+When editing this codebase, enforce these constraints:
+
+- Preserve architecture. Map is substrate. Instruments are overlays only.
+- No new routes, layouts, or navigation.
+- Use motion.ts only (no raw setTimeout for transitions).
+- Prefer minimal edits over refactors.
+
+Your role is to integrate, not redesign. If a change risks altering structure, propose a minimal alternative instead.
