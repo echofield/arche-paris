@@ -225,7 +225,7 @@ export default function App() {
         cardId: cardData.id,
       });
       setAppState('welcome');
-      setTimeout(() => setAppState('ready'), 900);
+      setTimeout(() => setAppState('ready'), 1500);
     } catch (err) {
       console.error('Card Gate after auth:', err);
 
@@ -388,7 +388,7 @@ export default function App() {
             onEnterSeuil={() => navigateTo('seuil')}
             onOpenKept={() => navigateTo('kept')}
             onEnterEtudes={() => navigateTo('etudes')}
-            onEnterMeridiens={() => navigateTo('meridiens')}
+            onEnterInstruments={() => { setCabinetOpen(true); window.location.hash = 'instruments'; }}
             onDisconnect={cardStatus?.cardId === 'DEMO-DEV' ? undefined : handleDisconnect}
             onLogin={cardStatus?.cardId === 'DEMO-DEV' ? handleSwitchToLogin : undefined}
           />

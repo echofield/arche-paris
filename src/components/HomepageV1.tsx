@@ -44,7 +44,6 @@ export function HomepageV1({
   onEnterChamp,
   onEnterAura,
   onEnterSeuil,
-  onEnterInstruments,
   onEnterMeridiens,
   onDisconnect,
   onLogin,
@@ -413,7 +412,7 @@ export function HomepageV1({
               if (screen === 'collection') {
                 if (onEnterCollection) onEnterCollection();
               } else if (screen === 'meridiens') {
-                if (onEnterMeridiens) onEnterMeridiens();
+                if (onEnterInstruments) onEnterInstruments();
               }
             }}
           />
