@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { HomepageV1 } from './components/HomepageV1';
 import { QuetesV1 } from './components/QuetesV1';
 import { QueteDetail } from './components/QueteDetail';
@@ -522,20 +523,6 @@ export default function App() {
           <>
             <LanguageSelector />
             {renderScreen()}
-            <AnimatePresence>
-              {cabinetOpen && currentScreen === 'homepage' && (
-                <InstrumentsCabinetOverlay
-                  onClose={() => {
-                    setCabinetOpen(false);
-                    window.location.hash = '';
-                  }}
-                  onOpenMeridian={() => {
-                    setCabinetOpen(false);
-                    navigateTo('meridiens');
-                  }}
-                />
-              )}
-            </AnimatePresence>
             <CardDrawer />
           </>
         )}
