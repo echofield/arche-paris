@@ -10,6 +10,7 @@ import { ArrowLeft, Navigation } from 'lucide-react';
 import type { MeridianInstrumentSnapshot, MeridianPlaceId } from '../lib/api';
 import { motion as motionTokens } from '../design/motion';
 import { useTranslation } from '../utils/i18n';
+import type { MeridienSignalQuality } from '../utils/meridien-geo';
 
 /** Local fallback shape when snapshot has no world.meridian. */
 export type LocalMeridianState = {
@@ -21,7 +22,13 @@ export type LocalMeridianState = {
   micro?: MeridianInstrumentSnapshot['micro'];
 };
 
-export type MeridianStateInput = MeridianInstrumentSnapshot | LocalMeridianState;
+/** Live reading: same as LocalMeridianState plus typed quality and optional hint (no wrong readings). */
+export type MeridienLiveReading = LocalMeridianState & {
+  quality: MeridienSignalQuality;
+  hint?: string;
+};
+
+export type MeridianStateInput = MeridianInstrumentSnapshot | LocalMeridianState | MeridienLiveReading;
 
 const FRAME_W = 220;
 const FRAME_H = 340;

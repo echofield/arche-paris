@@ -16,12 +16,17 @@ import {
   getMeridienState,
   getNearestThreshold,
   inParisBbox,
-  isAccuracySufficient,
   isHeadingStable,
+  computeMeridienSignalQuality,
   MERIDIAN_LNG,
   MERIDIEN_EMA_ALPHA,
+  MERIDIEN_HINT_KEYS,
   MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG,
-  type MeridienState
+  SAMPLE_BUFFER_MAX,
+  MAX_ACCURACY_FOR_SMOOTHING_M,
+  MERIDIEN_HEADING_SAMPLES_FOR_STABILITY,
+  type MeridienState,
+  type PositionSample
 } from '../utils/meridien-geo';
 import {
   getThresholdsVisited,
@@ -35,6 +40,7 @@ import { appendMeridienInscription } from '../utils/journal-sync';
 import { postMeridianProof } from '../utils/card-gate-map-client';
 import { useTranslation } from '../utils/i18n';
 import { usePresence } from '../hooks/usePresence';
+import { isGradeSufficientForSoftConfirmation, isGradeSufficientForSeal } from '../utils/meridien-presence-gate';
 import { api } from '../lib/api';
 
 /** Zone id for presence verify (server meridian zone). No raw zone objects in prod. */
@@ -86,6 +92,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const [lireVerifying, setLireVerifying] = useState(false);
   const [observationVerifying, setObservationVerifying] = useState<string | null>(null);
   const lastSmoothedRef = useRef<{ lat: number; lng: number } | null>(null);
+  const positionBufferRef = useRef<PositionSample[]>([]);
   const headingsRef = useRef<number[]>([]);
   const lastFetchRef = useRef<{
     lat: number;
@@ -97,18 +104,26 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const thresholds = getThresholds();
   const visited = getThresholdsVisited();
   const crossings = getCrossings();
-  const signalLow =
-    !userPos ||
-    !isAccuracySufficient(accuracy_m) ||
-    !inParisBbox(userPos.lat, userPos.lng);
-  const useHeadingForAligned = isHeadingStable(
-    headingsRef.current,
-    MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG
-  );
+  const inParis = userPos ? inParisBbox(userPos.lat, userPos.lng) : false;
+  const qualityResult = userPos
+    ? computeMeridienSignalQuality(
+        accuracy_m,
+        positionBufferRef.current,
+        headingsRef.current,
+        inParis
+      )
+    : { quality: 'low' as const, hintKey: MERIDIEN_HINT_KEYS.signalWeak };
+  const signalGood = qualityResult.quality === 'good';
+  const useHeadingForAligned =
+    signalGood &&
+    isHeadingStable(
+      headingsRef.current.slice(-MERIDIEN_HEADING_SAMPLES_FOR_STABILITY),
+      MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG
+    );
   const nearest = userPos ? getNearestThreshold(userPos.lat, userPos.lng) : null;
-  const state: MeridienState = signalLow
+  const state: MeridienState = !userPos || !signalGood
     ? 'lost'
-    : getMeridienState(userPos!.lat, userPos!.lng, heading, {
+    : getMeridienState(userPos.lat, userPos.lng, heading, {
         useHeadingForAligned
       });
   const allVisited = visited.length >= 3;
@@ -138,22 +153,30 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     }
   }, [viewMode, nearest]);
 
-  // Geolocation: capture accuracy, EMA-smooth position, ring-buffer headings
+  // Geolocation: accuracy, position buffer (cap 30), EMA only when accuracy ≤ 60, ring-buffer headings (8 for stability)
   useEffect(() => {
     const onPos = (pos: GeolocationPosition) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       const acc = pos.coords.accuracy;
+      const ts = Date.now();
       if (typeof acc === 'number' && Number.isFinite(acc)) setAccuracy_m(acc);
+
+      const buf = positionBufferRef.current;
+      buf.push({ lat, lng, ts });
+      if (buf.length > SAMPLE_BUFFER_MAX) buf.shift();
+
       const raw = { lat, lng };
-      const smoothed = emaPoint(lastSmoothedRef.current, raw, MERIDIEN_EMA_ALPHA);
-      lastSmoothedRef.current = smoothed;
+      const smoothWhen = typeof acc === 'number' && Number.isFinite(acc) && acc <= MAX_ACCURACY_FOR_SMOOTHING_M;
+      const smoothed = smoothWhen ? emaPoint(lastSmoothedRef.current, raw, MERIDIEN_EMA_ALPHA) : raw;
+      if (smoothWhen) lastSmoothedRef.current = smoothed;
       setUserPos(smoothed);
+
       const h = pos.coords.heading;
       if (typeof h === 'number' && Number.isFinite(h)) {
         const ring = headingsRef.current;
         ring.push(h);
-        if (ring.length > 5) ring.shift();
+        if (ring.length > MERIDIEN_HEADING_SAMPLES_FOR_STABILITY) ring.shift();
         setHeading(h);
       }
     };
@@ -208,9 +231,11 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       });
   }, [userPos?.lat, userPos?.lng, heading]);
 
-  // Meridian state: from snapshot or local fallback (Patch 3 semantics). No dead ends: always valid state object.
+  // Meridian state: from snapshot or local fallback. Quality gate: never output wrong reading; when not good, EGARE + hint.
   const LOST_M = 100;
-  const fallbackMeridianState = (): LocalMeridianState => ({
+  const hintText = qualityResult.quality !== 'good' ? t(qualityResult.hintKey) : '';
+
+  const fallbackMeridianState = (): LocalMeridianState & { quality: typeof qualityResult.quality; hint?: string } => ({
     state: 'EGARE',
     alignmentIndex: 0,
     holdProgress01: 0,
@@ -219,13 +244,15 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       status: 'NON_RECONNU' as const
     })),
     nearestPlaceId: null,
-    micro: { statusLine: '' }
+    micro: { statusLine: hintText },
+    quality: qualityResult.quality,
+    hint: hintText || undefined
   });
 
-  const meridian: MeridianInstrumentSnapshot | LocalMeridianState = (() => {
+  const meridian: MeridianInstrumentSnapshot | (LocalMeridianState & { quality?: typeof qualityResult.quality; hint?: string }) = (() => {
     if (snapshot?.world?.meridian) return snapshot.world.meridian;
     if (!userPos) return fallbackMeridianState();
-    if (signalLow) return fallbackMeridianState();
+    if (!signalGood) return fallbackMeridianState();
     const lineDistanceM = distanceToMeridianMeters(userPos.lng);
     const localState = getMeridienState(userPos.lat, userPos.lng, heading, {
       useHeadingForAligned
@@ -251,7 +278,9 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       holdProgress01: localStateKey === 'ALIGNE' ? 1 : 0,
       recognized,
       nearestPlaceId: nearestThresh?.id ?? null,
-      micro: { statusLine: '' }
+      micro: { statusLine: '' },
+      quality: 'good',
+      hint: undefined
     };
   })();
 
@@ -299,10 +328,10 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       const res = await presenceVerify(MERIDIAN_ZONE_ID);
       lastVerifyTsRef.current = Date.now();
       const grade = res?.grade ?? presenceGrade;
-      if (grade === 'MED' || grade === 'HIGH') {
+      if (isGradeSufficientForSoftConfirmation(grade)) {
         markThresholdVisited(nearest.id);
         const after = getThresholdsVisited();
-        if (after.length >= 3 && getCrossings().length === 0 && grade === 'HIGH') {
+        if (after.length >= 3 && getCrossings().length === 0 && isGradeSufficientForSeal(grade)) {
           addCrossing();
         }
         setActiveThreshold(nearest);
@@ -321,7 +350,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       try {
         const res = await presenceVerify(MERIDIAN_ZONE_ID);
         const grade = res?.grade ?? presenceGrade;
-        if (grade === 'MED' || grade === 'HIGH') {
+        if (isGradeSufficientForSoftConfirmation(grade)) {
           markObservation(thresholdId, promptId);
         }
       } finally {
@@ -336,7 +365,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     if (!cardId || !inscriptionThresholdId || !proofAnswer.trim() || !proofPersonalSentence.trim()) return;
     const res = await presenceVerify(MERIDIAN_ZONE_ID);
     const grade = res?.grade ?? presenceGrade;
-    if (grade !== 'HIGH') {
+    if (!isGradeSufficientForSeal(grade)) {
       return; // whisper already set by usePresence
     }
     const threshold = getThresholdById(inscriptionThresholdId);

@@ -1,5 +1,6 @@
 /**
  * ARCHÉ — Méridiens: distance to meridian line, state (Égaré/Proche/Sur la ligne/Aligné), nearest threshold.
+ * Shared measurement hardening: signal quality, stillness, EMA cap, no wrong readings.
  */
 
 import { haversineMeters } from './geo';
@@ -13,7 +14,22 @@ export const MERIDIAN_LNG = 2.3372;
 const METERS_PER_DEG_LNG = 73000;
 
 /** If accuracy_m is missing or above this (m), do not compute alignment; return stable "signal low" state. */
-export const MERIDIEN_ACCURACY_THRESHOLD_M = 50;
+export const MERIDIEN_ACCURACY_THRESHOLD_M = 40;
+
+/** Accuracy ≤ this: "good" signal (Paris street reality). */
+export const ACCURACY_GOOD_M = 25;
+
+/** Accuracy above this: do not compute alignment; show low signal. */
+export const ACCURACY_OK_M = 40;
+
+/** Stillness window (ms): if moving fast + accuracy mediocre in this window, treat as unstable. */
+export const STILLNESS_WINDOW_MS = 2500;
+
+/** Cap position sample buffer to avoid unbounded history. */
+export const SAMPLE_BUFFER_MAX = 30;
+
+/** Only apply EMA smoothing when accuracy_m ≤ this; otherwise do not smooth "garbage". */
+export const MAX_ACCURACY_FOR_SMOOTHING_M = 60;
 
 /** EMA alpha for smoothing lat/lng (0 = no smoothing, 1 = no memory). */
 export const MERIDIEN_EMA_ALPHA = 0.25;
@@ -21,17 +37,105 @@ export const MERIDIEN_EMA_ALPHA = 0.25;
 /** Max variance (degrees) in recent headings to consider heading "stable" for aligned state. */
 export const MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG = 25;
 
+/** Number of heading samples to consider for stability (e.g. last 8). */
+export const MERIDIEN_HEADING_SAMPLES_FOR_STABILITY = 8;
+
+/** Typed confidence state so UI never lies. */
+export type MeridienSignalQuality = 'good' | 'unstable' | 'low' | 'out_of_coverage';
+
+/** Hint i18n keys (short, non-gamified; no numbers). */
+export const MERIDIEN_HINT_KEYS = {
+  signalWeak: 'meridiens.hint.signalWeak',
+  tooMuchMovement: 'meridiens.hint.tooMuchMovement',
+  outOfCoverage: 'meridiens.hint.outOfCoverage',
+} as const;
+
+export type PositionSample = { lat: number; lng: number; ts: number };
+
 export type MeridienState = 'lost' | 'near' | 'on_line' | 'aligned';
 
 /**
- * True only when accuracy is present and good enough to trust alignment computation.
+ * True only when accuracy is present and good enough to trust alignment computation (≤ ACCURACY_OK_M).
  */
 export function isAccuracySufficient(accuracy_m: number | null | undefined): boolean {
   return (
     accuracy_m != null &&
     Number.isFinite(accuracy_m) &&
-    accuracy_m <= MERIDIEN_ACCURACY_THRESHOLD_M
+    accuracy_m <= ACCURACY_OK_M
   );
+}
+
+/**
+ * True when accuracy is "good" (≤ ACCURACY_GOOD_M) for alignment + heading trust.
+ */
+export function isAccuracyGood(accuracy_m: number | null | undefined): boolean {
+  return (
+    accuracy_m != null &&
+    Number.isFinite(accuracy_m) &&
+    accuracy_m <= ACCURACY_GOOD_M
+  );
+}
+
+/** Displacement (m) in window below which we consider the user "still". */
+const STILLNESS_DISPLACEMENT_M = 6;
+
+/**
+ * True if in the last windowMs the position buffer shows minimal movement (still).
+ */
+export function isStill(
+  positionBuffer: PositionSample[],
+  windowMs: number = STILLNESS_WINDOW_MS
+): boolean {
+  const now = Date.now();
+  const cutoff = now - windowMs;
+  const inWindow = positionBuffer.filter((p) => p.ts >= cutoff);
+  if (inWindow.length < 2) return false;
+  const first = inWindow[0];
+  const last = inWindow[inWindow.length - 1];
+  const displacementM = haversineMeters(first.lat, first.lng, last.lat, last.lng);
+  return displacementM <= STILLNESS_DISPLACEMENT_M;
+}
+
+export interface MeridienQualityResult {
+  quality: MeridienSignalQuality;
+  hintKey: (typeof MERIDIEN_HINT_KEYS)[keyof typeof MERIDIEN_HINT_KEYS];
+}
+
+/**
+ * Compute signal quality and hint key. Never outputs a wrong reading: when quality is not 'good',
+ * caller should force EGARE and show hint (no alignment).
+ */
+export function computeMeridienSignalQuality(
+  accuracy_m: number | null | undefined,
+  positionBuffer: PositionSample[],
+  headings: number[],
+  inParis: boolean
+): MeridienQualityResult {
+  if (!inParis) {
+    return { quality: 'out_of_coverage', hintKey: MERIDIEN_HINT_KEYS.outOfCoverage };
+  }
+  if (accuracy_m == null || !Number.isFinite(accuracy_m)) {
+    return { quality: 'low', hintKey: MERIDIEN_HINT_KEYS.signalWeak };
+  }
+  if (accuracy_m > ACCURACY_OK_M) {
+    return { quality: 'low', hintKey: MERIDIEN_HINT_KEYS.signalWeak };
+  }
+  const still = isStill(positionBuffer, STILLNESS_WINDOW_MS);
+  const goodAccuracy = isAccuracyGood(accuracy_m);
+  const headingStable =
+    headings.length >= MERIDIEN_HEADING_SAMPLES_FOR_STABILITY &&
+    isHeadingStable(headings.slice(-MERIDIEN_HEADING_SAMPLES_FOR_STABILITY), MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG);
+
+  if (goodAccuracy && still && (headings.length === 0 || headingStable)) {
+    return { quality: 'good', hintKey: MERIDIEN_HINT_KEYS.signalWeak };
+  }
+  if (!still) {
+    return { quality: 'unstable', hintKey: MERIDIEN_HINT_KEYS.tooMuchMovement };
+  }
+  if (accuracy_m > ACCURACY_GOOD_M) {
+    return { quality: 'unstable', hintKey: MERIDIEN_HINT_KEYS.signalWeak };
+  }
+  return { quality: 'unstable', hintKey: MERIDIEN_HINT_KEYS.signalWeak };
 }
 
 /**
