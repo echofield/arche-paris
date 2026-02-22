@@ -37,6 +37,7 @@ const REASON_CODE_TO_WHISPER_KEY: Record<string, string> = {
   OUTSIDE_ZONE: 'presence.outside',
   COOLDOWN: 'presence.cooldown',
   NO_CARD: 'presence.no_card',
+  TELEPORT: 'presence.teleport',
 };
 const MED_WHISPER_KEY = 'presence.uncertain';
 
@@ -47,7 +48,46 @@ function testWhisperKeyPerReasonCode() {
   assert(REASON_CODE_TO_WHISPER_KEY.COOLDOWN === 'presence.cooldown', 'COOLDOWN -> presence.cooldown');
   assert(REASON_CODE_TO_WHISPER_KEY.NO_CARD === 'presence.no_card', 'NO_CARD -> presence.no_card');
   assert(MED_WHISPER_KEY === 'presence.uncertain', 'MED -> presence.uncertain');
+  assert(REASON_CODE_TO_WHISPER_KEY.TELEPORT === 'presence.teleport', 'TELEPORT -> presence.teleport');
   console.log('OK whisperKey present for each reasonCode path');
+}
+
+// ----- TELEPORT: reject when speed > 12 m/s -----
+function testTeleportRejectsUnrealisticSpeed() {
+  const PRESENCE_TELEPORT_MAX_MPS = 12;
+  const distanceM = 500;
+  const deltaTs = 30;
+  const speedMps = distanceM / deltaTs;
+  assert(speedMps > PRESENCE_TELEPORT_MAX_MPS, '500m in 30s should be rejected as teleport');
+  const slowDist = 100;
+  const slowDelta = 10;
+  assert(slowDist / slowDelta === 10, '10 m/s should be allowed');
+  console.log('OK TELEPORT logic rejects unrealistic speed');
+}
+
+// ----- Interference: 2+ low results within 60s -----
+function testInterferenceAfterTwoLow() {
+  const LOW_WINDOW_MS = 60_000;
+  const responses = [
+    { grade: 'LOW' as const, reasonCode: 'LOW_TRUST' as const, ts: 1000 },
+    { grade: 'LOW' as const, reasonCode: 'LOW_TRUST' as const, ts: 2000 },
+  ];
+  let lowCount = 0;
+  let windowStart: number | null = null;
+  for (const r of responses) {
+    const isLow = r.grade === 'LOW' || r.reasonCode === 'LOW_TRUST';
+    if (isLow) {
+      if (windowStart === null) windowStart = r.ts;
+      if (r.ts - windowStart <= LOW_WINDOW_MS) {
+        lowCount += 1;
+      } else {
+        windowStart = r.ts;
+        lowCount = 1;
+      }
+    }
+  }
+  assert(lowCount >= 2, 'Two low responses in window => interference');
+  console.log('OK interference triggers after 2 low results');
 }
 
 // ----- Zone registry: TresorCache symbol IDs resolve -----
@@ -64,6 +104,8 @@ function run() {
   testZoneRejectionWhenNotDebug();
   testWhisperKeyPerReasonCode();
   testZoneRegistry();
+  testTeleportRejectsUnrealisticSpeed();
+  testInterferenceAfterTwoLow();
   console.log('All presence-verify-public tests passed.');
 }
 

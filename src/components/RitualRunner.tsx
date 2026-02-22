@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, generateIdempotencyKey, clientTs } from '../lib/api';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { useTranslation } from '../utils/i18n';
 
 export type RitualType = 'presence' | 'observation';
 
@@ -56,6 +57,7 @@ function haptic(type: 'light' | 'medium' | 'success' | 'error') {
 }
 
 export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: RitualRunnerProps) {
+  const { t } = useTranslation();
   const config = RITUAL_CONFIG[ritualType];
   const geo = useGeolocation();
 
@@ -81,12 +83,12 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
       return;
     }
 
-    // Check accuracy before even starting
+    // Check accuracy before even starting (code unchanged; message is user-facing only)
     if (position.coords.accuracy > config.maxAccuracyM) {
       setState('rejected');
       setError({
         code: 'ACCURACY_TOO_LOW',
-        message: `GPS trop imprécis (±${Math.round(position.coords.accuracy)}m). Sors à l'air libre.`,
+        message: t('presence.signalWeak'),
       });
       haptic('error');
       return;
@@ -132,7 +134,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
         haptic('medium');
       }
     }, 100);
-  }, [zoneId, ritualType, config, geo]);
+  }, [zoneId, ritualType, config, geo, t]);
 
   // Complete the ritual
   const completeRitual = useCallback(async () => {
@@ -406,23 +408,20 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
         )}
       </div>
 
-      {/* GPS info */}
+      {/* GPS status — no coords/accuracy in production */}
       {(state === 'running' || state === 'completing') && geo.lat !== null && (
         <div
           style={{
-            fontFamily: 'var(--font-mono, monospace)',
-            fontSize: 10,
-            color: 'rgba(255,255,255,0.4)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.5)',
             marginBottom: 24,
             textAlign: 'center',
           }}
         >
-          {geo.lat?.toFixed(5)}, {geo.lng?.toFixed(5)}
-          <br />
-          ±{geo.accuracy_m?.toFixed(0)}m
-          {geo.accuracy_m && geo.accuracy_m > config.maxAccuracyM && (
-            <span style={{ color: '#B43232' }}> (trop imprécis)</span>
-          )}
+          {import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY
+            ? `${geo.lat?.toFixed(5)}, ${geo.lng?.toFixed(5)} ±${geo.accuracy_m?.toFixed(0) ?? '?'}m`
+            : t('presence.signalSettling')}
         </div>
       )}
 

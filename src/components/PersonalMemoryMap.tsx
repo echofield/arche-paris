@@ -51,7 +51,7 @@ type RitualStartLaw = {
 };
 
 interface PersonalMemoryMapProps {
-  cardId: string;
+  cardId: string | null;
   onBack: () => void;
   onOpenNotebook?: () => void;
 }
@@ -179,6 +179,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
   const [worldSnapshotState, setWorldSnapshotState] = useState<WorldSnapshotData | null>(null);
+  const [snapshotError, setSnapshotError] = useState(false);
+  const [snapshotStale, setSnapshotStale] = useState(false);
   const [outsideCoverage, setOutsideCoverage] = useState(false);
   // Instrument reading layer (quiet → reading → interpretation)
   const [instrumentState, setInstrumentState] = useState<InstrumentState>('quiet');
@@ -261,7 +263,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const unvisitedRefused = unvisitedArrondissements.filter((arr) => refusedList.includes(arr));
 
   useEffect(() => {
-    if (!hasLocalSecret(cardId)) return;
+    if (!cardId || !hasLocalSecret(cardId)) return;
     loadMyParisNote(cardId).then(setNote);
   }, [cardId]);
 
@@ -373,6 +375,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   }, [language]);
 
   const refreshMapState = useCallback(() => {
+    setSnapshotError(false);
+    setSnapshotStale(false);
     api.worldSnapshot({ include: 'map,champ,law', h3_center: 'PAR-10', k: 10 })
       .then((result) => {
         if (result.data) {
@@ -380,11 +384,30 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           return;
         }
         // 401 / session expired or other error — keep previous state so map does not go blank
+        if (worldSnapshotState) {
+          // Has prior data: show subtle stale indicator (auto-fades)
+          setSnapshotStale(true);
+        } else {
+          // No prior data: show blocking retry UI
+          setSnapshotError(true);
+        }
       })
       .catch(() => {
         // Network or other failure — keep previous snapshot
+        if (worldSnapshotState) {
+          setSnapshotStale(true);
+        } else {
+          setSnapshotError(true);
+        }
       });
-  }, [applySnapshot]);
+  }, [applySnapshot, worldSnapshotState]);
+
+  // Auto-clear stale indicator after 3 seconds
+  useEffect(() => {
+    if (!snapshotStale) return;
+    const timer = window.setTimeout(() => setSnapshotStale(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [snapshotStale]);
 
   const encounter = useMemo(() => {
     if (outsideCoverage) return null;
@@ -392,7 +415,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   }, [outsideCoverage, worldSnapshotState]);
 
   useEffect(() => {
-    if (!hasLocalSecret(cardId)) return;
+    if (!cardId || !hasLocalSecret(cardId)) return;
     refreshMapState();
   }, [cardId, refreshMapState]);
 
@@ -530,7 +553,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   }, []);
 
   useEffect(() => {
-    if (!hasLocalSecret(cardId)) return;
+    if (!cardId || !hasLocalSecret(cardId)) return;
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
 
     const shouldPulse = (coords: GeolocationCoordinates): boolean => {
@@ -593,7 +616,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   }, [cardId, refreshMapState]);
 
   const handleNoteBlur = useCallback(() => {
-    saveMyParisNote(cardId, note).catch(console.warn);
+    if (cardId) saveMyParisNote(cardId, note).catch(console.warn);
   }, [cardId, note]);
 
   // RUE + HEURE: text must start with "Rue X — HH:MM" (e.g. Rue Réaumur — 18:32)
@@ -633,6 +656,71 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     >
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
       <BackButton onClick={onBack} />
+
+      {/* Subtle error indicator when snapshot fails and no prior data */}
+      {snapshotError && !worldSnapshotState && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            textAlign: 'center',
+          }}
+        >
+          <p
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '13px',
+              fontStyle: 'italic',
+              color: '#1A1A1A',
+              opacity: 0.4,
+              marginBottom: '8px',
+            }}
+          >
+            Connexion interrompue.
+          </p>
+          <button
+            type="button"
+            onClick={refreshMapState}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '10px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#003D2C',
+              opacity: 0.5,
+              cursor: 'pointer',
+            }}
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* Non-blocking stale indicator when refresh fails but prior data exists */}
+      {snapshotStale && worldSnapshotState && (
+        <p
+          style={{
+            position: 'fixed',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            fontFamily: 'var(--font-serif)',
+            fontSize: '12px',
+            fontStyle: 'italic',
+            color: '#1A1A1A',
+            opacity: 0.25,
+            pointerEvents: 'none',
+          }}
+        >
+          Synchronisation interrompue.
+        </p>
+      )}
 
       <style>{`
         @keyframes my-paris-breathe {
@@ -1157,7 +1245,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                 disabled={ecrireSaving}
                 onClick={async () => {
                   const text = ecrireDraft.trim();
-                  if (!text || ecrireSheetArr == null) return;
+                  if (!cardId || !text || ecrireSheetArr == null) return;
                   const words = wordCount(text);
                   if (words < 80 || words > 120) {
                     setEcrireError(t('myparis.ecrire.errorWords'));
@@ -1351,7 +1439,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                   type="button"
                   onClick={async () => {
                     const label = addWalkLabel.trim();
-                    if (!label) return;
+                    if (!cardId || !label) return;
                     const kmRaw = addWalkKm.trim() ? parseFloat(addWalkKm) : NaN;
                     const minRaw = addWalkMinutes.trim() ? parseFloat(addWalkMinutes) : NaN;
                     const km = Number.isFinite(kmRaw) ? kmRaw : undefined;

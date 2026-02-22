@@ -7,8 +7,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { api, type ZoneProgressItem, type Inscription, type LawEvaluateData } from '../lib/api';
 import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
+import { useTranslation } from '../utils/i18n';
 import { ZoneEntryFeedback } from './ZoneEntryFeedback';
 import { RitualRunner, type RitualType } from './RitualRunner';
+import { PresenceBanner } from './presence/PresenceBanner';
+import { usePresence } from '../hooks/usePresence';
 import {
   evaluateSituationalActivation,
   type ActivationResult,
@@ -37,6 +40,7 @@ function lawLine(law: LawEvaluateData | null): string {
 }
 
 export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneDetailSheetProps) {
+  const { t } = useTranslation();
   const [progress, setProgress] = useState<ZoneProgressItem | null>(null);
   const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
   const [zoneLaw, setZoneLaw] = useState<LawEvaluateData | null>(null);
@@ -45,6 +49,7 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
   const [activationResult, setActivationResult] = useState<ActivationResult | null>(null);
   const [lawRefusal, setLawRefusal] = useState<string | null>(null);
   const zoneEntry = useZoneEntry();
+  const presence = usePresence();
 
   const zoneId = arrondissement ? arrToZoneId(arrondissement) : null;
   const zoneH3 = arrondissement ? `PAR-${String(arrondissement).padStart(2, '0')}` : null;
@@ -174,6 +179,10 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
   const handleRitualStart = useCallback(async (ritualType: RitualType) => {
     if (!zoneH3) return;
     setLawRefusal(null);
+    if (ritualType === 'presence') {
+      const res = await presence.verify();
+      if (!res?.ok) return;
+    }
     const evalResult = await api.lawEvaluate('ritual.start', zoneH3);
     if (evalResult.error || !evalResult.data) {
       setLawRefusal('Not yet.');
@@ -184,7 +193,13 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
       return;
     }
     setActiveRitual(ritualType);
-  }, [zoneH3]);
+  }, [zoneH3, presence.verify]);
+
+  const presenceRitualDisabled =
+    !hasEntered ||
+    (zoneLaw != null && !zoneLaw.allowed) ||
+    !presence.readyToVerify ||
+    presence.state === 'SEARCHING';
 
   const objectivesComplete = progress?.objectives_complete ?? 0;
   const hasEntered = progress?.entered === true;
@@ -309,6 +324,22 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                 !hasEntered ? { label: 'Entrer', onClick: handleEnter, disabled: zoneEntry.status !== 'idle' } : undefined
               )}
 
+              {zoneEntry.status === 'accepted' && zoneEntry.trustGrade === 'MED' && (
+                <p
+                  style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: 12,
+                    fontStyle: 'italic',
+                    color: '#6B6455',
+                    opacity: 0.85,
+                    textAlign: 'center',
+                    marginTop: 4,
+                  }}
+                >
+                  {t('map.location.uncertain')}
+                </p>
+              )}
+
               {renderObjective(
                 'presence_ritual',
                 'Presence',
@@ -318,9 +349,19 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
                   ? {
                       label: 'Commencer',
                       onClick: () => void handleRitualStart('presence'),
-                      disabled: !hasEntered || (zoneLaw != null && !zoneLaw.allowed),
+                      disabled: presenceRitualDisabled,
                     }
                   : undefined
+              )}
+
+              {hasEntered && !progress?.presence_ritual && (
+                <PresenceBanner
+                  state={presence.state}
+                  interference={presence.interference}
+                  lastResponse={presence.lastResponse}
+                  onRecalibrate={presence.verify}
+                  t={t}
+                />
               )}
 
               {renderObjective(

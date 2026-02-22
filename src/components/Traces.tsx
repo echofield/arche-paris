@@ -21,7 +21,7 @@ import { getOfflineMessage } from '../utils/card-gate-client';
 import { useSyncState, COMPRESSED_MESSAGE } from '../contexts/SyncStateContext';
 
 interface TracesProps {
-  cardId: string;
+  cardId: string | null;
   questId: string;
   etapeId: string;
   etapeName?: string;
@@ -39,6 +39,10 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
 
   // Load traces on mount
   useEffect(() => {
+    if (!cardId) {
+      setIsLoading(false);
+      return;
+    }
     async function load() {
       setIsLoading(true);
       const [fetchedTraces, alreadyLeft] = await Promise.all([
@@ -54,7 +58,7 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
 
   // Handle submission
   const handleSubmit = async () => {
-    if (!inputValue.trim() || isSubmitting) return;
+    if (!cardId || !inputValue.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     setSubmitMessage(null);
@@ -112,7 +116,7 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
       </p>
 
       {/* Offline: traces gardées, graveront au retour du réseau */}
-      {pendingCount > 0 && (
+      {cardId && pendingCount > 0 && (
         <div
           style={{
             marginBottom: 'var(--space-lg)',
@@ -133,6 +137,7 @@ export function Traces({ cardId, questId, etapeId, etapeName }: TracesProps) {
             type="button"
             disabled={isSyncing}
             onClick={() => {
+              if (!cardId) return;
               flushNow(cardId).then((sent) => {
                 if (sent > 0) {
                   setHasLeft(true);

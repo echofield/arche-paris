@@ -219,7 +219,7 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
   const [activeRun, setActiveRun] = useState<QuestRun | null>(() => getActiveRunForQuest(queteId));
   const [witnessStopIndex, setWitnessStopIndex] = useState<number | null>(null);
   const [closeReveal, setCloseReveal] = useState(false);
-  const cardId = getStoredCard() || 'unknown';
+  const cardId = getStoredCard() ?? null;
 
   const hasThreadSupport = quete?.stops?.some((s) => s.nodeId) ?? false;
   const allStamped = hasThreadSupport && activeRun && quete && quete.stops.every((s) => s.nodeId && activeRun.visited[s.nodeId]);
@@ -268,10 +268,12 @@ export function QueteDetail({ queteId, onBack }: QueteDetailProps) {
     addOrUpdateQuestTraceV1(v1Trace);
     bump('quest_closed');
     const line = `${quete.title} — completed (${new Date().toLocaleDateString()})`;
-    try {
-      await appendWalkToJournal(cardId, line);
-    } catch {
-      // journal-sync missing or failed
+    if (cardId) {
+      try {
+        await appendWalkToJournal(cardId, line);
+      } catch {
+        // journal-sync missing or failed
+      }
     }
     setActiveRun(null);
     setCloseReveal(true);

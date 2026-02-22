@@ -22,10 +22,12 @@ async function invoke<T>(
     }
   }
   const cardCode = getSessionCardCode();
-  const headers = includeCardHeader && cardCode ? { 'X-ARCHE-CARD-CODE': cardCode } : undefined;
+  const headers: Record<string, string> = {};
+  if (includeCardHeader && cardCode) headers['X-ARCHE-CARD-CODE'] = cardCode;
+  if (body) headers['Content-Type'] = 'application/json';
   const { data, error } = await supabase.functions.invoke(fn, {
-    body: body ? JSON.stringify(body) : undefined,
-    headers,
+    body: body ?? undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
   });
 
   if (error) {
@@ -432,9 +434,32 @@ export interface PresencePulseData {
   retry_after_ms?: number;
 }
 
+/** Place Scan (Lecture du Lieu) — 4 factual cards, no metrics. */
+export type PlaceScanDistance = 'here' | 'near' | 'a short walk' | 'a walk';
+export type PlaceScanDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+/** Stable Now vocabulary: opening (morning), active (day), transition (evening), quiet (night). */
+export type PlaceScanNowState = 'opening' | 'active' | 'transition' | 'quiet';
+
+export interface PlaceScanResult {
+  /** Schema version; bump when response shape or card order changes. */
+  version: 1;
+  zone_id: string;
+  h3: string;
+  cards: [
+    { type: 'landmark'; label: string; direction: PlaceScanDirection; distance: PlaceScanDistance },
+    { type: 'cultural'; line: string },
+    { type: 'spatial'; identity: string },
+    { type: 'now'; state: PlaceScanNowState },
+  ];
+}
+
 // ============ API Methods ============
 
 export const api = {
+  // Place Scan (Lecture du Lieu)
+  placeScan: (params: { lat: number; lon: number; heading?: number }) =>
+    invoke<PlaceScanResult>('place-scan', params),
+
   // Zones
   zonesEnter: (params: {
     zone_id: string;

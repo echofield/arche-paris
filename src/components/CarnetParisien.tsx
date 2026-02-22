@@ -9,7 +9,7 @@ import { WALK_PLACE_ID } from '../utils/journal-sync';
 import { getReflectiveQuestion } from '../data/oracle';
 
 interface CarnetParisienProps {
-  cardId: string;
+  cardId: string | null;
   onBack: () => void;
 }
 
@@ -30,11 +30,12 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
 
   // Charger les souvenirs depuis vault API au montage
   useEffect(() => {
-    loadSouvenirs();
+    if (cardId) loadSouvenirs();
   }, [cardId]);
 
   // Quand la page redevient visible, tenter de vider la file des écritures en attente
   useEffect(() => {
+    if (!cardId) return;
     const onFocus = () => {
       if (pendingCount === 0) return;
       flushNow(cardId).then((sent) => {
@@ -47,7 +48,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
 
   // Retry pending writes every 60s while there are pending items (resilience)
   useEffect(() => {
-    if (pendingCount === 0) return;
+    if (!cardId || pendingCount === 0) return;
     const t = setInterval(() => {
       flushNow(cardId).then((sent) => {
         if (sent > 0) loadSouvenirs();
@@ -57,6 +58,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
   }, [cardId, pendingCount, flushNow]);
 
   const loadSouvenirs = async () => {
+    if (!cardId) return;
     setIsLoading(true);
     setLoadError(false);
     try {
@@ -77,7 +79,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
   };
 
   const handleSaveSouvenir = async () => {
-    if (!currentText.trim()) return;
+    if (!cardId || !currentText.trim()) return;
 
     // Optimistic UI update - ajouter immédiatement
     const tempSouvenir: Souvenir = {
@@ -167,7 +169,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
       </div>
 
       {/* Offline: traces gardées, graveront au retour du réseau */}
-      {pendingCount > 0 && (
+      {cardId && pendingCount > 0 && (
         <div
           className="no-print"
           style={{
@@ -198,11 +200,13 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
           )}
           <button
             type="button"
-            disabled={isSyncing}
+            disabled={isSyncing || !cardId}
             onClick={() => {
-              flushNow(cardId).then((sent) => {
-                if (sent > 0) loadSouvenirs();
-              });
+              if (cardId) {
+                flushNow(cardId).then((sent) => {
+                  if (sent > 0) loadSouvenirs();
+                });
+              }
             }}
             style={{
               marginTop: '8px',
@@ -446,8 +450,43 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
         )}
 
         {/* Saved souvenirs */}
-        {isLoading ? (
-          <div 
+        {!cardId ? (
+          <div
+            style={{
+              textAlign: 'left',
+              padding: '32px 0',
+              fontFamily: 'var(--font-serif)',
+              fontSize: '14px',
+              fontStyle: 'italic',
+              color: '#1A1A1A',
+              opacity: 0.35,
+              lineHeight: '32px'
+            }}
+          >
+            Activez votre carte pour écrire.
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                display: 'block',
+                marginTop: '16px',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                fontFamily: 'var(--font-sans)',
+                fontSize: '11px',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                opacity: 0.6,
+                cursor: 'pointer',
+              }}
+            >
+              Retour
+            </button>
+          </div>
+        ) : isLoading ? (
+          <div
             style={{
               textAlign: 'left',
               padding: '32px 0',
@@ -462,7 +501,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
             Chargement...
           </div>
         ) : loadError ? (
-          <div 
+          <div
             style={{
               textAlign: 'left',
               padding: '32px 0',
@@ -470,14 +509,34 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
               fontSize: '14px',
               fontStyle: 'italic',
               color: '#1A1A1A',
-              opacity: 0.25,
+              opacity: 0.35,
               lineHeight: '32px'
             }}
           >
-            Erreur lors du chargement du carnet...
+            Le carnet est inaccessible.
+            <button
+              type="button"
+              onClick={() => loadSouvenirs()}
+              style={{
+                display: 'block',
+                marginTop: '16px',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                fontFamily: 'var(--font-sans)',
+                fontSize: '11px',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                opacity: 0.6,
+                cursor: 'pointer',
+              }}
+            >
+              Réessayer
+            </button>
           </div>
         ) : souvenirs.length === 0 ? (
-          <div 
+          <div
             style={{
               textAlign: 'left',
               padding: '32px 0',
@@ -485,11 +544,11 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
               fontSize: '14px',
               fontStyle: 'italic',
               color: '#1A1A1A',
-              opacity: 0.25,
+              opacity: 0.35,
               lineHeight: '32px'
             }}
           >
-            Votre carnet est encore vierge...
+            Rien n'est écrit encore.
           </div>
         ) : (
           <div>

@@ -1,11 +1,11 @@
 /**
- * useZoneEntry — Zone entry with GPS validation
+ * useZoneEntry — Zone entry with GPS validation (verification burst + trust)
  * Handles GPS acquisition + API call + feedback state
  */
 
 import { useState, useCallback } from 'react';
 import { api, generateIdempotencyKey, clientTs } from '../lib/api';
-import { useGeolocation } from './useGeolocation';
+import { getVerificationBurst, type LocationTrustGrade } from '../lib/location-trust';
 
 export type ZoneEntryStatus =
   | 'idle'
@@ -25,12 +25,16 @@ export interface ZoneEntryState {
   error: ZoneEntryError | null;
   eventId: string | null;
   lastAttemptZoneId: string | null;
+  trustGrade: LocationTrustGrade | null;
   gpsData: {
     lat: number | null;
     lng: number | null;
     accuracy_m: number | null;
   };
 }
+
+const LOCATION_WEAK_MSG = "Signal trop faible — approche-toi de l'air libre.";
+const LOCATION_UNCERTAIN_MSG = 'Signal incertain — la ville hésite.';
 
 export interface UseZoneEntryReturn extends ZoneEntryState {
   enterZone: (zoneId: string, dwellMs?: number) => Promise<boolean>;
@@ -39,15 +43,15 @@ export interface UseZoneEntryReturn extends ZoneEntryState {
 }
 
 export function useZoneEntry(): UseZoneEntryReturn {
-  const geo = useGeolocation();
-
   const [state, setState] = useState<ZoneEntryState>({
     status: 'idle',
     error: null,
     eventId: null,
     lastAttemptZoneId: null,
+    trustGrade: null,
     gpsData: { lat: null, lng: null, accuracy_m: null },
   });
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const enterZone = useCallback(async (zoneId: string, dwellMs?: number): Promise<boolean> => {
     setState((prev) => ({
@@ -55,36 +59,35 @@ export function useZoneEntry(): UseZoneEntryReturn {
       status: 'acquiring_gps',
       error: null,
       lastAttemptZoneId: zoneId,
+      trustGrade: null,
     }));
+    setGeoError(null);
 
-    // 1. Get GPS position
-    const position = await geo.refresh();
+    const trust = await getVerificationBurst({ durationMs: 8000, intervalMs: 750 });
 
-    if (!position) {
+    if (trust.grade === 'LOW' || !trust.best) {
       setState((prev) => ({
         ...prev,
         status: 'rejected',
-        error: {
-          code: 'GPS_FAILED',
-          message: geo.error || 'Could not acquire GPS position',
-        },
+        error: { code: 'GPS_TRUST_LOW', message: LOCATION_WEAK_MSG },
       }));
+      setGeoError(LOCATION_WEAK_MSG);
       return false;
     }
 
     const gpsData = {
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-      accuracy_m: position.coords.accuracy,
+      lat: trust.best.lat,
+      lng: trust.best.lng,
+      accuracy_m: trust.best.accuracy,
     };
 
     setState((prev) => ({
       ...prev,
       status: 'submitting',
+      trustGrade: trust.grade,
       gpsData,
     }));
 
-    // 2. Call zones-enter API
     const result = await api.zonesEnter({
       zone_id: zoneId,
       lat: gpsData.lat,
@@ -96,9 +99,7 @@ export function useZoneEntry(): UseZoneEntryReturn {
     });
 
     if (result.error) {
-      // Parse structured error if available
       let errorObj: ZoneEntryError = { code: 'API_ERROR', message: result.error };
-
       try {
         const parsed = JSON.parse(result.error);
         if (parsed.code) {
@@ -111,7 +112,6 @@ export function useZoneEntry(): UseZoneEntryReturn {
       } catch {
         // Not JSON, use as-is
       }
-
       setState((prev) => ({
         ...prev,
         status: 'rejected',
@@ -120,15 +120,15 @@ export function useZoneEntry(): UseZoneEntryReturn {
       return false;
     }
 
-    // 3. Success
     setState((prev) => ({
       ...prev,
       status: 'accepted',
       eventId: result.data?.event_id || null,
       error: null,
+      trustGrade: trust.grade,
     }));
     return true;
-  }, [geo]);
+  }, []);
 
   const reset = useCallback(() => {
     setState({
@@ -136,16 +136,17 @@ export function useZoneEntry(): UseZoneEntryReturn {
       error: null,
       eventId: null,
       lastAttemptZoneId: null,
+      trustGrade: null,
       gpsData: { lat: null, lng: null, accuracy_m: null },
     });
-    geo.clear();
-  }, [geo]);
+    setGeoError(null);
+  }, []);
 
   return {
     ...state,
     enterZone,
     reset,
-    geoError: geo.error,
+    geoError,
   };
 }
 

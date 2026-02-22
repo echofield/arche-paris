@@ -84,5 +84,9 @@
     "20": "20e — Ménilmontant"
   },
   "map.messages.empty": "Aucun symbole dans cet arrondissement",
-  "map.messages.select": "Sélectionne un arrondissement sur la carte"
+  "map.messages.select": "Sélectionne un arrondissement sur la carte",
+  "map.location.uncertain": "Signal incertain — la ville hésite.",
+  "map.location.weak": "Signal trop faible — approche-toi de l'air libre.",
+  "presence.signalSettling": "Signal en cours — la position s'ajuste.",
+  "presence.signalWeak": "Signal GPS trop faible. Cherche une ouverture."
 }

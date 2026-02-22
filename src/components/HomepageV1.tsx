@@ -56,11 +56,31 @@ export function HomepageV1({
   const [mapReady, setMapReady] = useState(false);
   const [mapBreathing, setMapBreathing] = useState(false);
   const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
+  const [snapshotError, setSnapshotError] = useState(false);
+  const [snapshotStale, setSnapshotStale] = useState(false);
 
   const loadSnapshot = useCallback(async () => {
+    setSnapshotError(false);
+    setSnapshotStale(false);
     const res = await api.worldSnapshot({ include: 'law', h3_center: 'PAR-10', k: 0 });
-    if (res.data) setWorldSnapshot(res.data);
-  }, []);
+    if (res.data) {
+      setWorldSnapshot(res.data);
+    } else if (res.error) {
+      // If we have prior data, show subtle stale; otherwise blocking error
+      if (worldSnapshot) {
+        setSnapshotStale(true);
+      } else {
+        setSnapshotError(true);
+      }
+    }
+  }, [worldSnapshot]);
+
+  // Auto-clear stale indicator after 3 seconds
+  useEffect(() => {
+    if (!snapshotStale) return;
+    const timer = window.setTimeout(() => setSnapshotStale(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [snapshotStale]);
   useEffect(() => {
     loadSnapshot();
   }, [loadSnapshot]);
@@ -515,6 +535,57 @@ export function HomepageV1({
         >
           {worldSnapshot?.me?.aura?.questCallout?.subtitle ?? t('home.sentence')}
         </p>
+
+        {/* Blocking error when no prior snapshot */}
+        {snapshotError && !worldSnapshot && (
+          <div style={{ marginTop: '24px', textAlign: 'center' }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '13px',
+                fontStyle: 'italic',
+                color: '#1A1A1A',
+                opacity: 0.4,
+                marginBottom: '8px'
+              }}
+            >
+              Connexion interrompue.
+            </p>
+            <button
+              type="button"
+              onClick={loadSnapshot}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '10px',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: '#003D2C',
+                opacity: 0.5,
+                cursor: 'pointer',
+              }}
+            >
+              Réessayer
+            </button>
+          </div>
+        )}
+
+        {/* Non-blocking stale indicator when refresh fails but prior data exists */}
+        {snapshotStale && worldSnapshot && (
+          <p
+            style={{
+              marginTop: '16px',
+              fontFamily: 'var(--font-serif)',
+              fontSize: '12px',
+              fontStyle: 'italic',
+              color: '#1A1A1A',
+              opacity: 0.25,
+            }}
+          >
+            Synchronisation interrompue.
+          </p>
+        )}
       </div>
 
       <button

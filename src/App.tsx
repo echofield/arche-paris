@@ -328,13 +328,20 @@ export default function App() {
       } else if (hash === 'kept') {
         setCurrentScreen('kept');
       } else if (hash === 'zone-test') {
-        setCurrentScreen('zone-test');
+        if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY) {
+          setCurrentScreen('zone-test');
+        } else {
+          setCurrentScreen('homepage');
+          window.location.hash = '';
+        }
       } else if (hash === 'meridian-quest') {
         setCurrentScreen('meridian-quest');
       } else if (hash === 'tresor') {
         setCurrentScreen('tresor');
       } else {
+        // Unknown route: return home gracefully
         setCurrentScreen('homepage');
+        window.location.hash = '';
       }
     };
 
@@ -421,8 +428,8 @@ export default function App() {
           navigateTo('quetes');
           return null;
         }
-        // Hunter: Montmartre has its own treasure hunt component
-        if (selectedQueteId === 'hunter-montmartre') {
+        // Hunter: Montmartre uses legacy GPS paradigm; only in debug until migrated to usePresence + backend
+        if (selectedQueteId === 'hunter-montmartre' && import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY) {
           return <HunterMontmartre onBack={() => navigateTo('homepage')} />;
         }
         return <QueteDetail queteId={selectedQueteId} onBack={() => navigateTo('quetes')} />;
@@ -440,11 +447,11 @@ export default function App() {
           />
         );
       case 'carnet':
-        return <CarnetParisien cardId={cardStatus?.cardId || 'unknown'} onBack={() => navigateTo('homepage')} />;
+        return <CarnetParisien cardId={cardStatus?.cardId ?? null} onBack={() => navigateTo('homepage')} />;
       case 'collection':
         return (
           <PersonalMemoryMap
-            cardId={cardStatus?.cardId || 'unknown'}
+            cardId={cardStatus?.cardId ?? null}
             onBack={() => navigateTo('homepage')}
             onOpenNotebook={() => navigateTo('carnet')}
           />
@@ -482,7 +489,7 @@ export default function App() {
       case 'champ':
         return (
           <ChampScreen
-            cardId={cardStatus?.cardId || 'unknown'}
+            cardId={cardStatus?.cardId ?? null}
             onBack={() => navigateTo('homepage')}
           />
         );

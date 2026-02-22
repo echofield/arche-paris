@@ -7,6 +7,7 @@ import {
 } from '../data/treasure-symbols';
 import { usePresence } from '../hooks/usePresence';
 import { useTranslation } from '../utils/i18n';
+import { PresenceBanner } from './presence/PresenceBanner';
 
 // ============================================================
 // TRÉSOR CACHÉ — Hunt Instrument
@@ -497,10 +498,13 @@ export function TresorCache({ onExit }: TresorCacheProps) {
 
   // --- PRESENCE VERIFICATION (burst + backend, zoneId only) ---
   const { t } = useTranslation();
-  const { state: presenceState, lastResponse: presenceLastResponse, verify: presenceVerify } = usePresence({
-    durationMs: 8000,
-    intervalMs: 750,
-  });
+  const {
+    state: presenceState,
+    lastResponse: presenceLastResponse,
+    verify: presenceVerify,
+    readyToVerify,
+    interference,
+  } = usePresence({ durationMs: 8000, intervalMs: 750 });
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
@@ -508,8 +512,9 @@ export function TresorCache({ onExit }: TresorCacheProps) {
     return () => clearTimeout(id);
   }, [cooldownRemaining]);
 
-  const displayWhisper =
-    presenceLastResponse?.whisperKey
+  const displayWhisper = interference
+    ? t('presence.interference')
+    : presenceLastResponse?.whisperKey
       ? t(presenceLastResponse.whisperKey)
       : presenceLastResponse?.whisper ?? t('treasure.location.weak');
 
@@ -523,27 +528,35 @@ export function TresorCache({ onExit }: TresorCacheProps) {
       setError(t('treasure.location.weak'));
       return;
     }
-    const res = await presenceVerify(currentSymbol.id);
+    const res = await presenceVerify(currentSymbol.id); // zoneId only, never raw zone
     if (res?.ok && res.grade === 'HIGH') {
       setGpsStatus('success');
       sealSymbol();
     } else {
       setGpsStatus('fail');
       setPhase('preuve');
-      setError(res?.whisperKey ? t(res.whisperKey) : res?.whisper ?? t('treasure.location.weak'));
+      setError(
+        interference
+          ? t('presence.interference')
+          : res?.whisperKey
+            ? t(res.whisperKey)
+            : res?.whisper ?? t('treasure.location.weak')
+      );
       if (res?.reasonCode === 'COOLDOWN') setCooldownRemaining(6);
     }
-  }, [currentSymbol, sealSymbol, t, presenceVerify]);
+  }, [currentSymbol, sealSymbol, t, presenceVerify, interference]);
 
   const isMed = presenceLastResponse?.grade === 'MED' && gpsStatus === 'fail';
   const presenceButtonLabel =
-    cooldownRemaining > 0
-      ? t('treasure.buttons.wait')
-      : presenceState === 'SEARCHING' || gpsStatus === 'checking'
-        ? t('treasure.location.searching')
-        : isMed
-          ? t('treasure.buttons.recalibrate')
-          : 'Je l\'ai trouvé';
+    !readyToVerify
+      ? t('presence.stabilisation')
+      : cooldownRemaining > 0
+        ? t('treasure.buttons.heartbeat')
+        : presenceState === 'SEARCHING' || gpsStatus === 'checking'
+          ? t('treasure.location.searching')
+          : isMed
+            ? t('treasure.buttons.recalibrate')
+            : 'Je l\'ai trouvé';
 
   // --- SUBMIT PROOF ---
   const submitProof = useCallback(() => {
@@ -851,7 +864,15 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               </div>
 
               <AnimatePresence>
-                {error && (
+                {gpsStatus === 'fail' && presenceLastResponse ? (
+                  <PresenceBanner
+                    state={presenceLastResponse.grade === 'MED' ? 'UNSTABLE' : 'IDLE'}
+                    interference={interference}
+                    lastResponse={presenceLastResponse}
+                    onRecalibrate={tryGps}
+                    t={t}
+                  />
+                ) : error ? (
                   <motion.span
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 0.34 }}
@@ -863,7 +884,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                   >
                     {error}
                   </motion.span>
-                )}
+                ) : null}
               </AnimatePresence>
             </motion.div>
           )}
@@ -907,7 +928,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                 animate={{ opacity: 0.42 }}
                 transition={{ ...MO.slow, delay: 1.5 }}
                 onClick={tryGps}
-                disabled={gpsStatus === 'checking' || presenceState === 'SEARCHING' || cooldownRemaining > 0}
+                disabled={!readyToVerify || gpsStatus === 'checking' || presenceState === 'SEARCHING' || cooldownRemaining > 0}
                 style={{
                   ...btnSmall,
                   fontSize: '9px',
@@ -918,6 +939,13 @@ export function TresorCache({ onExit }: TresorCacheProps) {
               >
                 {presenceButtonLabel}
               </motion.button>
+              <PresenceBanner
+                state={presenceState}
+                interference={interference}
+                lastResponse={presenceLastResponse}
+                onRecalibrate={tryGps}
+                t={t}
+              />
             </motion.div>
           )}
 

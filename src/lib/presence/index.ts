@@ -14,7 +14,7 @@ export type LocationSample = {
 
 export type PresenceGrade = 'LOW' | 'MED' | 'HIGH';
 
-export type PresenceState = 'IDLE' | 'SEARCHING' | 'UNSTABLE' | 'ANCHORED';
+export type PresenceState = 'IDLE' | 'WARMING' | 'SEARCHING' | 'UNSTABLE' | 'ANCHORED';
 
 export type PresenceProof = {
   grade: PresenceGrade;
@@ -41,13 +41,15 @@ export type PresenceWhisperKey =
   | 'presence.cooldown'
   | 'presence.outside'
   | 'presence.no_card'
-  | 'presence.error';
+  | 'presence.error'
+  | 'presence.teleport'
+  | 'presence.interference';
 
 export type PresenceVerifyResponse = {
   ok: boolean;
   grade: PresenceGrade;
   inside?: boolean;
-  reasonCode?: 'OK' | 'LOW_TRUST' | 'OUTSIDE_ZONE' | 'COOLDOWN' | 'NO_CARD';
+  reasonCode?: 'OK' | 'LOW_TRUST' | 'OUTSIDE_ZONE' | 'COOLDOWN' | 'NO_CARD' | 'TELEPORT';
   /** Preferred: use for t(whisperKey). */
   whisperKey?: PresenceWhisperKey | string;
   /** Legacy; do not rely in new code. */
@@ -88,12 +90,19 @@ export function haversineMeters(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+const ANCHOR_BONUS = 0.08;
+const ANCHOR_MAX_DISTANCE_M = 60;
+
+export type AnchorLike = { lat: number; lng: number; ts: number; grade: string };
+
 /**
- * Compute trust from samples. Discards samples older than 10s.
- * For trust calc, discard accuracy > 80m. Weighted center by 1/max(accuracy, 5).
- * Stability: mean distance to center < 12m using last 5 samples.
+ * Compute trust from samples. Optional anchor adds small bonus when near last good fix (never LOW->HIGH).
+ * Discards samples older than 10s. Stability: mean distance to center < 12m using last 5 samples.
  */
-export function computeTrust(samples: LocationSample[]): {
+export function computeTrust(
+  samples: LocationSample[],
+  anchor?: AnchorLike | null
+): {
   grade: PresenceGrade;
   score: number;
   best: LocationSample | null;
@@ -147,15 +156,33 @@ export function computeTrust(samples: LocationSample[]): {
   const accuracyPart = clamp01(
     (ACCURACY_SCALE_M - bestSample.accuracy) / ACCURACY_SCALE_M
   );
-  const score = clamp01(
+  let score = clamp01(
     accuracyPart * 0.65 + stabilityBonus + freshnessBonus
   );
+
+  let anchorBonus = 0;
+  if (
+    anchor &&
+    stable &&
+    now - lastTs <= FRESHNESS_THRESHOLD_MS &&
+    haversineMeters(bestSample.lat, bestSample.lng, anchor.lat, anchor.lng) < ANCHOR_MAX_DISTANCE_M
+  ) {
+    anchorBonus = Math.min(ANCHOR_BONUS, 1 - score);
+    score = clamp01(score + anchorBonus);
+  }
 
   let grade: PresenceGrade = 'LOW';
   if (score >= 0.75 && bestSample.accuracy <= 20) {
     grade = 'HIGH';
   } else if (score >= 0.45 && bestSample.accuracy <= 60) {
     grade = 'MED';
+  }
+
+  if (anchorBonus > 0 && grade === 'HIGH') {
+    const scoreWithoutAnchor = score - anchorBonus;
+    if (scoreWithoutAnchor < 0.45 || bestSample.accuracy > 20) {
+      grade = 'MED';
+    }
   }
 
   const reason =
@@ -177,6 +204,8 @@ export function computeTrust(samples: LocationSample[]): {
 export interface VerificationBurstOptions {
   durationMs?: number;
   intervalMs?: number;
+  /** Optional anchor for continuity bonus (never upgrades LOW to HIGH). */
+  anchor?: AnchorLike | null;
 }
 
 const DEFAULT_DURATION_MS = 8000;
@@ -194,7 +223,7 @@ export async function getVerificationBurst(
   const samples: LocationSample[] = [];
 
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
-    const result = computeTrust([]);
+    const result = computeTrust([], opts.anchor);
     return {
       proof: {
         grade: result.grade,
@@ -237,7 +266,7 @@ export async function getVerificationBurst(
   };
 
   await loop();
-  const result = computeTrust(samples);
+  const result = computeTrust(samples, opts.anchor);
   return {
     proof: {
       grade: result.grade,

@@ -18,7 +18,7 @@ import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 
 interface ChampScreenProps {
-  cardId: string;
+  cardId: string | null;
   onBack: () => void;
 }
 
@@ -62,7 +62,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const [traceError, setTraceError] = useState<string | null>(null);
   const traceValidationError = validateChampTrace(traceDraft);
   const traceWordCount = countWords(traceDraft);
-  const isCardEligible = cardId && cardId !== 'DEMO-DEV' && cardId !== 'unknown';
+  const isCardEligible = cardId && cardId !== 'DEMO-DEV';
   const canSubmitTrace =
     !traceSaving &&
     isCardEligible &&
@@ -98,10 +98,9 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     let cancelled = false;
     setLoading(true);
 
-    // Dev mode: skip API calls, show empty map immediately
-    const isDemoMode = cardId === 'DEMO-DEV' || cardId === 'unknown';
-    if (isDemoMode) {
-      console.log('[ChampScreen] Dev mode - skipping API call, showing empty map');
+    // No card or demo mode: skip API calls, show empty map immediately
+    if (!cardId || cardId === 'DEMO-DEV') {
+      console.log('[ChampScreen] No card or demo mode - skipping API call, showing empty map');
       setItems([]);
       setFullItems([]);
       setLoading(false);
@@ -459,10 +458,12 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                 Une carte activée est requise pour partager au Champ.
               </p>
             )}
-            {/* GPS status */}
+            {/* GPS status — no raw coords/accuracy in production */}
             {geo.lat !== null && geo.lng !== null ? (
-              <p style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: '#007850', opacity: 0.7 }}>
-                📍 Position: {geo.lat.toFixed(4)}, {geo.lng.toFixed(4)} {geo.accuracy_m && `(±${Math.round(geo.accuracy_m)}m)`}
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#007850', opacity: 0.7 }}>
+                {import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY
+                  ? `📍 ${geo.lat.toFixed(4)}, ${geo.lng.toFixed(4)} ${geo.accuracy_m != null ? `(±${Math.round(geo.accuracy_m)}m)` : ''}`
+                  : t('presence.signalSettling')}
               </p>
             ) : (
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#B43232', opacity: 0.7 }}>
@@ -501,7 +502,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                 disabled={!canSubmitTrace}
                 aria-disabled={!canSubmitTrace}
                 onClick={async () => {
-                  if (!canSubmitTrace || geo.lat === null || geo.lng === null) return;
+                  if (!cardId || !canSubmitTrace || geo.lat === null || geo.lng === null) return;
                   setTraceSaving(true);
                   setTraceError(null);
                   try {

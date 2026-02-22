@@ -92,5 +92,9 @@
   },
 
   "map.messages.empty": "No symbols in this arrondissement",
-  "map.messages.select": "Select an arrondissement on the map"
+  "map.messages.select": "Select an arrondissement on the map",
+  "map.location.uncertain": "Uncertain signal — the city hesitates.",
+  "map.location.weak": "Signal too weak — step into the open.",
+  "presence.signalSettling": "Signal in progress — position is settling.",
+  "presence.signalWeak": "GPS signal too weak. Find an opening."
 }

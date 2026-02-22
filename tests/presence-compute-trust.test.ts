@@ -129,6 +129,21 @@ function testEmpty() {
   console.log('OK empty');
 }
 
+// ----- Anchor bonus does not turn LOW into HIGH -----
+function testAnchorNeverLowToHigh() {
+  const base = { lat: 48.886, lng: 2.343 };
+  const badSamples: LocationSample[] = [
+    { lat: base.lat, lng: base.lng, accuracy: 90, ts: now },
+    { lat: base.lat + 0.0001, lng: base.lng, accuracy: 85, ts: now - 500 },
+  ];
+  const anchor = { lat: base.lat, lng: base.lng, ts: now - 1000, grade: 'HIGH' as const };
+  const trustNoAnchor = computeTrust(badSamples);
+  const trustWithAnchor = computeTrust(badSamples, anchor);
+  assert(trustNoAnchor.grade === 'LOW', 'Bad samples without anchor => LOW');
+  assert(trustWithAnchor.grade === 'LOW', 'Anchor must not upgrade bad samples to HIGH or MED');
+  console.log('OK anchor never LOW->HIGH');
+}
+
 function run() {
   testClamp01();
   testHaversine();
@@ -138,6 +153,7 @@ function run() {
   testStabilityThreshold();
   testStaleDiscarded();
   testEmpty();
+  testAnchorNeverLowToHigh();
   console.log('All presence computeTrust tests passed.');
 }
 

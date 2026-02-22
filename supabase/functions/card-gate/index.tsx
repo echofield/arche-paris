@@ -1626,7 +1626,35 @@ const PRESENCE_WHISPER_KEYS = {
   OUTSIDE: "presence.outside",
   NO_CARD: "presence.no_card",
   ERROR: "presence.error",
+  TELEPORT: "presence.teleport",
 } as const;
+
+const PRESENCE_TELEPORT_MAX_MPS = 12;
+const PRESENCE_LAST_EVENT_WINDOW_MS = 3 * 60 * 1000;
+
+function presenceQuantize(lat: number, lng: number): { lat: number; lng: number } {
+  return {
+    lat: Math.round(lat * 10000) / 10000,
+    lng: Math.round(lng * 10000) / 10000,
+  };
+}
+
+function presenceAccuracyBucket(accuracyM: number): "<=20" | "20-60" | "60-80" | ">80" {
+  if (accuracyM <= 20) return "<=20";
+  if (accuracyM <= 60) return "20-60";
+  if (accuracyM <= 80) return "60-80";
+  return ">80";
+}
+
+/** Deterministic 10% sample for success telemetry (same card+zone+day => same result). */
+function presenceSampleSuccess(cardId: string, zoneId: string | null): boolean {
+  const parisDate = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  const zonePart = zoneId != null && zoneId !== "" ? zoneId : "_";
+  const s = `${cardId}|${zonePart}|${parisDate}`;
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return (h % 100) < 10;
+}
 
 // ----- Presence: POST /presence/verify -----
 app.post("/presence/verify", async (c) => {
@@ -1652,6 +1680,9 @@ app.post("/presence/verify", async (c) => {
   }
 
   const debugPresence = Deno.env.get("DEBUG_PRESENCE") === "true";
+  if (body.zone && !debugPresence) {
+    return c.json({ error: "Zone from client not accepted in production" }, 400);
+  }
   if (!presenceAllowZoneFromBody(body, debugPresence)) {
     return c.json({ error: "Zone from client not accepted" }, 400);
   }
@@ -1694,6 +1725,44 @@ app.post("/presence/verify", async (c) => {
   const trust = computeTrust(samples);
   const grade = trust.grade;
   const best = trust.best;
+
+  let lastEvent: { ts: string; lat: number; lng: number } | null = null;
+  const { data: lastEventRow, error: lastEventErr } = await supabase
+    .from("presence_events")
+    .select("ts, lat, lng")
+    .eq("card_id", session.card_id)
+    .maybeSingle();
+  if (!lastEventErr && lastEventRow) lastEvent = lastEventRow as typeof lastEvent;
+  if (lastEvent && best) {
+    const lastTs = new Date(lastEvent.ts as string).getTime();
+    const now = Date.now();
+    if (now - lastTs < PRESENCE_LAST_EVENT_WINDOW_MS) {
+      const distM = haversineMeters(
+        lastEvent.lat as number,
+        lastEvent.lng as number,
+        best.lat,
+        best.lng
+      );
+      const deltaTs = Math.max(0.1, (best.ts - lastTs) / 1000);
+      if (deltaTs > 0) {
+        const speedMps = distM / deltaTs;
+        if (speedMps > PRESENCE_TELEPORT_MAX_MPS) {
+          const cors = getCorsHeaders(c);
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              grade: "LOW",
+              reasonCode: "TELEPORT",
+              whisperKey: PRESENCE_WHISPER_KEYS.TELEPORT,
+              whisper: "Déplacement trop rapide — la ville refuse.",
+              serverTs: Date.now(),
+            }),
+            { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
+          );
+        }
+      }
+    }
+  }
 
   let zoneCenter: { lat: number; lng: number } | null = null;
   let zoneRadiusM = 0;
@@ -1738,6 +1807,41 @@ app.post("/presence/verify", async (c) => {
   }
 
   const ok = grade !== "LOW" && (zoneCenter == null || inside === true);
+
+  try {
+    if (ok && best) {
+      const q = presenceQuantize(best.lat, best.lng);
+      await supabase
+        .from("presence_events")
+        .upsert(
+          {
+            card_id: session.card_id,
+            ts: new Date(best.ts).toISOString(),
+            lat: q.lat,
+            lng: q.lng,
+            grade,
+            zone_id: body.zoneId ?? null,
+          },
+          { onConflict: "card_id" }
+        );
+    }
+    const accuracyBucket = best ? presenceAccuracyBucket(best.accuracy) : ">80";
+    const shouldLogTelemetry = !ok || presenceSampleSuccess(session.card_id, body.zoneId ?? null);
+    if (shouldLogTelemetry) {
+      await supabase.from("presence_telemetry").insert({
+        card_id: session.card_id,
+        zone_id: body.zoneId ?? null,
+        grade,
+        ok,
+        reason_code: reasonCode,
+        accuracy_bucket: accuracyBucket,
+        ts: new Date().toISOString(),
+      });
+    }
+  } catch (e) {
+    console.error("[card-gate] presence events/telemetry write:", e);
+  }
+
   const includeDebug = debugPresence && effectiveRadius != null && distance != null;
   const cors = getCorsHeaders(c);
   return new Response(

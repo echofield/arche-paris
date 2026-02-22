@@ -1,9 +1,11 @@
 /**
  * ZoneEntryFeedback — Visual feedback for zone entry validation
  * Shows GPS acquisition, submission, acceptance/rejection states
+ * No user-visible meters/coords in production.
  */
 
 import type { ZoneEntryStatus, ZoneEntryError } from '../hooks/useZoneEntry';
+import { useTranslation } from '../utils/i18n';
 
 interface ZoneEntryFeedbackProps {
   status: ZoneEntryStatus;
@@ -24,6 +26,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   OUTSIDE_ZONE: 'Vous êtes hors de cette zone',
   ZONE_NOT_FOUND: 'Zone inconnue',
   GPS_FAILED: 'Impossible d\'obtenir votre position',
+  GPS_TRUST_LOW: "Signal trop faible — approche-toi de l'air libre.",
   MISSING_ZONE_ID: 'Zone non spécifiée',
   MISSING_IDEMPOTENCY_KEY: 'Erreur système',
 };
@@ -52,10 +55,12 @@ export function ZoneEntryFeedback({
   gpsData,
   onClose,
 }: ZoneEntryFeedbackProps) {
+  const { t } = useTranslation();
   if (status === 'idle') return null;
 
   const arrNum = zoneId?.replace('PAR-', '');
   const guidance = getGpsGuidance(error);
+  const showDebugCoords = import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY;
 
   return (
     <div
@@ -152,7 +157,7 @@ export function ZoneEntryFeedback({
             marginBottom: 8,
           }}
         >
-          {status === 'acquiring_gps' && 'Acquisition GPS...'}
+          {status === 'acquiring_gps' && 'Recherche du signal…'}
           {status === 'submitting' && 'Vérification...'}
           {status === 'accepted' && `${arrNum}e arrondissement`}
           {status === 'rejected' && 'Entrée refusée'}
@@ -170,7 +175,9 @@ export function ZoneEntryFeedback({
           {status === 'acquiring_gps' && 'Localisation en cours. Restez immobile quelques secondes...'}
           {status === 'submitting' && 'Validation de la position...'}
           {status === 'accepted' && 'Votre présence est enregistrée'}
-          {status === 'rejected' && (error ? ERROR_MESSAGES[error.code] || error.message : 'Erreur inconnue')}
+          {status === 'rejected' && (error
+            ? (error.code === 'ACCURACY_TOO_LOW' ? t('presence.signalWeak') : ERROR_MESSAGES[error.code] || error.message)
+            : 'Erreur inconnue')}
         </p>
 
         {guidance && status === 'rejected' && (
@@ -186,12 +193,12 @@ export function ZoneEntryFeedback({
           </p>
         )}
 
-        {/* GPS Details (for debugging/transparency) */}
+        {/* GPS status — no coords/accuracy/meters in production */}
         {gpsData.lat !== null && (
           <div
             style={{
-              fontFamily: 'var(--font-mono, monospace)',
-              fontSize: 10,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 11,
               color: '#8E8982',
               marginBottom: 16,
               padding: '8px 12px',
@@ -199,25 +206,10 @@ export function ZoneEntryFeedback({
               borderRadius: 4,
             }}
           >
-            {gpsData.lat?.toFixed(6)}, {gpsData.lng?.toFixed(6)}
-            <br />
-            ±{gpsData.accuracy_m?.toFixed(0)}m
+            {showDebugCoords
+              ? `${gpsData.lat?.toFixed(6)}, ${gpsData.lng?.toFixed(6)} ±${gpsData.accuracy_m?.toFixed(0) ?? '?'}m`
+              : t('presence.signalSettling')}
           </div>
-        )}
-
-        {/* Error details (if OUTSIDE_ZONE) */}
-        {status === 'rejected' && error?.code === 'OUTSIDE_ZONE' && error.details && (
-          <p
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: 11,
-              color: '#B43232',
-              marginBottom: 16,
-            }}
-          >
-            {error.details.distance_to_zone_m != null &&
-              `Distance: ~${Math.round(error.details.distance_to_zone_m as number)}m`}
-          </p>
         )}
 
         {/* Close button */}
