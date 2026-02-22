@@ -4,7 +4,7 @@
  * Entry: #meridiens (homepage, Trésor Caché Focus link for saint-sulpice-meridian).
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { BackButton } from './BackButton';
 import { MamlukGrid } from './MamlukGrid';
 import { MeridiensInterface, type LocalMeridianState } from './MeridiensInterface';
@@ -12,8 +12,15 @@ import { getThresholds, type Threshold, type ThresholdId } from '../data/meridie
 import { haversineMeters } from '../utils/geo';
 import {
   distanceToMeridianMeters,
+  emaPoint,
   getMeridienState,
   getNearestThreshold,
+  inParisBbox,
+  isAccuracySufficient,
+  isHeadingStable,
+  MERIDIAN_LNG,
+  MERIDIEN_EMA_ALPHA,
+  MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG,
   type MeridienState
 } from '../utils/meridien-geo';
 import {
@@ -27,7 +34,13 @@ import {
 import { appendMeridienInscription } from '../utils/journal-sync';
 import { postMeridianProof } from '../utils/card-gate-map-client';
 import { useTranslation } from '../utils/i18n';
+import { usePresence } from '../hooks/usePresence';
 import { api } from '../lib/api';
+
+/** Zone id for presence verify (server meridian zone). No raw zone objects in prod. */
+const MERIDIAN_ZONE_ID = 'MERIDIAN_LINE';
+/** Cooldown between heuristic-driven verifies (ms). */
+const MERIDIAN_VERIFY_COOLDOWN_MS = 30000;
 import type { WorldSnapshotData, MeridianInstrumentSnapshot } from '../lib/api';
 import {
   MERIDIAN_FETCH_DEADBAND_M,
@@ -44,8 +57,19 @@ type ViewMode = 'geometric' | 'threshold' | 'inscription';
 
 export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const { t, language } = useTranslation();
+  const {
+    state: presenceState,
+    grade: presenceGrade,
+    readyToVerify,
+    verify: presenceVerify,
+    whisper: presenceWhisper,
+    lastResponse: lastVerifyResponse,
+  } = usePresence({ durationMs: 8000, intervalMs: 750 });
+
   const watchIdRef = useRef<number | null>(null);
+  const lastVerifyTsRef = useRef<number>(0);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [accuracy_m, setAccuracy_m] = useState<number | null>(null);
   const [heading, setHeading] = useState<number | undefined>(undefined);
   const [viewMode, setViewMode] = useState<ViewMode>('geometric');
   const [activeThreshold, setActiveThreshold] = useState<Threshold | null>(null);
@@ -59,6 +83,10 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const [expandedThresholdId, setExpandedThresholdId] = useState<ThresholdId | null>(null);
   const [expandedReadId, setExpandedReadId] = useState<ThresholdId | null>(null);
   const [snapshot, setSnapshot] = useState<WorldSnapshotData | null>(null);
+  const [lireVerifying, setLireVerifying] = useState(false);
+  const [observationVerifying, setObservationVerifying] = useState<string | null>(null);
+  const lastSmoothedRef = useRef<{ lat: number; lng: number } | null>(null);
+  const headingsRef = useRef<number[]>([]);
   const lastFetchRef = useRef<{
     lat: number;
     lng: number;
@@ -69,10 +97,20 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const thresholds = getThresholds();
   const visited = getThresholdsVisited();
   const crossings = getCrossings();
+  const signalLow =
+    !userPos ||
+    !isAccuracySufficient(accuracy_m) ||
+    !inParisBbox(userPos.lat, userPos.lng);
+  const useHeadingForAligned = isHeadingStable(
+    headingsRef.current,
+    MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG
+  );
   const nearest = userPos ? getNearestThreshold(userPos.lat, userPos.lng) : null;
-  const state: MeridienState = userPos
-    ? getMeridienState(userPos.lat, userPos.lng, heading)
-    : 'lost';
+  const state: MeridienState = signalLow
+    ? 'lost'
+    : getMeridienState(userPos!.lat, userPos!.lng, heading, {
+        useHeadingForAligned
+      });
   const allVisited = visited.length >= 3;
   const lineOpacity = Math.min(0.05 + crossings.length * 0.02, 0.15);
 
@@ -90,15 +128,8 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const haloOpacity =
     state === 'lost' ? 0 : state === 'near' ? 0.18 : state === 'on_line' ? 0.3 : 0.45;
 
-  // On first time all three visited, record crossing
-  useEffect(() => {
-    if (visited.length >= 3 && crossings.length === 0) addCrossing();
-  }, [visited.length, crossings.length]);
+  // Crossing and visited are gated by Presence: only after verify (Lire / proof).
 
-  // Mark visited when in radius (no auto-switch; Patch 6: Lire doorway only)
-  useEffect(() => {
-    if (nearest) markThresholdVisited(nearest.id);
-  }, [nearest?.id]);
   // When leaving radius while in threshold view, return to geometric
   useEffect(() => {
     if (viewMode === 'threshold' && !nearest) {
@@ -107,14 +138,29 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     }
   }, [viewMode, nearest]);
 
-  // Geolocation
+  // Geolocation: capture accuracy, EMA-smooth position, ring-buffer headings
   useEffect(() => {
     const onPos = (pos: GeolocationPosition) => {
-      setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      if (pos.coords.heading != null && !isNaN(pos.coords.heading))
-        setHeading(pos.coords.heading);
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = pos.coords.accuracy;
+      if (typeof acc === 'number' && Number.isFinite(acc)) setAccuracy_m(acc);
+      const raw = { lat, lng };
+      const smoothed = emaPoint(lastSmoothedRef.current, raw, MERIDIEN_EMA_ALPHA);
+      lastSmoothedRef.current = smoothed;
+      setUserPos(smoothed);
+      const h = pos.coords.heading;
+      if (typeof h === 'number' && Number.isFinite(h)) {
+        const ring = headingsRef.current;
+        ring.push(h);
+        if (ring.length > 5) ring.shift();
+        setHeading(h);
+      }
     };
-    const onErr = () => setUserPos(null);
+    const onErr = () => {
+      setUserPos(null);
+      setAccuracy_m(null);
+    };
     navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true });
     const id = navigator.geolocation.watchPosition(onPos, onErr, {
       enableHighAccuracy: true,
@@ -127,6 +173,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
         watchIdRef.current = null;
       }
       setUserPos(null);
+      setAccuracy_m(null);
     };
   }, []);
 
@@ -161,26 +208,29 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       });
   }, [userPos?.lat, userPos?.lng, heading]);
 
-  // Meridian state: from snapshot or local fallback (Patch 3 semantics)
+  // Meridian state: from snapshot or local fallback (Patch 3 semantics). No dead ends: always valid state object.
   const LOST_M = 100;
+  const fallbackMeridianState = (): LocalMeridianState => ({
+    state: 'EGARE',
+    alignmentIndex: 0,
+    holdProgress01: 0,
+    recognized: thresholds.map((t) => ({
+      placeId: t.id,
+      status: 'NON_RECONNU' as const
+    })),
+    nearestPlaceId: null,
+    micro: { statusLine: '' }
+  });
+
   const meridian: MeridianInstrumentSnapshot | LocalMeridianState = (() => {
     if (snapshot?.world?.meridian) return snapshot.world.meridian;
-    if (!userPos) {
-      return {
-        state: 'EGARE',
-        alignmentIndex: 0,
-        holdProgress01: 0,
-        recognized: thresholds.map((t) => ({
-          placeId: t.id,
-          status: 'NON_RECONNU' as const
-        })),
-        nearestPlaceId: null,
-        micro: { statusLine: '' }
-      };
-    }
+    if (!userPos) return fallbackMeridianState();
+    if (signalLow) return fallbackMeridianState();
     const lineDistanceM = distanceToMeridianMeters(userPos.lng);
-    const localState = getMeridienState(userPos.lat, userPos.lng, heading);
-    const state: LocalMeridianState['state'] =
+    const localState = getMeridienState(userPos.lat, userPos.lng, heading, {
+      useHeadingForAligned
+    });
+    const localStateKey: LocalMeridianState['state'] =
       localState === 'lost'
         ? 'EGARE'
         : localState === 'near'
@@ -190,17 +240,17 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
             : 'ALIGNE';
     const alignmentIndex = Math.max(0, Math.min(1, 1 - lineDistanceM / LOST_M));
     const visitedIds = getThresholdsVisited();
-    const nearest = getNearestThreshold(userPos.lat, userPos.lng);
+    const nearestThresh = getNearestThreshold(userPos.lat, userPos.lng);
     const recognized = thresholds.map((t) => ({
       placeId: t.id,
-      status: (visitedIds.includes(t.id) || (nearest?.id === t.id) ? 'RECONNU' : 'NON_RECONNU') as 'RECONNU' | 'NON_RECONNU'
+      status: (visitedIds.includes(t.id) || (nearestThresh?.id === t.id) ? 'RECONNU' : 'NON_RECONNU') as 'RECONNU' | 'NON_RECONNU'
     }));
     return {
-      state,
+      state: localStateKey,
       alignmentIndex,
-      holdProgress01: state === 'ALIGNE' ? 1 : 0,
+      holdProgress01: localStateKey === 'ALIGNE' ? 1 : 0,
       recognized,
-      nearestPlaceId: nearest?.id ?? null,
+      nearestPlaceId: nearestThresh?.id ?? null,
       micro: { statusLine: '' }
     };
   })();
@@ -236,8 +286,59 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     }, 1200);
   };
 
-  const saveMeridianProof = async () => {
+  const backToGeometric = () => {
+    setViewMode('geometric');
+    setActiveThreshold(null);
+  };
+
+  /** Presence-gated: open threshold (Lire) only after verify with grade >= MED. */
+  const handleLireClick = useCallback(async () => {
+    if (!nearest || lireVerifying || !readyToVerify) return;
+    setLireVerifying(true);
+    try {
+      const res = await presenceVerify(MERIDIAN_ZONE_ID);
+      lastVerifyTsRef.current = Date.now();
+      const grade = res?.grade ?? presenceGrade;
+      if (grade === 'MED' || grade === 'HIGH') {
+        markThresholdVisited(nearest.id);
+        const after = getThresholdsVisited();
+        if (after.length >= 3 && getCrossings().length === 0 && grade === 'HIGH') {
+          addCrossing();
+        }
+        setActiveThreshold(nearest);
+        setViewMode('threshold');
+      }
+    } finally {
+      setLireVerifying(false);
+    }
+  }, [nearest, readyToVerify, presenceVerify, presenceGrade, lireVerifying]);
+
+  /** Presence-gated: record observation only after verify with grade >= MED. */
+  const handleMarkObservation = useCallback(
+    async (thresholdId: ThresholdId, promptId: string) => {
+      if (observationVerifying !== null) return;
+      setObservationVerifying(promptId);
+      try {
+        const res = await presenceVerify(MERIDIAN_ZONE_ID);
+        const grade = res?.grade ?? presenceGrade;
+        if (grade === 'MED' || grade === 'HIGH') {
+          markObservation(thresholdId, promptId);
+        }
+      } finally {
+        setObservationVerifying(null);
+      }
+    },
+    [presenceVerify, presenceGrade, observationVerifying]
+  );
+
+  /** Presence-gated: save proof only after verify with grade === HIGH. */
+  const handleSaveMeridianProof = useCallback(async () => {
     if (!cardId || !inscriptionThresholdId || !proofAnswer.trim() || !proofPersonalSentence.trim()) return;
+    const res = await presenceVerify(MERIDIAN_ZONE_ID);
+    const grade = res?.grade ?? presenceGrade;
+    if (grade !== 'HIGH') {
+      return; // whisper already set by usePresence
+    }
     const threshold = getThresholdById(inscriptionThresholdId);
     const lat = userPos?.lat ?? threshold?.lat ?? 48.8566;
     const lng = userPos?.lng ?? threshold?.lng ?? 2.3522;
@@ -260,12 +361,16 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     } finally {
       setProofSaving(false);
     }
-  };
-
-  const backToGeometric = () => {
-    setViewMode('geometric');
-    setActiveThreshold(null);
-  };
+  }, [
+    cardId,
+    inscriptionThresholdId,
+    proofAnswer,
+    proofPersonalSentence,
+    userPos,
+    presenceVerify,
+    presenceGrade,
+    thresholds,
+  ]);
 
   // —— Inscription view ——
   if (viewMode === 'inscription') {
@@ -364,7 +469,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
           ) : (
             <button
               type="button"
-              onClick={saveMeridianProof}
+              onClick={handleSaveMeridianProof}
               disabled={!proofAnswer.trim() || !proofPersonalSentence.trim() || proofSaving || !cardId}
               style={{
                 padding: '12px 24px',
@@ -498,7 +603,8 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      onClick={() => markObservation(activeThreshold.id, prompt.id)}
+                      onClick={() => handleMarkObservation(activeThreshold.id, prompt.id)}
+                      disabled={observationVerifying === prompt.id}
                       style={{
                         padding: '6px 14px',
                         fontFamily: 'var(--font-sans)',
@@ -585,10 +691,8 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
         >
           <button
             type="button"
-            onClick={() => {
-              setActiveThreshold(nearest);
-              setViewMode('threshold');
-            }}
+            onClick={handleLireClick}
+            disabled={lireVerifying || !readyToVerify}
             style={{
               fontFamily: 'var(--font-sans)',
               fontSize: 11,
@@ -597,13 +701,13 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
               color: '#003D2C',
               background: 'transparent',
               border: 'none',
-              cursor: 'pointer',
-              opacity: 0.7,
+              cursor: lireVerifying || !readyToVerify ? 'default' : 'pointer',
+              opacity: lireVerifying || !readyToVerify ? 0.5 : 0.7,
               textDecoration: 'underline',
               padding: 8,
             }}
           >
-            {t('meridiens.instrument.read')}
+            {lireVerifying ? '…' : t('meridiens.instrument.read')}
           </button>
         </div>
       )}

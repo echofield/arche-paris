@@ -3,16 +3,21 @@
  *
  * The core gameplay experience that defines ARCHÉ.
  * GPS vs Perception conflict. Interpretive choices. Silent Aura modification.
- * No teaching history. Creating uncertainty between system truth and lived reality.
+ * Presence Protocol: phase transitions and trust gated by verify(); no raw meters in production.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BackButton } from './BackButton';
 import { DecisionNode, type DecisionOption } from './DecisionNode';
 import { usePerceptionState } from '../hooks/usePerceptionState';
+import { usePresence } from '../hooks/usePresence';
 import { useWhisper } from '../contexts/WhisperContext';
 import { getDecisionWhisper } from '../data/oracle';
+import { useTranslation } from '../utils/i18n';
 import { distanceToMeridianMeters, MERIDIAN_LNG } from '../utils/meridien-geo';
+
+const MERIDIAN_ZONE_ID = 'MERIDIAN_LINE';
+const MERIDIAN_VERIFY_COOLDOWN_MS = 30000;
 
 type QuestPhase =
   | 'intro'
@@ -28,6 +33,7 @@ interface MeridianQuestProps {
 }
 
 export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<QuestPhase>('intro');
   const [lastDecisionDelta, setLastDecisionDelta] = useState<{
     d_presence: number;
@@ -37,6 +43,13 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
 
   const perception = usePerceptionState();
   const { show: showWhisper } = useWhisper();
+  const {
+    grade: presenceGrade,
+    readyToVerify,
+    verify: presenceVerify,
+    lastResponse: lastVerifyResponse,
+  } = usePresence({ durationMs: 8000, intervalMs: 750 });
+  const lastVerifyTsRef = useRef<number>(0);
 
   // Track if we've shown the conflict decision
   const [conflictResolved, setConflictResolved] = useState(false);
@@ -49,13 +62,31 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
     }
   }, [phase]);
 
-  // Check for meridian proximity and transition phases
+  // Presence-gated: only transition to perception_prompt when near meridian AND verify grade >= MED (once per approaching)
+  const hasTriedVerifyForApproachingRef = useRef(false);
   useEffect(() => {
-    if (phase === 'approaching' && perception.isNearMeridian) {
-      // Near enough to prompt perception check
-      setPhase('perception_prompt');
-    }
-  }, [phase, perception.isNearMeridian]);
+    if (phase !== 'approaching' || !perception.isNearMeridian || !readyToVerify) return;
+    if (hasTriedVerifyForApproachingRef.current) return;
+    const inHeuristicWindow =
+      perception.gps != null && Math.abs(perception.gps.lng - MERIDIAN_LNG) * 73000 < 150;
+    const now = Date.now();
+    if (!inHeuristicWindow && now - lastVerifyTsRef.current < MERIDIAN_VERIFY_COOLDOWN_MS) return;
+
+    hasTriedVerifyForApproachingRef.current = true;
+    let cancelled = false;
+    presenceVerify(MERIDIAN_ZONE_ID).then((res) => {
+      if (cancelled) return;
+      lastVerifyTsRef.current = Date.now();
+      const grade = res?.grade ?? presenceGrade;
+      if (grade === 'MED' || grade === 'HIGH') {
+        setPhase('perception_prompt');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [phase, perception.isNearMeridian, perception.gps, readyToVerify, presenceVerify, presenceGrade]);
+  useEffect(() => {
+    if (phase !== 'approaching') hasTriedVerifyForApproachingRef.current = false;
+  }, [phase]);
 
   // After perception is set, check for conflict
   useEffect(() => {
@@ -222,35 +253,21 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
             Walk toward the meridian.
           </p>
 
-          {/* GPS status */}
+          {/* GPS status — no meters/coords in production */}
           {perception.gps ? (
-            <div style={{ marginBottom: 16 }}>
-              <p
-                style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: 11,
-                  color: '#007850',
-                  opacity: 0.6,
-                }}
-              >
-                {perception.instrumentDistanceM !== null
-                  ? `${Math.round(perception.instrumentDistanceM)}m from the axis`
-                  : 'Searching...'}
-              </p>
-              {perception.driftedGps && perception.driftedGps.driftMeters > 0.5 && (
-                <p
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: 9,
-                    color: '#6B6455',
-                    opacity: 0.4,
-                    marginTop: 4,
-                  }}
-                >
-                  (instrument drift detected)
-                </p>
-              )}
-            </div>
+            <p
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 11,
+                color: '#007850',
+                opacity: 0.6,
+                marginBottom: 16,
+              }}
+            >
+              {import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY && perception.instrumentDistanceM != null
+                ? `${Math.round(perception.instrumentDistanceM)}m from the axis`
+                : t('presence.signalSettling')}
+            </p>
           ) : (
             <p
               style={{
@@ -258,9 +275,10 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
                 fontSize: 11,
                 color: '#B43232',
                 opacity: 0.7,
+                marginBottom: 16,
               }}
             >
-              Acquiring GPS...
+              {t('presence.signalWeak')}
             </p>
           )}
 
@@ -350,7 +368,7 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
           prompt="The instrument says you stand on the axis."
           subPrompt="Your eyes see the marker elsewhere."
           options={trustDecisionOptions}
-          gps={perception.gps ?? undefined}
+          gps={import.meta.env.PROD ? undefined : (perception.gps ?? undefined)}
           onDecision={(optionId) => {
             const option = trustDecisionOptions.find((o) => o.id === optionId);
             if (option) {
@@ -371,7 +389,7 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
           prompt="The axis stretches north and south."
           subPrompt="What do you do?"
           options={continuationOptions}
-          gps={perception.gps ?? undefined}
+          gps={import.meta.env.PROD ? undefined : (perception.gps ?? undefined)}
           onDecision={(optionId) => {
             const option = continuationOptions.find((o) => o.id === optionId);
             if (option) {

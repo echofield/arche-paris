@@ -12,7 +12,81 @@ export const MERIDIAN_LNG = 2.3372;
 /** At Paris latitude (~48.85°), 1° longitude ≈ 73 km. */
 const METERS_PER_DEG_LNG = 73000;
 
+/** If accuracy_m is missing or above this (m), do not compute alignment; return stable "signal low" state. */
+export const MERIDIEN_ACCURACY_THRESHOLD_M = 50;
+
+/** EMA alpha for smoothing lat/lng (0 = no smoothing, 1 = no memory). */
+export const MERIDIEN_EMA_ALPHA = 0.25;
+
+/** Max variance (degrees) in recent headings to consider heading "stable" for aligned state. */
+export const MERIDIEN_HEADING_STABLE_MAX_VARIANCE_DEG = 25;
+
 export type MeridienState = 'lost' | 'near' | 'on_line' | 'aligned';
+
+/**
+ * True only when accuracy is present and good enough to trust alignment computation.
+ */
+export function isAccuracySufficient(accuracy_m: number | null | undefined): boolean {
+  return (
+    accuracy_m != null &&
+    Number.isFinite(accuracy_m) &&
+    accuracy_m <= MERIDIEN_ACCURACY_THRESHOLD_M
+  );
+}
+
+/**
+ * One-step EMA for a point. prev=null → return next.
+ */
+export function emaPoint(
+  prev: { lat: number; lng: number } | null,
+  next: { lat: number; lng: number },
+  alpha: number
+): { lat: number; lng: number } {
+  if (!prev) return { lat: next.lat, lng: next.lng };
+  const a = Math.max(0, Math.min(1, alpha));
+  return {
+    lat: prev.lat * (1 - a) + next.lat * a,
+    lng: prev.lng * (1 - a) + next.lng * a,
+  };
+}
+
+/**
+ * True if recent headings have variance within maxVarianceDeg (for use with aligned state).
+ */
+export function isHeadingStable(
+  headings: number[],
+  maxVarianceDeg: number
+): boolean {
+  if (headings.length < 2) return false;
+  const normalized = headings.map((h) => {
+    let n = h % 360;
+    if (n < 0) n += 360;
+    return n;
+  });
+  const mean = normalized.reduce((a, b) => a + b, 0) / normalized.length;
+  const variance =
+    normalized.reduce((sum, h) => {
+      let d = Math.abs(h - mean);
+      if (d > 180) d = 360 - d;
+      return sum + d * d;
+    }, 0) / normalized.length;
+  const stdDeg = Math.sqrt(variance);
+  return stdDeg <= maxVarianceDeg;
+}
+
+/** Generous Paris bbox for out-of-coverage guard (no zone dependency). */
+const PARIS_BBOX = { minLat: 48.78, maxLat: 48.95, minLng: 2.2, maxLng: 2.45 };
+
+export function inParisBbox(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= PARIS_BBOX.minLat &&
+    lat <= PARIS_BBOX.maxLat &&
+    lng >= PARIS_BBOX.minLng &&
+    lng <= PARIS_BBOX.maxLng
+  );
+}
 
 /**
  * Distance from user longitude to the meridian line, in meters.
@@ -23,20 +97,25 @@ export function distanceToMeridianMeters(userLng: number): number {
 
 /**
  * State relative to the meridian line.
- * lost: >100m; near: 30–100m; on_line: 10–30m; aligned: on line + facing N/S (±20°).
+ * lost: >100m; near: 30–100m; on_line: 10–30m; aligned: on line + facing N/S (±20°), only if heading stable when provided.
+ * Returns 'lost' for non-finite coords (no dead ends).
  */
 export function getMeridienState(
   userLat: number,
   userLng: number,
-  userHeading?: number
+  userHeading?: number,
+  options?: { useHeadingForAligned?: boolean }
 ): MeridienState {
+  if (!Number.isFinite(userLat) || !Number.isFinite(userLng)) return 'lost';
+
   const distToLine = distanceToMeridianMeters(userLng);
 
   if (distToLine > 100) return 'lost';
   if (distToLine > 30) return 'near';
   if (distToLine > 10) return 'on_line';
 
-  if (userHeading !== undefined) {
+  const useHeading = options?.useHeadingForAligned !== false;
+  if (useHeading && userHeading !== undefined && Number.isFinite(userHeading)) {
     const facingNS =
       userHeading < 20 ||
       userHeading > 340 ||
@@ -48,11 +127,13 @@ export function getMeridienState(
 
 /**
  * Return the threshold whose radius contains the user, or null.
+ * Returns null for non-finite coords (no dead ends).
  */
 export function getNearestThreshold(
   userLat: number,
   userLng: number
 ): Threshold | null {
+  if (!Number.isFinite(userLat) || !Number.isFinite(userLng)) return null;
   const thresholds = getThresholds();
   for (const t of thresholds) {
     const d = haversineMeters(userLat, userLng, t.lat, t.lng);
