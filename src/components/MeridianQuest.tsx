@@ -14,7 +14,8 @@ import { usePresence } from '../hooks/usePresence';
 import { useWhisper } from '../contexts/WhisperContext';
 import { getDecisionWhisper } from '../data/oracle';
 import { useTranslation } from '../utils/i18n';
-import { distanceToMeridianMeters, MERIDIAN_LNG } from '../utils/meridien-geo';
+import { isGradeSufficientForSoftConfirmation } from '../utils/meridien-presence-gate';
+import { MERIDIAN_LNG } from '../utils/meridien-geo';
 
 const MERIDIAN_ZONE_ID = 'MERIDIAN_LINE';
 const MERIDIAN_VERIFY_COOLDOWN_MS = 30000;
@@ -78,7 +79,7 @@ export function MeridianQuest({ onBack, onComplete }: MeridianQuestProps) {
       if (cancelled) return;
       lastVerifyTsRef.current = Date.now();
       const grade = res?.grade ?? presenceGrade;
-      if (grade === 'MED' || grade === 'HIGH') {
+      if (isGradeSufficientForSoftConfirmation(grade)) {
         setPhase('perception_prompt');
       }
     });

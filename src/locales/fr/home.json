@@ -32,6 +32,7 @@
   "home.footer.signature": "Petit Souvenir",
   "instruments.title": "INSTRUMENTS",
   "instruments.rows.meridian": "Alignement méridien",
+  "instruments.rows.placeScan": "Lecture du lieu",
   "instruments.rows.depth": "Profondeur",
   "instruments.rows.coherence": "Cohérence",
   "instruments.status.active": "en service",
@@ -46,5 +47,8 @@
   "instruments.usage.meridian": "Mesure ta relation à l'axe méridien : proximité, tenue, reconnaissance des sites.",
   "instruments.usage.depth": "Calibre une lecture verticale : profondeur, vides, strates. (Étalonnage)",
   "instruments.usage.coherence": "Calibre la cohérence du mouvement : stabilité, continuité, friction. (Étalonnage)",
-  "instruments.manual.close": "Fermer"
+  "instruments.manual.close": "Fermer",
+  "instruments.back": "Retour",
+  "instruments.placeScan.cta": "Lire le lieu.",
+  "instruments.placeScan.error": "Signal faible. Impossible de lire le lieu."
 }

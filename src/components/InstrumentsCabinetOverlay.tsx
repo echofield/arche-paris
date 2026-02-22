@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { motion as fm } from 'framer-motion';
 import { useTranslation } from '../utils/i18n';
 import { motion } from '../design/motion';
@@ -6,9 +6,10 @@ import { motion } from '../design/motion';
 interface InstrumentsCabinetOverlayProps {
   onClose: () => void;
   onOpenMeridian: () => void;
+  onOpenPlaceScan: () => void;
 }
 
-export function InstrumentsCabinetOverlay({ onClose, onOpenMeridian }: InstrumentsCabinetOverlayProps) {
+export function InstrumentsCabinetOverlay({ onClose, onOpenMeridian, onOpenPlaceScan }: InstrumentsCabinetOverlayProps) {
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -95,6 +96,24 @@ export function InstrumentsCabinetOverlay({ onClose, onOpenMeridian }: Instrumen
             }}
           >
             {t('instruments.rows.meridian')}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPlaceScan}
+            style={{
+              border: '1px solid rgba(0, 61, 44, 0.18)',
+              background: '#F4F1E8',
+              color: '#003D2C',
+              textAlign: 'left',
+              padding: '14px 16px',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {t('instruments.rows.placeScan')}
           </button>
           <div style={{ border: '1px solid rgba(0, 61, 44, 0.1)', padding: '14px 16px', opacity: 0.58, fontFamily: 'var(--font-sans)', fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#003D2C' }}>
             {t('instruments.rows.depth')}

@@ -32,6 +32,7 @@
   "home.footer.signature": "Petit Souvenir",
   "instruments.title": "INSTRUMENTS",
   "instruments.rows.meridian": "Meridian Alignment",
+  "instruments.rows.placeScan": "Place reading",
   "instruments.rows.depth": "Depth",
   "instruments.rows.coherence": "Coherence",
   "instruments.status.active": "active",
@@ -45,5 +46,9 @@
   "instruments.manual.cta": "Got it",
   "instruments.usage.meridian": "Measures your relation to the meridian axis: proximity, hold, site recognition.",
   "instruments.usage.depth": "Calibrates a vertical reading: depth, voids, strata. (Calibrating)",
-  "instruments.usage.coherence": "Calibrates movement coherence: stability, continuity, friction. (Calibrating)"
+  "instruments.usage.coherence": "Calibrates movement coherence: stability, continuity, friction. (Calibrating)",
+  "instruments.manual.close": "Close",
+  "instruments.back": "Back",
+  "instruments.placeScan.cta": "Read the place.",
+  "instruments.placeScan.error": "Weak signal. Unable to read the place."
 }

@@ -32,11 +32,14 @@ import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest' | 'tresor';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'place-scan' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest' | 'tresor';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 const LazyMeridiensLive = lazy(() =>
   import('./components/MeridiensLive').then((mod) => ({ default: mod.MeridiensLive }))
+);
+const LazyPlaceScanSurface = lazy(() =>
+  import('./components/instruments/PlaceScanSurface').then((mod) => ({ default: mod.PlaceScanSurface }))
 );
 const LazyEtudesHub = lazy(() =>
   import('./components/EtudesHub').then((mod) => ({ default: mod.EtudesHub }))
@@ -323,6 +326,8 @@ export default function App() {
         setCurrentScreen('homepage');
       } else if (hash === 'meridiens') {
         setCurrentScreen('meridiens');
+      } else if (hash === 'place-scan') {
+        setCurrentScreen('place-scan');
       } else if (hash === 'champ') {
         setCurrentScreen('champ');
       } else if (hash === 'kept') {
@@ -486,6 +491,12 @@ export default function App() {
             />
           </Suspense>
         );
+      case 'place-scan':
+        return (
+          <Suspense fallback={renderScreenLoading('Lecture du lieu...')}>
+            <LazyPlaceScanSurface onExit={() => navigateTo('homepage')} />
+          </Suspense>
+        );
       case 'champ':
         return (
           <ChampScreen
@@ -577,6 +588,10 @@ export default function App() {
                   onOpenMeridian={() => {
                     setCabinetOpen(false);
                     navigateTo('meridiens');
+                  }}
+                  onOpenPlaceScan={() => {
+                    setCabinetOpen(false);
+                    navigateTo('place-scan');
                   }}
                 />
               )}
