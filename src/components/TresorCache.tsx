@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import {
   MONTMARTRE_SYMBOLS, TreasureSymbol,
-  RIDDLE_TIME, COOLDOWN_TIME, GPS_RADIUS_METERS,
+  RIDDLE_TIME, COOLDOWN_TIME,
 } from '../data/treasure-symbols';
+import { usePresence } from '../hooks/usePresence';
+import { useTranslation } from '../utils/i18n';
 
 // ============================================================
 // TRÉSOR CACHÉ — Hunt Instrument
@@ -78,22 +80,6 @@ function loadCollection(): Set<string> {
 
 function saveCollection(ids: Set<string>) {
   localStorage.setItem(COLLECTION_KEY, JSON.stringify([...ids]));
-}
-
-// --- DISTANCE (Haversine) ---
-function distanceMeters(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number,
-): number {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // --- PHASES ---
@@ -509,36 +495,55 @@ export function TresorCache({ onExit }: TresorCacheProps) {
     }, 6000);
   }, [currentSymbol, collected, clearTimers]);
 
-  // --- GPS VERIFICATION ---
-  const tryGps = useCallback(() => {
+  // --- PRESENCE VERIFICATION (burst + backend, zoneId only) ---
+  const { t } = useTranslation();
+  const { state: presenceState, lastResponse: presenceLastResponse, verify: presenceVerify } = usePresence({
+    durationMs: 8000,
+    intervalMs: 750,
+  });
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const id = setTimeout(() => setCooldownRemaining((n) => Math.max(0, n - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [cooldownRemaining]);
+
+  const displayWhisper =
+    presenceLastResponse?.whisperKey
+      ? t(presenceLastResponse.whisperKey)
+      : presenceLastResponse?.whisper ?? t('treasure.location.weak');
+
+  const tryGps = useCallback(async () => {
     if (!currentSymbol) return;
     setGpsStatus('checking');
+    setError('');
     if (!navigator.geolocation) {
       setGpsStatus('fail');
       setPhase('preuve');
+      setError(t('treasure.location.weak'));
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const d = distanceMeters(
-          pos.coords.latitude, pos.coords.longitude,
-          currentSymbol.coordinates.lat, currentSymbol.coordinates.lng,
-        );
-        if (d <= GPS_RADIUS_METERS) {
-          setGpsStatus('success');
-          sealSymbol();
-        } else {
-          setGpsStatus('fail');
-          setPhase('preuve');
-        }
-      },
-      () => {
-        setGpsStatus('fail');
-        setPhase('preuve');
-      },
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
-  }, [currentSymbol, sealSymbol]);
+    const res = await presenceVerify(currentSymbol.id);
+    if (res?.ok && res.grade === 'HIGH') {
+      setGpsStatus('success');
+      sealSymbol();
+    } else {
+      setGpsStatus('fail');
+      setPhase('preuve');
+      setError(res?.whisperKey ? t(res.whisperKey) : res?.whisper ?? t('treasure.location.weak'));
+      if (res?.reasonCode === 'COOLDOWN') setCooldownRemaining(6);
+    }
+  }, [currentSymbol, sealSymbol, t, presenceVerify]);
+
+  const isMed = presenceLastResponse?.grade === 'MED' && gpsStatus === 'fail';
+  const presenceButtonLabel =
+    cooldownRemaining > 0
+      ? t('treasure.buttons.wait')
+      : presenceState === 'SEARCHING' || gpsStatus === 'checking'
+        ? t('treasure.location.searching')
+        : isMed
+          ? t('treasure.buttons.recalibrate')
+          : 'Je l\'ai trouvé';
 
   // --- SUBMIT PROOF ---
   const submitProof = useCallback(() => {
@@ -902,7 +907,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                 animate={{ opacity: 0.42 }}
                 transition={{ ...MO.slow, delay: 1.5 }}
                 onClick={tryGps}
-                disabled={gpsStatus === 'checking'}
+                disabled={gpsStatus === 'checking' || presenceState === 'SEARCHING' || cooldownRemaining > 0}
                 style={{
                   ...btnSmall,
                   fontSize: '9px',
@@ -911,7 +916,7 @@ export function TresorCache({ onExit }: TresorCacheProps) {
                   opacity: gpsStatus === 'checking' ? 0.21 : 0.42,
                 }}
               >
-                {gpsStatus === 'checking' ? 'Lecture…' : 'Je l\'ai trouvé'}
+                {presenceButtonLabel}
               </motion.button>
             </motion.div>
           )}

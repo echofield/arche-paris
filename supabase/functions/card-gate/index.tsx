@@ -17,6 +17,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Hono } from "npm:hono@4.6.14";
 import { SignJWT, jwtVerify } from "npm:jose@5.9.6";
 import { selectMonParisEntry, selectMonParisReading } from "./mon-paris-state.ts";
+import { computeTrust, haversineMeters } from "./presence-trust.ts";
+import { getPresenceZone, presenceAllowZoneFromBody } from "./presence-zones.ts";
 
 const app = new Hono().basePath("/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
@@ -1611,6 +1613,146 @@ app.post("/presence/pulse", async (c) => {
     accepted: true,
     cooldown_ms: PRESENCE_PULSE_COOLDOWN_MS,
   });
+});
+
+const PRESENCE_VERIFY_COOLDOWN_S = 20;
+
+const PRESENCE_WHISPER_KEYS = {
+  SEARCHING: "presence.searching",
+  UNCERTAIN: "presence.uncertain",
+  WEAK: "presence.weak",
+  RECOGNIZED: "presence.recognized",
+  COOLDOWN: "presence.cooldown",
+  OUTSIDE: "presence.outside",
+  NO_CARD: "presence.no_card",
+  ERROR: "presence.error",
+} as const;
+
+// ----- Presence: POST /presence/verify -----
+app.post("/presence/verify", async (c) => {
+  const supabase = getSupabase();
+  const session = await requireJwt(c);
+  if (session instanceof Response) return session;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, session.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  let body: {
+    zoneId?: string;
+    zone?: { lat: number; lng: number; radiusM: number };
+    mode?: string;
+    samples?: Array<{ lat: number; lng: number; accuracy: number; ts: number; speed?: number | null; heading?: number | null }>;
+    client?: { ua?: string; platform?: string };
+  };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+
+  const debugPresence = Deno.env.get("DEBUG_PRESENCE") === "true";
+  if (!presenceAllowZoneFromBody(body, debugPresence)) {
+    return c.json({ error: "Zone from client not accepted" }, 400);
+  }
+
+  const samples = Array.isArray(body?.samples) ? body.samples : [];
+  if (samples.length < 1 || samples.length > 15) {
+    return c.json({ error: "samples length must be 1..15" }, 400);
+  }
+  const sane = samples.every(
+    (s) =>
+      typeof s?.lat === "number" &&
+      typeof s?.lng === "number" &&
+      typeof s?.accuracy === "number" &&
+      typeof s?.ts === "number" &&
+      Number.isFinite(s.lat) &&
+      Number.isFinite(s.lng) &&
+      s.accuracy >= 0 &&
+      s.ts > 0
+  );
+  if (!sane) {
+    return c.json({ error: "Invalid sample values" }, 400);
+  }
+
+  const cooldownKey = `presence_verify:${session.card_id}`;
+  if (!(await dbRateLimit(supabase, cooldownKey, 1, PRESENCE_VERIFY_COOLDOWN_S))) {
+    const cors = getCorsHeaders(c);
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        grade: "LOW",
+        reasonCode: "COOLDOWN",
+        whisperKey: PRESENCE_WHISPER_KEYS.COOLDOWN,
+        whisper: "Attends un peu avant de revérifier.",
+        serverTs: Date.now(),
+      }),
+      { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
+    );
+  }
+
+  const trust = computeTrust(samples);
+  const grade = trust.grade;
+  const best = trust.best;
+
+  let zoneCenter: { lat: number; lng: number } | null = null;
+  let zoneRadiusM = 0;
+  if (debugPresence && body.zone && typeof body.zone.lat === "number" && typeof body.zone.lng === "number" && typeof body.zone.radiusM === "number") {
+    zoneCenter = { lat: body.zone.lat, lng: body.zone.lng };
+    zoneRadiusM = Math.max(0, Math.min(500, body.zone.radiusM));
+  }
+  if (body.zoneId && !zoneCenter) {
+    const z = getPresenceZone(body.zoneId);
+    if (z) {
+      zoneCenter = { lat: z.lat, lng: z.lng };
+      zoneRadiusM = z.radiusM;
+    }
+  }
+
+  let inside: boolean | undefined;
+  let effectiveRadius: number | undefined;
+  let distance: number | undefined;
+  if (zoneCenter && best) {
+    effectiveRadius = zoneRadiusM + best.accuracy;
+    distance = haversineMeters(best.lat, best.lng, zoneCenter.lat, zoneCenter.lng);
+    inside = distance <= effectiveRadius;
+  }
+
+  let reasonCode: "OK" | "LOW_TRUST" | "OUTSIDE_ZONE" | "COOLDOWN" | "NO_CARD" = "OK";
+  let whisperKey: string;
+  let whisper: string | undefined;
+  if (grade === "LOW") {
+    reasonCode = "LOW_TRUST";
+    whisperKey = PRESENCE_WHISPER_KEYS.WEAK;
+    whisper = "Signal trop faible — approche-toi de l'air libre.";
+  } else if (zoneCenter !== undefined && zoneCenter !== null && inside === false) {
+    reasonCode = "OUTSIDE_ZONE";
+    whisperKey = PRESENCE_WHISPER_KEYS.OUTSIDE;
+    whisper = "Tu n'es pas dans le lieu attendu.";
+  } else if (grade === "MED") {
+    whisperKey = PRESENCE_WHISPER_KEYS.UNCERTAIN;
+    whisper = "Signal incertain — la ville hésite.";
+  } else {
+    whisperKey = PRESENCE_WHISPER_KEYS.RECOGNIZED;
+    whisper = "Présence reconnue.";
+  }
+
+  const ok = grade !== "LOW" && (zoneCenter == null || inside === true);
+  const includeDebug = debugPresence && effectiveRadius != null && distance != null;
+  const cors = getCorsHeaders(c);
+  return new Response(
+    JSON.stringify({
+      ok,
+      grade,
+      inside: zoneCenter != null ? inside : undefined,
+      reasonCode,
+      whisperKey,
+      whisper,
+      serverTs: Date.now(),
+      ...(includeDebug ? { debug: { effectiveRadius, distance } } : {}),
+    }),
+    { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
+  );
 });
 
 // ----- Law: GET /law/evaluate -----
