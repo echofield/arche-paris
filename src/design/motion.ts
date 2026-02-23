@@ -85,10 +85,11 @@ const transforms: MotionTokenModule["transforms"] = {
   },
 };
 
-function prefersReducedMotion(): boolean {
+/** Standalone impl to avoid TDZ when method and function share a name after minification. */
+const getPrefersReducedMotion = (): boolean => {
   if (typeof window === "undefined" || !window.matchMedia) return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+};
 
 function toTransition(parts: MotionTransitionPart[]): string {
   return parts
@@ -203,10 +204,10 @@ export const motion: MotionTokenModule = {
     return cubicBezierAt(0.4, 0, 1, 1, progress);
   },
   prefersReducedMotion() {
-    return prefersReducedMotion();
+    return getPrefersReducedMotion();
   },
   reducedMs() {
-    return prefersReducedMotion() ? 10 : 0;
+    return getPrefersReducedMotion() ? 10 : 0;
   },
   acquireStone(scope) {
     if (stoneAuthority.scope && stoneAuthority.scope !== scope) return null;

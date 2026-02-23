@@ -6,7 +6,6 @@ import { QueteDetail } from './components/QueteDetail';
 import { OrigineMap } from './components/OrigineMap';
 import { HistoireArchives } from './components/HistoireArchives';
 import { CarnetParisien } from './components/CarnetParisien';
-import { CollectionMap } from './components/CollectionMap';
 import { PersonalMemoryMap } from './components/PersonalMemoryMap';
 import { HunterMontmartre } from './components/HunterMontmartre';
 import { QuestRun } from './components/QuestRun';
@@ -280,7 +279,7 @@ export default function App() {
     }
   };
 
-  // Handle hash-based routing
+  // Hash-only routing: single handleHashChange, no alternate routers (see docs/AUTO_AUDIT_AGENT_PROMPT.md).
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);

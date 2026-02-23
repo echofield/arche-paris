@@ -30,6 +30,7 @@ import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, CityMapState } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
+import { AsyncState } from './AsyncState';
 import { api, type ZoneProgressItem, type WorldSnapshotData, type MonParisReading } from '../lib/api';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
@@ -179,6 +180,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
   const [worldSnapshotState, setWorldSnapshotState] = useState<WorldSnapshotData | null>(null);
+  /** True when snapshot fetch failed and we have no prior data; error message is i18n (async.connectionInterrupted). */
   const [snapshotError, setSnapshotError] = useState(false);
   const [snapshotStale, setSnapshotStale] = useState(false);
   const [outsideCoverage, setOutsideCoverage] = useState(false);
@@ -645,6 +647,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     );
   }, []);
 
+  const mapLoading = Boolean(cardId && hasLocalSecret(cardId) && !worldSnapshotState && !snapshotError);
+  const mapError = snapshotError && !worldSnapshotState;
+
   return (
     <div
       style={{
@@ -657,50 +662,15 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
       <BackButton onClick={onBack} />
 
-      {/* Subtle error indicator when snapshot fails and no prior data */}
-      {snapshotError && !worldSnapshotState && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '80px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 50,
-            textAlign: 'center',
-          }}
-        >
-          <p
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: '13px',
-              fontStyle: 'italic',
-              color: '#1A1A1A',
-              opacity: 0.4,
-              marginBottom: '8px',
-            }}
-          >
-            Connexion interrompue.
-          </p>
-          <button
-            type="button"
-            onClick={refreshMapState}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontFamily: 'var(--font-sans)',
-              fontSize: '10px',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#003D2C',
-              opacity: 0.5,
-              cursor: 'pointer',
-            }}
-          >
-            Réessayer
-          </button>
-        </div>
-      )}
-
+      {(mapLoading || mapError) ? (
+        <AsyncState
+          loading={mapLoading}
+          error={mapError ? { message: t('async.connectionInterrupted') } : null}
+          onRetry={refreshMapState}
+          onBack={onBack}
+        />
+      ) : (
+        <>
       {/* Non-blocking stale indicator when refresh fails but prior data exists */}
       {snapshotStale && worldSnapshotState && (
         <p
@@ -1810,6 +1780,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         </footer>
         </div>
       </div>
+      </> )}
     </div>
   );
 }
