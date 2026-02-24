@@ -29,6 +29,7 @@
   "champ.invisible.sheetTitle": "Inscriptions collectives",
   "champ.invisible.sheetLine": "Traces anonymes accumulées dans cet arrondissement depuis l'ouverture du Champ.",
   "champ.detail.openInstruments": "Ouvrir les instruments",
+  "champ.detail.openInMaps": "Ouvrir dans Maps ↗",
   "champ.layer.axes": "Axes",
   "champ.legend.axes": "Structure urbaine / axe",
   "champ.axes.sheetTitle": "Axe structurel",

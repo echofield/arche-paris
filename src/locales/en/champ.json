@@ -29,6 +29,7 @@
   "champ.invisible.sheetTitle": "Collective inscriptions",
   "champ.invisible.sheetLine": "Anonymous traces accumulated in this arrondissement since the Field opened.",
   "champ.detail.openInstruments": "Open instruments",
+  "champ.detail.openInMaps": "Open in Maps ↗",
   "champ.layer.axes": "Axes",
   "champ.legend.axes": "Urban structure / axis",
   "champ.axes.sheetTitle": "Structural axis",

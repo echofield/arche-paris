@@ -1,4 +1,5 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
+import { useTranslation } from '../../utils/i18n';
 
 export interface PlaceDetail {
   id: string;
@@ -7,6 +8,8 @@ export interface PlaceDetail {
   arrondissement: number | string;
   weight?: number;
   coordinates?: { lat: number; lng: number };
+  /** Optional; when present shown as activation mode (e.g. movement / alignment / arrival). */
+  activationMode?: string;
 }
 
 interface PlaceDetailSheetProps {
@@ -17,6 +20,7 @@ interface PlaceDetailSheetProps {
   instrumentsLabel: string;
   weightLabel: string;
   arrondissementLabel: string;
+  openInMapsLabel: string;
 }
 
 export function PlaceDetailSheet({
@@ -27,7 +31,15 @@ export function PlaceDetailSheet({
   instrumentsLabel,
   weightLabel,
   arrondissementLabel,
+  openInMapsLabel,
 }: PlaceDetailSheetProps) {
+  const { t } = useTranslation();
+  const activationLabel =
+    place?.activationMode &&
+    ['movement', 'alignment', 'arrival'].includes(place.activationMode)
+      ? t(`axes.activation.${place.activationMode}`)
+      : place?.activationMode;
+
   return (
     <Sheet open={place !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent
@@ -50,7 +62,7 @@ export function PlaceDetailSheet({
               {place.description}
             </p>
 
-            <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
               {place.weight != null && (
                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
                   {weightLabel}: {place.weight}
@@ -59,7 +71,27 @@ export function PlaceDetailSheet({
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
                 {arrondissementLabel}: {place.arrondissement}
               </span>
+              {activationLabel && (
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                  {activationLabel}
+                </span>
+              )}
             </div>
+
+            {place.coordinates && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${place.coordinates.lat},${place.coordinates.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontFamily: 'var(--font-sans)', fontSize: 11,
+                  letterSpacing: '0.06em', color: '#003D2C', opacity: 0.7,
+                  textDecoration: 'none', marginTop: 2,
+                }}
+              >
+                {openInMapsLabel}
+              </a>
+            )}
 
             <button
               type="button"

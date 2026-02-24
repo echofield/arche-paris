@@ -514,25 +514,31 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           </SheetHeader>
           {axisSheetData && (
             <div style={{ padding: '0 1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={{
-                margin: 0, fontFamily: 'var(--font-serif)',
-                fontSize: 14, fontStyle: 'italic',
-                color: '#1A1A1A', opacity: 0.75, lineHeight: 1.6,
-              }}>
-                {axisSheetData.experiential_description}
-              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B4C8A', opacity: 0.8 }}>
+                  {axisSheetData.type.replace(/_/g, ' ')}
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                  {t(`axes.activation.${axisSheetData.activation_mode}`)}
+                </span>
+              </div>
 
               <p style={{
                 margin: 0, fontFamily: 'var(--font-serif)',
-                fontSize: 13, color: '#6B4C8A', opacity: 0.8, lineHeight: 1.5,
+                fontSize: 13, color: '#1A1A1A', opacity: 0.85, lineHeight: 1.5,
               }}>
                 {axisSheetData.perceptual_hint}
               </p>
 
+              <p style={{
+                margin: 0, fontFamily: 'var(--font-serif)',
+                fontSize: 14, fontStyle: 'italic',
+                color: '#1A1A1A', opacity: 0.7, lineHeight: 1.6,
+              }}>
+                {axisSheetData.experiential_description}
+              </p>
+
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
-                  {t(`axes.activation.${axisSheetData.activation_mode}`)}
-                </span>
                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
                   {t('champ.axes.strength')}: {axisSheetData.strength}/5
                 </span>
@@ -579,6 +585,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
         instrumentsLabel={t('champ.detail.openInstruments')}
         weightLabel={t('champ.detail.weight')}
         arrondissementLabel={t('champ.detail.arrondissement')}
+        openInMapsLabel={t('champ.detail.openInMaps')}
       />
 
       {/* Add trace sheet */}

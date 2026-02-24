@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import { CarteInteractive, type MapVariant } from './CarteInteractive';
 import type { ChampLayerMode } from './ChampScreen/LayerToggles';
+import { CITY_AXES, getAxisArrondissementSequence } from '../data/axes';
 
 export type FieldItem = {
   id: string;
@@ -99,6 +100,16 @@ export function ChampMapSection({
     return m;
   }, [invisibleCounts]);
 
+  const axisPolylines = useMemo(() => {
+    return CITY_AXES.map((axis, axisIndex) => {
+      const seq = getAxisArrondissementSequence(axisIndex);
+      const points = seq
+        .map(arr => ARRONDISSEMENT_CENTERS[arr])
+        .filter((p): p is { x: number; y: number } => p != null);
+      return { axisIndex, points, strength: axis.strength };
+    }).filter(p => p.points.length >= 2);
+  }, []);
+
   return (
     <div style={{
       position: 'relative', width: '100%', maxWidth: '100%',
@@ -155,28 +166,45 @@ export function ChampMapSection({
           );
         })}
 
-        {/* Layer: Axes — subtle halos at anchor arrondissement centers */}
-        {activeLayers.has('axes') && axisMarkers.map((marker) => {
-          const center = ARRONDISSEMENT_CENTERS[marker.arrondissement];
-          if (!center) return null;
+        {/* Layer: Axes — polylines connecting anchor arrondissements, tappable */}
+        {activeLayers.has('axes') && axisPolylines.map(({ axisIndex, points, strength }) => {
+          const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+          const strokeWidth = 1 + (strength / 5) * 1.5;
+          const strokeOpacity = 0.2 + (strength / 5) * 0.35;
           return (
-            <g key={`axis-${marker.axisIndex}-${marker.arrondissement}`}
+            <g
+              key={`axis-line-${axisIndex}`}
               style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-              onClick={() => onAxisTap?.(marker.axisIndex)}
+              onClick={() => onAxisTap?.(axisIndex)}
             >
-              <circle
-                cx={center.x} cy={center.y} r="22"
-                fill="rgba(107,76,138,0.06)"
+              {/* Subtle animated glow (slow pulse) */}
+              <polyline
+                points={pointsStr}
+                fill="none"
+                stroke="rgba(107,76,138,0.4)"
+                strokeWidth={strokeWidth + 6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ opacity: 0.25, animation: 'champ-axis-pulse 4s ease-in-out infinite' }}
               />
-              <circle
-                cx={center.x} cy={center.y} r="10"
-                fill="rgba(107,76,138,0.14)"
-                stroke="rgba(107,76,138,0.35)"
-                strokeWidth="0.8"
+              {/* Main line: stroke opacity = strength */}
+              <polyline
+                points={pointsStr}
+                fill="none"
+                stroke="rgba(107,76,138,0.6)"
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ opacity: strokeOpacity }}
               />
-              <circle
-                cx={center.x} cy={center.y} r="3"
-                fill="rgba(107,76,138,0.7)"
+              {/* Invisible wide stroke for easier tap target */}
+              <polyline
+                points={pointsStr}
+                fill="none"
+                stroke="transparent"
+                strokeWidth="16"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </g>
           );
@@ -240,6 +268,10 @@ export function ChampMapSection({
       <style>{`
         @keyframes champ-aujourdhui-pulse {
           0%, 100% { opacity: 0.5; transform-origin: center; }
+          50% { opacity: 1; }
+        }
+        @keyframes champ-axis-pulse {
+          0%, 100% { opacity: 0.5; }
           50% { opacity: 1; }
         }
       `}</style>

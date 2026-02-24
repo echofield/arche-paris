@@ -98,3 +98,23 @@ export function getAxisAnchorsOnMap(): AxisAnchorOnMap[] {
   });
   return result;
 }
+
+/**
+ * Ordered sequence of arrondissements for an axis (for polyline drawing).
+ * Consecutive duplicates removed so the line passes through distinct arrondissement centers.
+ */
+export function getAxisArrondissementSequence(axisIndex: number): number[] {
+  const axis = CITY_AXES[axisIndex];
+  if (!axis) return [];
+  const seq: number[] = [];
+  let prev: number | null = null;
+  for (const anchor of axis.anchor_points) {
+    const arr = ANCHOR_ARRONDISSEMENT_MAP[anchor];
+    if (arr == null) continue;
+    if (arr !== prev) {
+      seq.push(arr);
+      prev = arr;
+    }
+  }
+  return seq;
+}
