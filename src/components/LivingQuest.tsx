@@ -11,10 +11,11 @@
  */
 
 import { useState, useEffect } from 'react';
-import { api, type ZoneProgressData } from '../lib/api';
+import { type ZoneProgressData } from '../lib/api';
 import { getThresholdsVisited, getObservations } from '../utils/meridien-storage';
 import { MERIDIEN_THRESHOLDS, type ThresholdId } from '../data/meridiens';
 import { useTranslation } from '../utils/i18n';
+import { useWorldSnapshot } from '../contexts/WorldSnapshotContext';
 
 export type LiveActionType =
   | 'seal_presence'
@@ -166,33 +167,14 @@ interface LivingQuestProps {
 
 export function LivingQuest({ onNavigate }: LivingQuestProps) {
   const { t } = useTranslation();
+  const { zoneProgress: ctxZoneProgress, loading: ctxLoading } = useWorldSnapshot();
   const [action, setAction] = useState<LiveAction | null>(null);
-  const [loading, setLoading] = useState(true);
+  const loading = ctxLoading && !action;
 
   useEffect(() => {
-    let mounted = true;
-
-    async function loadAction() {
-      try {
-        const result = await api.zoneProgress();
-        if (!mounted) return;
-
-        const zoneProgress = result.data ?? null;
-        const nextAction = getNextAction(zoneProgress);
-        setAction(nextAction);
-      } catch (err) {
-        console.error('[LivingQuest] Failed to load zone progress:', err);
-        // Fallback to local-only check
-        const nextAction = getNextAction(null);
-        if (mounted) setAction(nextAction);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    loadAction();
-    return () => { mounted = false; };
-  }, []);
+    const nextAction = getNextAction(ctxZoneProgress);
+    setAction(nextAction);
+  }, [ctxZoneProgress]);
 
   const handleClick = () => {
     if (!action) return;

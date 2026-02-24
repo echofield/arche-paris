@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { MamlukGrid } from './MamlukGrid';
 import { useTranslation } from '../utils/i18n';
 import { getTodaySummary } from '../utils/walk-service';
 import { useIsMobile } from './ui/use-mobile';
 import { LivingQuest } from './LivingQuest';
 import { motion } from '../design/motion';
-import { api, type WorldSnapshotData } from '../lib/api';
+import { useWorldSnapshot } from '../contexts/WorldSnapshotContext';
 
 /** Carte homepage : opacité max pour bien voir les lignes. (Ancienne valeur avant fader : 0.165) */
 const MAP_STROKE_OPACITY = 0.62;
@@ -55,35 +55,8 @@ export function HomepageV1({
   const [mounted, setMounted] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapBreathing, setMapBreathing] = useState(false);
-  const [worldSnapshot, setWorldSnapshot] = useState<WorldSnapshotData | null>(null);
-  const [snapshotError, setSnapshotError] = useState(false);
-  const [snapshotStale, setSnapshotStale] = useState(false);
-
-  const loadSnapshot = useCallback(async () => {
-    setSnapshotError(false);
-    setSnapshotStale(false);
-    const res = await api.worldSnapshot({ include: 'law', h3_center: 'PAR-10', k: 0 });
-    if (res.data) {
-      setWorldSnapshot(res.data);
-    } else if (res.error) {
-      // If we have prior data, show subtle stale; otherwise blocking error
-      if (worldSnapshot) {
-        setSnapshotStale(true);
-      } else {
-        setSnapshotError(true);
-      }
-    }
-  }, [worldSnapshot]);
-
-  // Auto-clear stale indicator after 3 seconds
-  useEffect(() => {
-    if (!snapshotStale) return;
-    const timer = window.setTimeout(() => setSnapshotStale(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, [snapshotStale]);
-  useEffect(() => {
-    loadSnapshot();
-  }, [loadSnapshot]);
+  const { snapshot: worldSnapshot, error: snapshotErrorMsg, refresh: refreshSnapshot } = useWorldSnapshot();
+  const snapshotError = !!snapshotErrorMsg;
 
   useEffect(() => {
     setMounted(true);
@@ -549,11 +522,11 @@ export function HomepageV1({
                 marginBottom: '8px'
               }}
             >
-              Connexion interrompue.
+              {t('async.connectionInterrupted')}
             </p>
             <button
               type="button"
-              onClick={loadSnapshot}
+              onClick={refreshSnapshot}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -566,26 +539,12 @@ export function HomepageV1({
                 cursor: 'pointer',
               }}
             >
-              Réessayer
+              {t('async.retry')}
             </button>
           </div>
         )}
 
-        {/* Non-blocking stale indicator when refresh fails but prior data exists */}
-        {snapshotStale && worldSnapshot && (
-          <p
-            style={{
-              marginTop: '16px',
-              fontFamily: 'var(--font-serif)',
-              fontSize: '12px',
-              fontStyle: 'italic',
-              color: '#1A1A1A',
-              opacity: 0.25,
-            }}
-          >
-            Synchronisation interrompue.
-          </p>
-        )}
+        {/* Stale handling moved to WorldSnapshotContext */}
       </div>
 
       <button

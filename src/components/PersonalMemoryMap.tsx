@@ -32,6 +32,7 @@ import { emitEngraveEvent } from '../utils/engrave-events';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
 import { AsyncState } from './AsyncState';
 import { api, type ZoneProgressItem, type WorldSnapshotData, type MonParisReading } from '../lib/api';
+import { useWorldSnapshot } from '../contexts/WorldSnapshotContext';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
 import { ZoneOverlay } from './PersonalMemoryMap/ZoneOverlay';
@@ -176,13 +177,12 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [ecrireError, setEcrireError] = useState<string | null>(null);
   const [ecrireOptInField, setEcrireOptInField] = useState(false); // Share to Le Champ
   const [zoneDetailArr, setZoneDetailArr] = useState<number | null>(null);
-  const [zoneProgressMap, setZoneProgressMap] = useState<Record<string, ZoneProgressItem>>({});
+  const [zoneProgressMap, setZoneProgressMapLocal] = useState<Record<string, ZoneProgressItem>>({});
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
   const [worldSnapshotState, setWorldSnapshotState] = useState<WorldSnapshotData | null>(null);
-  /** True when snapshot fetch failed and we have no prior data; error message is i18n (async.connectionInterrupted). */
-  const [snapshotError, setSnapshotError] = useState(false);
-  const [snapshotStale, setSnapshotStale] = useState(false);
+  const { snapshot: ctxSnapshot, zoneProgress: ctxZoneProgress, error: ctxError, refresh: ctxRefresh, refreshZoneProgress: ctxRefreshZoneProgress } = useWorldSnapshot();
+  const snapshotError = !!ctxError && !worldSnapshotState;
   const [outsideCoverage, setOutsideCoverage] = useState(false);
   // Instrument reading layer (quiet → reading → interpretation)
   const [instrumentState, setInstrumentState] = useState<InstrumentState>('quiet');
@@ -211,16 +211,12 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     presenceMarkerRef.current = presenceMarker;
   }, [presenceMarker]);
 
-  // Load zone progress on mount
   useEffect(() => {
-    api.zoneProgress().then(result => {
-      if (result.data) {
-        const map: Record<string, ZoneProgressItem> = {};
-        result.data.zones.forEach(z => { map[z.zone_id] = z; });
-        setZoneProgressMap(map);
-      }
-    }).catch(() => {});
-  }, []);
+    if (!ctxZoneProgress) return;
+    const map: Record<string, ZoneProgressItem> = {};
+    ctxZoneProgress.zones.forEach(z => { map[z.zone_id] = z; });
+    setZoneProgressMapLocal(map);
+  }, [ctxZoneProgress]);
 
   const collection = getCollection();
   const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
@@ -352,7 +348,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     const pulses20m = meZone?.presence?.pulses_20m ?? 0;
     if (!recognitionShownRef.current && pulses20m >= 5) {
       recognitionShownRef.current = true;
-      const line = language === 'fr' ? 'Votre présence commence à compter.' : 'Your presence now matters.';
+      const line = t('map.presenceMatters');
       setRecognitionLine(line);
       if (recognitionHideTimerRef.current != null) {
         window.clearTimeout(recognitionHideTimerRef.current);
@@ -376,50 +372,18 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     lastZoneWhisperRef.current = whisper;
   }, [language]);
 
-  const refreshMapState = useCallback(() => {
-    setSnapshotError(false);
-    setSnapshotStale(false);
-    api.worldSnapshot({ include: 'map,champ,law', h3_center: 'PAR-10', k: 10 })
-      .then((result) => {
-        if (result.data) {
-          applySnapshot(result.data);
-          return;
-        }
-        // 401 / session expired or other error — keep previous state so map does not go blank
-        if (worldSnapshotState) {
-          // Has prior data: show subtle stale indicator (auto-fades)
-          setSnapshotStale(true);
-        } else {
-          // No prior data: show blocking retry UI
-          setSnapshotError(true);
-        }
-      })
-      .catch(() => {
-        // Network or other failure — keep previous snapshot
-        if (worldSnapshotState) {
-          setSnapshotStale(true);
-        } else {
-          setSnapshotError(true);
-        }
-      });
-  }, [applySnapshot, worldSnapshotState]);
-
-  // Auto-clear stale indicator after 3 seconds
   useEffect(() => {
-    if (!snapshotStale) return;
-    const timer = window.setTimeout(() => setSnapshotStale(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, [snapshotStale]);
+    if (ctxSnapshot) applySnapshot(ctxSnapshot);
+  }, [ctxSnapshot, applySnapshot]);
+
+  const refreshMapState = ctxRefresh;
 
   const encounter = useMemo(() => {
     if (outsideCoverage) return null;
     return worldSnapshotState?.me?.character ?? null;
   }, [outsideCoverage, worldSnapshotState]);
 
-  useEffect(() => {
-    if (!cardId || !hasLocalSecret(cardId)) return;
-    refreshMapState();
-  }, [cardId, refreshMapState]);
+  // Snapshot is now provided by WorldSnapshotContext; no per-mount fetch needed.
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
@@ -671,26 +635,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         />
       ) : (
         <>
-      {/* Non-blocking stale indicator when refresh fails but prior data exists */}
-      {snapshotStale && worldSnapshotState && (
-        <p
-          style={{
-            position: 'fixed',
-            top: '80px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 50,
-            fontFamily: 'var(--font-serif)',
-            fontSize: '12px',
-            fontStyle: 'italic',
-            color: '#1A1A1A',
-            opacity: 0.25,
-            pointerEvents: 'none',
-          }}
-        >
-          Synchronisation interrompue.
-        </p>
-      )}
+      {/* Stale handling moved to WorldSnapshotContext */}
 
       <style>{`
         @keyframes my-paris-breathe {
@@ -810,7 +755,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               textTransform: 'uppercase',
               opacity: 0.72,
             }}>
-              {language === 'fr' ? 'Rencontre' : 'Encounter'}
+              {t('map.encounter')}
             </p>
             <p style={{
               margin: '6px 0 8px',
@@ -908,7 +853,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             onZoneSelect={setZoneDetailArr}
             marker={presenceMarker}
             globalPulseActive={outsideCoverage}
-            youAreHereLabel={outsideCoverage ? (language === 'fr' ? 'Paris vous attend.' : 'Paris is waiting for you.') : 'Vous etes ici / You are here'}
+            youAreHereLabel={outsideCoverage ? t('map.parisWaiting') : t('map.youAreHere')}
             recognitionLine={recognitionLine}
           />
           <InstrumentReadingLayer
@@ -1047,14 +992,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           arrondissement={zoneDetailArr}
           onClose={() => {
             setZoneDetailArr(null);
-            // Reload progress after closing
-            api.zoneProgress().then(result => {
-              if (result.data) {
-                const map: Record<string, ZoneProgressItem> = {};
-                result.data.zones.forEach(z => { map[z.zone_id] = z; });
-                setZoneProgressMap(map);
-              }
-            }).catch(() => {});
+            ctxRefreshZoneProgress();
           }}
           onOpenEcrire={(arr) => {
             setZoneDetailArr(null);
@@ -1241,7 +1179,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                     bump('presence');
                     emitEngraveEvent('inscription');
                   } catch (err) {
-                    setEcrireError(err instanceof Error ? err.message : 'Failed to engrave');
+                    setEcrireError(err instanceof Error ? err.message : t('map.failedToEngrave'));
                   } finally {
                     setEcrireSaving(false);
                   }
@@ -1352,7 +1290,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                 padding: 0
               }}
             >
-              {language === 'fr' ? 'Ajouter une marche' : 'Add a walk'}
+              {t('map.addWalk')}
             </button>
           ) : (
             <div style={{ marginTop: '12px' }}>
@@ -1374,7 +1312,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               />
               <input
                 type="text"
-                placeholder={language === 'fr' ? 'km (optionnel)' : 'km (optional)'}
+                placeholder={t('map.kmOptional')}
                 value={addWalkKm}
                 onChange={(e) => setAddWalkKm(e.target.value)}
                 style={{
@@ -1390,7 +1328,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
               />
               <input
                 type="text"
-                placeholder={language === 'fr' ? 'minutes (optionnel)' : 'minutes (optional)'}
+                placeholder={t('map.minutesOptional')}
                 value={addWalkMinutes}
                 onChange={(e) => setAddWalkMinutes(e.target.value)}
                 style={{

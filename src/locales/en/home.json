@@ -57,6 +57,7 @@
   "async.retry": "Retry",
   "async.back": "Back",
   "async.connectionInterrupted": "Connection interrupted.",
+  "async.rateLimited": "Too many requests. Please try again shortly.",
   "app.demoMode": "Demo mode.",
   "app.disconnectFailed": "Disconnect failed.",
   "app.unexpectedError": "Unexpected error.",

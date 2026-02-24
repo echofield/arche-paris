@@ -14,6 +14,7 @@
  */
 import { supabase } from '@/utils/supabase/client';
 import { getSessionCardCode } from '@/utils/card-gate-client';
+import { cachedRequest, clearApiCache } from './api-cache';
 
 type ApiResult<T> = { data: T; error: null } | { data: null; error: string };
 
@@ -51,11 +52,11 @@ async function invokeCardGate<T>(path: string): Promise<ApiResult<T>> {
   return invokeCardGateRequest<T>('GET', path);
 }
 
-async function invokeCardGateRequest<T>(
+async function rawCardGateRequest<T>(
   method: 'GET' | 'POST',
   path: string,
   body?: Record<string, unknown>
-): Promise<ApiResult<T>> {
+): Promise<{ data: T | null; error: string | null; status?: number }> {
   try {
     const cardCode = getSessionCardCode();
     const headers: Record<string, string> = {};
@@ -69,12 +70,20 @@ async function invokeCardGateRequest<T>(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { data: null, error: data?.error ?? `Card Gate ${res.status}` };
+      return { data: null, error: data?.error ?? `Card Gate ${res.status}`, status: res.status };
     }
-    return { data: data as T, error: null };
+    return { data: data as T, error: null, status: res.status };
   } catch (err) {
     return { data: null, error: err instanceof Error ? err.message : 'Card Gate request failed' };
   }
+}
+
+async function invokeCardGateRequest<T>(
+  method: 'GET' | 'POST',
+  path: string,
+  body?: Record<string, unknown>
+): Promise<ApiResult<T>> {
+  return cachedRequest<T>(method, path, () => rawCardGateRequest<T>(method, path, body)) as Promise<ApiResult<T>>;
 }
 
 // ============ Types ============
@@ -676,6 +685,8 @@ export const api = {
 };
 
 // ============ Helpers ============
+
+export { clearApiCache };
 
 export function generateIdempotencyKey(prefix: string): string {
   return `${prefix}:${Date.now()}:${crypto.randomUUID().slice(0, 8)}`;

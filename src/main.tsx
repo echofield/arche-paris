@@ -1,7 +1,8 @@
-
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LanguageProvider } from "./utils/i18n";
+import { WorldSnapshotProvider } from "./contexts/WorldSnapshotContext";
 import "./index.css";
 import "./viewport.css";
 import "./styles/globals.css";
@@ -17,7 +18,11 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <App />
+    <LanguageProvider>
+      <WorldSnapshotProvider>
+        <App />
+      </WorldSnapshotProvider>
+    </LanguageProvider>
   </ErrorBoundary>
 );
   
