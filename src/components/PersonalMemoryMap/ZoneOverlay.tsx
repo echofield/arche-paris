@@ -198,25 +198,25 @@ export function ZoneOverlay({
               </filter>
             </defs>
             <circle
-              cx={pt.x} cy={pt.y} r="20"
-              fill="rgba(0, 120, 80, 0.12)"
+              cx={pt.x} cy={pt.y} r="55"
+              fill="rgba(0, 120, 80, 0.10)"
               style={{
                 transformOrigin: `${pt.x}px ${pt.y}px`,
                 animation: `you-are-here-pulse ${pulseDur} ease-out infinite`,
                 animationPlayState: marker.pulsePaused ? 'paused' : 'running',
               }}
             />
-            <circle cx={pt.x} cy={pt.y} r="8" fill="#007850" stroke="#FAF8F2" strokeWidth="3" filter="url(#marker-shadow)" />
-            <foreignObject x={pt.x - 40} y={pt.y + 14} width="120" height="60" style={{ overflow: 'visible' }}>
+            <circle cx={pt.x} cy={pt.y} r="18" fill="#007850" stroke="#FAF8F2" strokeWidth="5" filter="url(#marker-shadow)" />
+            <foreignObject x={pt.x - 60} y={pt.y + 28} width="180" height="80" style={{ overflow: 'visible' }}>
               <div style={{
-                padding: '2px 6px',
+                padding: '3px 8px',
                 borderRadius: 8,
-                background: 'rgba(250,248,242,0.88)',
+                background: 'rgba(250,248,242,0.90)',
                 border: '1px solid rgba(0,61,44,0.14)',
                 fontFamily: 'var(--font-sans)',
-                fontSize: 9,
+                fontSize: 14,
                 color: '#003D2C',
-                opacity: 0.72,
+                opacity: 0.78,
                 whiteSpace: 'nowrap',
                 width: 'fit-content',
               }}>
@@ -224,9 +224,9 @@ export function ZoneOverlay({
               </div>
               {recognitionLine && (
                 <div style={{
-                  marginTop: 8,
+                  marginTop: 10,
                   fontFamily: 'var(--font-serif)',
-                  fontSize: 12,
+                  fontSize: 16,
                   fontStyle: 'italic',
                   color: '#003D2C',
                   opacity: 0.78,
