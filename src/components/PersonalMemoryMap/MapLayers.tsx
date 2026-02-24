@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { motion } from '../../design/motion';
 
-export type MapLayerMode = 'traces' | 'ville' | 'rituels';
+export type MapLayerMode = 'presence' | 'inscriptions' | 'constellation';
 
 interface MapLayersProps {
   mapMode: MapLayerMode;
@@ -18,12 +18,12 @@ interface MapLayersProps {
   setShowInscriptionsLayer: (value: boolean) => void;
   segmentsLabel: string;
   inscriptionsLabel: string;
-  tracesTabLabel: string;
-  cityTabLabel: string;
-  momentsTabLabel: string;
-  tracesHint: string;
-  cityHint: string;
-  momentsHint: string;
+  presenceTabLabel: string;
+  inscriptionsTabLabel: string;
+  constellationTabLabel: string;
+  presenceHint: string;
+  inscriptionsHint: string;
+  constellationHint: string;
 }
 
 export function MapLayers({
@@ -41,19 +41,27 @@ export function MapLayers({
   setShowInscriptionsLayer,
   segmentsLabel,
   inscriptionsLabel,
-  tracesTabLabel,
-  cityTabLabel,
-  momentsTabLabel,
-  tracesHint,
-  cityHint,
-  momentsHint,
+  presenceTabLabel,
+  inscriptionsTabLabel,
+  constellationTabLabel,
+  presenceHint,
+  inscriptionsHint,
+  constellationHint,
 }: MapLayersProps) {
-  const hintByMode = { traces: tracesHint, ville: cityHint, rituels: momentsHint };
+  const hintByMode: Record<MapLayerMode, string> = {
+    presence: presenceHint,
+    inscriptions: inscriptionsHint,
+    constellation: constellationHint,
+  };
   return (
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-        {(['traces', 'ville', 'rituels'] as const).map((mode) => {
-          const labels = { traces: tracesTabLabel, ville: cityTabLabel, rituels: momentsTabLabel };
+        {(['presence', 'inscriptions', 'constellation'] as const).map((mode) => {
+          const labels: Record<MapLayerMode, string> = {
+            presence: presenceTabLabel,
+            inscriptions: inscriptionsTabLabel,
+            constellation: constellationTabLabel,
+          };
           const isActive = mapMode === mode;
           return (
             <button
@@ -102,7 +110,7 @@ export function MapLayers({
         {hintByMode[mapMode]}
       </p>
 
-      {mapMode === 'traces' && (
+      {mapMode === 'inscriptions' && (
         (() => {
           const visuallyHidden: CSSProperties = {
             position: 'absolute',
@@ -225,19 +233,19 @@ export function MapLayers({
         })()
       )}
 
-      {mapMode === 'rituels' && (
+      {mapMode === 'constellation' && (
         <div style={{ display: 'flex', gap: 16, marginBottom: 12, justifyContent: 'center', fontSize: 10, fontFamily: 'var(--font-sans)', color: '#6B6455' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#e5e5e5', border: '1px solid #ccc' }} />
-            Inexplore
+            Inexploré
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#d4af37' }} />
-            Entre
+            Entré
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4a7c59' }} />
-            Scelle
+            Scellé
           </span>
         </div>
       )}

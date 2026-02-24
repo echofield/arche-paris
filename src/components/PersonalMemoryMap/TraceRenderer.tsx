@@ -50,65 +50,19 @@ export function TraceRenderer({
 
   return (
     <>
-      {mapMode === 'ville' && (
-        <>
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(250,248,242,0.25)',
-              zIndex: 4,
-              pointerEvents: 'none',
-            }}
-          />
-          {(cityMapState?.arrondissements ?? []).map((sig) => {
-            const pos = ARRONDISSEMENT_MAP_POSITION[sig.arrondissement];
-            if (!pos) return null;
-            const size = 10 + sig.signalStrength * 22;
-            const zoneId = `paris-${sig.arrondissement}`;
-            const anchorBoost = anchorZoneMap[zoneId] ? 0.08 : 0;
-            const opacity = Math.min(0.9, 0.2 + sig.signalStrength * 0.55 + anchorBoost);
-            return (
-              <div
-                key={`city-${sig.arrondissement}`}
-                style={{
-                  position: 'absolute',
-                  left: `${pos.x}%`,
-                  top: `${pos.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  width: size,
-                  height: size,
-                  borderRadius: '50%',
-                  background: sig.verifiedInscriptions > 0 ? '#003D2C' : '#6B6455',
-                  opacity,
-                  boxShadow: `0 0 ${8 + sig.signalStrength * 18}px rgba(0,61,44,${0.15 + sig.signalStrength * 0.35})`,
-                  zIndex: 6,
-                }}
-                title={`${sig.arrondissement}e · ${sig.inscriptionCount} traces · ${sig.segmentCount} lignes`}
-              />
-            );
-          })}
-          {(cityMapState?.arrondissements?.length ?? 0) === 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 6,
-                pointerEvents: 'none',
-              }}
-            >
-              <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontStyle: 'italic', color: '#6B6455', opacity: 0.8 }}>
-                La Ville est calme pour l instant.
-              </p>
-            </div>
-          )}
-        </>
+      {mapMode === 'presence' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(250,248,242,0.25)',
+            zIndex: 4,
+            pointerEvents: 'none',
+          }}
+        />
       )}
 
-      {mapMode === 'traces' && showSegments && mapState?.segments && mapState.segments.length > 0 && (
+      {mapMode === 'inscriptions' && showSegments && mapState?.segments && mapState.segments.length > 0 && (
         <svg
           viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
           preserveAspectRatio="xMidYMid meet"
@@ -150,7 +104,7 @@ export function TraceRenderer({
         </svg>
       )}
 
-      {mapMode === 'traces' && showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
+      {mapMode === 'inscriptions' && showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
         const arrsWithInscriptions = new Set(
           mapState.inscriptions.map((i) => i.arrondissement).filter((a): a is number => a != null)
         );
@@ -181,7 +135,7 @@ export function TraceRenderer({
         );
       })()}
 
-      {mapMode === 'traces' && showThreads && runs.length > 0 && (
+      {mapMode === 'inscriptions' && showThreads && runs.length > 0 && (
         <svg
           viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
           preserveAspectRatio="xMidYMid meet"
@@ -265,7 +219,7 @@ export function TraceRenderer({
         </div>
       )}
 
-      {mapMode === 'traces' && points.map(({ symbol, x, y }) => (
+      {mapMode === 'inscriptions' && points.map(({ symbol, x, y }) => (
         <div
           key={symbol.id}
           style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', zIndex: 2 }}

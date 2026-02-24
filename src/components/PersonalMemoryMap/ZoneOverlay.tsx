@@ -12,6 +12,7 @@ interface ZoneOverlayProps {
   zoneLawMap: Record<string, { allowed: boolean; reason_code?: string }>;
   anchorZoneMap: Record<string, boolean>;
   onZoneSelect: (arr: number) => void;
+  activeArrondissement: number | null;
   marker: { lat: number; lng: number; moving: boolean; pulsePaused: boolean } | null;
   globalPulseActive: boolean;
   youAreHereLabel: string;
@@ -24,6 +25,7 @@ export function ZoneOverlay({
   zoneLawMap,
   anchorZoneMap,
   onZoneSelect,
+  activeArrondissement,
   marker,
   globalPulseActive,
   youAreHereLabel,
@@ -55,7 +57,111 @@ export function ZoneOverlay({
         </div>
       )}
 
-      {mapMode !== 'ville' && ARRONDISSEMENTS.map((arr) => {
+      {/* Presence mode: radial aura on active arrondissement, all others muted */}
+      {mapMode === 'presence' && activeArrondissement && (() => {
+        const pos = ARRONDISSEMENT_MAP_POSITION[activeArrondissement];
+        if (!pos) return null;
+        const cx = (pos.x / 100) * VIEWBOX_WIDTH;
+        const cy = (pos.y / 100) * VIEWBOX_HEIGHT;
+        return (
+          <>
+            <svg
+              viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+              preserveAspectRatio="xMidYMid meet"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}
+            >
+              <defs>
+                <radialGradient id="presence-aura-grad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="rgb(0,120,80)" stopOpacity="0.18" />
+                  <stop offset="60%" stopColor="rgb(0,120,80)" stopOpacity="0.06" />
+                  <stop offset="100%" stopColor="rgb(0,120,80)" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle
+                cx={cx} cy={cy} r="180"
+                fill="url(#presence-aura-grad)"
+                style={{
+                  transformOrigin: `${cx}px ${cy}px`,
+                  animation: 'presence-breathe 7s ease-in-out infinite',
+                }}
+              />
+            </svg>
+            {ARRONDISSEMENTS.map((arr) => {
+              const arrPos = ARRONDISSEMENT_MAP_POSITION[arr];
+              if (!arrPos) return null;
+              const isActive = arr === activeArrondissement;
+              return (
+                <div
+                  key={`presence-${arr}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${arrPos.x}%`,
+                    top: `${arrPos.y}%`,
+                    transform: 'translate(-50%, -50%)',
+                    width: isActive ? 32 : 24,
+                    height: isActive ? 32 : 24,
+                    borderRadius: '50%',
+                    background: isActive ? 'rgba(0,120,80,0.12)' : 'rgba(0,61,44,0.04)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 3,
+                    pointerEvents: 'none',
+                    opacity: isActive ? 0.95 : 0.3,
+                    transition: 'opacity 1.5s ease-in-out, width 1.5s ease-in-out, height 1.5s ease-in-out',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: isActive ? 11 : 8,
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? '#003D2C' : '#8E8982',
+                      opacity: isActive ? 0.9 : 0.5,
+                    }}
+                  >
+                    {arr}
+                  </span>
+                </div>
+              );
+            })}
+          </>
+        );
+      })()}
+
+      {/* Presence mode with no active arrondissement: show all muted */}
+      {mapMode === 'presence' && !activeArrondissement && ARRONDISSEMENTS.map((arr) => {
+        const pos = ARRONDISSEMENT_MAP_POSITION[arr];
+        if (!pos) return null;
+        return (
+          <div
+            key={`presence-idle-${arr}`}
+            style={{
+              position: 'absolute',
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              transform: 'translate(-50%, -50%)',
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              background: 'rgba(0,61,44,0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 3,
+              pointerEvents: 'none',
+              opacity: 0.3,
+            }}
+          >
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, color: '#8E8982', opacity: 0.5 }}>
+              {arr}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Inscriptions + Constellation modes: zone circles with progress */}
+      {mapMode !== 'presence' && ARRONDISSEMENTS.map((arr) => {
         const pos = ARRONDISSEMENT_MAP_POSITION[arr];
         if (!pos) return null;
         const zoneId = arrToZoneId(arr);
@@ -84,12 +190,12 @@ export function ZoneOverlay({
           border: '2px solid #d4af37',
         } : {};
 
-        if (mapMode === 'rituels') {
+        if (mapMode === 'constellation') {
           return (
             <button
               key={arr}
               type="button"
-              aria-label={`${arr}e arrondissement - ${isSealed ? 'Scelle' : hasEntered ? 'Entre' : 'Inexplore'}${isLawLocked ? ` (${law?.reason_code ?? 'LOCKED'})` : ''}${isCustodian ? ' (Gardien)' : ''}`}
+              aria-label={`${arr}e arrondissement - ${isSealed ? 'Scellé' : hasEntered ? 'Entré' : 'Inexploré'}${isCustodian ? ' (Gardien)' : ''}`}
               style={{
                 position: 'absolute',
                 left: `${pos.x}%`,
@@ -179,13 +285,10 @@ export function ZoneOverlay({
         );
       })}
 
-      {/* Marker rendered inside SVG coordinate space — same viewBox as the map,
-          guaranteeing pixel-perfect alignment regardless of container sizing. */}
-      {marker && (() => {
+      {/* Precise marker: only in non-presence modes (inscriptions/constellation) */}
+      {mapMode !== 'presence' && marker && (() => {
         const pt = project(marker.lat, marker.lng);
         const pulseDur = marker.moving ? '2.5s' : '4.2s';
-        const xPct = (pt.x / VIEWBOX_WIDTH) * 100;
-        const yPct = (pt.y / VIEWBOX_HEIGHT) * 100;
         return (
           <svg
             viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
@@ -241,7 +344,7 @@ export function ZoneOverlay({
         );
       })()}
 
-      {/* Debug overlay: env var OR ?debug URL param */}
+      {/* Debug overlay: env var OR ?debug URL param — ONLY place coordinates are ever shown */}
       {(import.meta.env.VITE_DEBUG_TERRITORY || new URLSearchParams(window.location.search).has('debug')) && marker && (() => {
         const warped = projectWithMeta(marker.lat, marker.lng);
         const linear = projectLinear(marker.lat, marker.lng);
@@ -249,7 +352,6 @@ export function ZoneOverlay({
         const lPct = { x: (linear.x / VIEWBOX_WIDTH) * 100, y: (linear.y / VIEWBOX_HEIGHT) * 100 };
         return (
           <>
-            {/* Gray dot: linear projection (for comparison) */}
             <svg
               viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
               preserveAspectRatio="xMidYMid meet"
@@ -277,10 +379,18 @@ export function ZoneOverlay({
               {marker.lat.toFixed(5)}, {marker.lng.toFixed(5)}<br />
               <span style={{ color: '#0f0' }}>warp</span> {wPct.x.toFixed(1)}%,{wPct.y.toFixed(1)}% tri:{warped.triangleIndex}<br />
               <span style={{ color: '#888' }}>lin</span>&nbsp; {lPct.x.toFixed(1)}%,{lPct.y.toFixed(1)}%
+              {activeArrondissement != null && <><br />arr: {activeArrondissement}e</>}
             </div>
           </>
         );
       })()}
+
+      <style>{`
+        @keyframes presence-breathe {
+          0%, 100% { opacity: 0.10; transform: scale(1); }
+          50% { opacity: 0.22; transform: scale(1.06); }
+        }
+      `}</style>
     </>
   );
 }

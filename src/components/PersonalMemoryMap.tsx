@@ -169,7 +169,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [cityMapState, setCityMapState] = useState<CityMapState | null>(null);
   const [showSegments, setShowSegments] = useState(true);
   const [showInscriptionsLayer, setShowInscriptionsLayer] = useState(true);
-  const [mapMode, setMapMode] = useState<MapLayerMode>('traces');
+  const [mapMode, setMapMode] = useState<MapLayerMode>('presence');
+  const [activeArrondissement, setActiveArrondissement] = useState<number | null>(null);
   const [ecrireSheetArr, setEcrireSheetArr] = useState<number | null>(null);
   const [ecrireDraft, setEcrireDraft] = useState('');
   const [ecrireSaving, setEcrireSaving] = useState(false);
@@ -461,6 +462,9 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       }
     }
 
+    const detectedArr = inferArrondissementFromGeo(lat, lng);
+    setActiveArrondissement(detectedArr);
+
     const incoming = { lat, lng };
     const now = Date.now();
     const prevTarget = markerTargetRef.current;
@@ -718,15 +722,15 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           setShowInscriptionsLayer={setShowInscriptionsLayer}
           segmentsLabel={t('myparis.layers.segments')}
           inscriptionsLabel={t('myparis.layers.inscriptions')}
-          tracesTabLabel={t('map.tabs.traces')}
-          cityTabLabel={t('map.tabs.city')}
-          momentsTabLabel={t('map.tabs.moments')}
-          tracesHint={t('map.tabs.tracesHint')}
-          cityHint={t('map.tabs.cityHint')}
-          momentsHint={t('map.tabs.momentsHint')}
+          presenceTabLabel={t('map.tabs.presence')}
+          inscriptionsTabLabel={t('map.tabs.inscriptions')}
+          constellationTabLabel={t('map.tabs.constellation')}
+          presenceHint={t('map.tabs.presenceHint')}
+          inscriptionsHint={t('map.tabs.inscriptionsHint')}
+          constellationHint={t('map.tabs.constellationHint')}
         />
 
-        {encounter && mapMode === 'ville' && (
+        {encounter && mapMode === 'presence' && (
           <div
             style={{
               width: '100%',
@@ -844,6 +848,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
             zoneLawMap={zoneLawMap}
             anchorZoneMap={anchorZoneMap}
             onZoneSelect={setZoneDetailArr}
+            activeArrondissement={activeArrondissement}
             marker={presenceMarker}
             globalPulseActive={outsideCoverage}
             youAreHereLabel={outsideCoverage ? t('map.parisWaiting') : t('map.youAreHere')}
@@ -874,6 +879,50 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           />
         </div>
         </div>
+
+        {mapMode === 'presence' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              marginTop: 4,
+              marginBottom: 8,
+            }}
+          >
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: activeArrondissement
+                  ? (stabilized.status === 'locked' ? '#007850' : '#d4af37')
+                  : '#8E8982',
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 12,
+                letterSpacing: '0.04em',
+                color: '#003D2C',
+                opacity: 0.75,
+              }}
+            >
+              {activeArrondissement
+                ? t(`map.arrondissements.${activeArrondissement}`)
+                : outsideCoverage
+                  ? t('map.presence.outside')
+                  : stabilized.status === 'weak' || stabilized.status === 'error'
+                    ? t('map.presence.weak')
+                    : t('map.tabs.presenceHint')
+              }
+            </span>
+          </div>
+        )}
+
         <p
           style={{
             marginTop: -10,
