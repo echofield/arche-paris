@@ -27,7 +27,9 @@
  */
 
 import Delaunator from 'delaunator';
-import { VIEWBOX_WIDTH, VIEWBOX_HEIGHT } from './map-project';
+
+const VIEWBOX_WIDTH = 2037.566;
+const VIEWBOX_HEIGHT = 1615.5;
 
 // ---------------------------------------------------------------------------
 // Types
