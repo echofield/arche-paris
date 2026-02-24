@@ -198,25 +198,25 @@ export function ZoneOverlay({
               </filter>
             </defs>
             <circle
-              cx={pt.x} cy={pt.y} r="55"
-              fill="rgba(0, 120, 80, 0.10)"
+              cx={pt.x} cy={pt.y} r="160"
+              fill="rgba(0, 120, 80, 0.08)"
               style={{
                 transformOrigin: `${pt.x}px ${pt.y}px`,
                 animation: `you-are-here-pulse ${pulseDur} ease-out infinite`,
                 animationPlayState: marker.pulsePaused ? 'paused' : 'running',
               }}
             />
-            <circle cx={pt.x} cy={pt.y} r="18" fill="#007850" stroke="#FAF8F2" strokeWidth="5" filter="url(#marker-shadow)" />
-            <foreignObject x={pt.x - 60} y={pt.y + 28} width="180" height="80" style={{ overflow: 'visible' }}>
+            <circle cx={pt.x} cy={pt.y} r="50" fill="#007850" stroke="#FAF8F2" strokeWidth="10" filter="url(#marker-shadow)" />
+            <foreignObject x={pt.x - 80} y={pt.y + 65} width="250" height="100" style={{ overflow: 'visible' }}>
               <div style={{
-                padding: '3px 8px',
-                borderRadius: 8,
-                background: 'rgba(250,248,242,0.90)',
+                padding: '4px 10px',
+                borderRadius: 10,
+                background: 'rgba(250,248,242,0.92)',
                 border: '1px solid rgba(0,61,44,0.14)',
                 fontFamily: 'var(--font-sans)',
-                fontSize: 14,
+                fontSize: 22,
                 color: '#003D2C',
-                opacity: 0.78,
+                opacity: 0.82,
                 whiteSpace: 'nowrap',
                 width: 'fit-content',
               }}>
@@ -224,9 +224,9 @@ export function ZoneOverlay({
               </div>
               {recognitionLine && (
                 <div style={{
-                  marginTop: 10,
+                  marginTop: 12,
                   fontFamily: 'var(--font-serif)',
-                  fontSize: 16,
+                  fontSize: 24,
                   fontStyle: 'italic',
                   color: '#003D2C',
                   opacity: 0.78,
