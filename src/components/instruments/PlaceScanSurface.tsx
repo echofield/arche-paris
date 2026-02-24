@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { api, type PlaceScanDirection, type PlaceScanNowState, type PlaceScanResult } from '../../lib/api';
 import { useTranslation } from '../../utils/i18n';
+import { getStabilizedFix } from '../../lib/getStabilizedFix';
 
 // ============================================================
 // Backend contract: PlaceScanResult cards[0..3]
@@ -492,20 +493,11 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
     let hdg: number | undefined;
 
     try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) => {
-        if (!navigator.geolocation) {
-          rej(new Error('no'));
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(res, rej, {
-          enableHighAccuracy: true,
-          timeout: 6000,
-        });
-      });
-      lat = pos.coords.latitude;
-      lon = pos.coords.longitude;
-      if (typeof pos.coords.heading === 'number' && Number.isFinite(pos.coords.heading)) {
-        hdg = pos.coords.heading;
+      const fix = await getStabilizedFix({ durationMs: 4000, intervalMs: 500 });
+      if (fix) {
+        lat = fix.lat;
+        lon = fix.lng;
+        if (fix.heading !== null) hdg = fix.heading;
       }
     } catch {
       /* fallback Paris center */

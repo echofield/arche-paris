@@ -10,6 +10,7 @@ import { MamlukGrid } from './MamlukGrid';
 import { MeridiensInterface, type LocalMeridianState } from './MeridiensInterface';
 import { getThresholds, type Threshold, type ThresholdId } from '../data/meridiens';
 import { haversineMeters } from '../utils/geo';
+import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
 import {
   distanceToMeridianMeters,
   emaPoint,
@@ -153,52 +154,36 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     }
   }, [viewMode, nearest]);
 
-  // Geolocation: accuracy, position buffer (cap 30), EMA only when accuracy ≤ 60, ring-buffer headings (8 for stability)
+  // Stabilized GPS: replaces raw watchPosition with shared stabilizer
+  const stabilized = useStabilizedPosition({ maxAccuracyM: MAX_ACCURACY_FOR_SMOOTHING_M });
   useEffect(() => {
-    const onPos = (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      const acc = pos.coords.accuracy;
-      const ts = Date.now();
-      if (typeof acc === 'number' && Number.isFinite(acc)) setAccuracy_m(acc);
-
-      const buf = positionBufferRef.current;
-      buf.push({ lat, lng, ts });
-      if (buf.length > SAMPLE_BUFFER_MAX) buf.shift();
-
-      const raw = { lat, lng };
-      const smoothWhen = typeof acc === 'number' && Number.isFinite(acc) && acc <= MAX_ACCURACY_FOR_SMOOTHING_M;
-      const smoothed = smoothWhen ? emaPoint(lastSmoothedRef.current, raw, MERIDIEN_EMA_ALPHA) : raw;
-      if (smoothWhen) lastSmoothedRef.current = smoothed;
-      setUserPos(smoothed);
-
-      const h = pos.coords.heading;
-      if (typeof h === 'number' && Number.isFinite(h)) {
-        const ring = headingsRef.current;
-        ring.push(h);
-        if (ring.length > MERIDIEN_HEADING_SAMPLES_FOR_STABILITY) ring.shift();
-        setHeading(h);
+    if (!stabilized.pos) {
+      if (stabilized.status === 'error') {
+        setUserPos(null);
+        setAccuracy_m(null);
       }
-    };
-    const onErr = () => {
-      setUserPos(null);
-      setAccuracy_m(null);
-    };
-    navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true });
-    const id = navigator.geolocation.watchPosition(onPos, onErr, {
-      enableHighAccuracy: true,
-      maximumAge: 5000
-    });
-    watchIdRef.current = id;
-    return () => {
-      if (watchIdRef.current != null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      setUserPos(null);
-      setAccuracy_m(null);
-    };
-  }, []);
+      return;
+    }
+    const { lat, lng, accuracy, heading: h } = stabilized.pos;
+    const ts = Date.now();
+    setAccuracy_m(accuracy);
+
+    const buf = positionBufferRef.current;
+    buf.push({ lat, lng, ts });
+    if (buf.length > SAMPLE_BUFFER_MAX) buf.shift();
+
+    const raw = { lat, lng };
+    const smoothed = emaPoint(lastSmoothedRef.current, raw, MERIDIEN_EMA_ALPHA);
+    lastSmoothedRef.current = smoothed;
+    setUserPos(smoothed);
+
+    if (typeof h === 'number' && Number.isFinite(h)) {
+      const ring = headingsRef.current;
+      ring.push(h);
+      if (ring.length > MERIDIEN_HEADING_SAMPLES_FOR_STABILITY) ring.shift();
+      setHeading(h);
+    }
+  }, [stabilized.pos]);
 
   // Snapshot fetch with throttle and deadband (Patch 1)
   useEffect(() => {

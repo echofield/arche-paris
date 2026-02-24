@@ -41,6 +41,7 @@ import { ReadingCard } from './PersonalMemoryMap/ReadingCard';
 import { LIEUX_PARIS, type Lieu } from '../data/lieux-paris';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
+import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAP_VIEWBOX_WIDTH = 2037.566;
@@ -65,15 +66,9 @@ interface MapPoint {
 }
 
 const MARKER_MIN_MOVE_M = 6;
-const MARKER_MAX_ACCURACY_M = 80;
-const TERRITORY_SWITCH_MAX_ACCURACY_M = 80;
 const TERRITORY_FIX_STREAK_REQUIRED = 3;
 const PRESENCE_PULSE_INTERVAL_MS = 30_000;
 const MARKER_LERP_ALPHA = 0.25;
-const STABILIZER_GOOD_ACCURACY_M = 80;
-const STABILIZER_MIN_GOOD_READINGS = 3;
-const STABILIZER_TELEPORT_MAX_M = 150;
-const STABILIZER_TELEPORT_MIN_INTERVAL_MS = 3000;
 const PARIS_TERRITORY_BOUNDS = {
   minLat: 48.810,
   maxLat: 48.910,
@@ -210,8 +205,6 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const lastZoneWhisperRef = useRef<string | null>(null);
   const outsideFixStreakRef = useRef(0);
   const insideFixStreakRef = useRef(0);
-  const goodReadingStreakRef = useRef(0);
-  const lastAcceptedPosRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
 
   useEffect(() => {
     presenceMarkerRef.current = presenceMarker;
@@ -391,146 +384,115 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
 
   // Snapshot is now provided by WorldSnapshotContext; no per-mount fetch needed.
 
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+  // Shared stabilized GPS — single source of truth for all GPS consumers
+  const stabilized = useStabilizedPosition();
 
-    const applyTerritoryHysteresis = (lat: number, lng: number, accuracy: number) => {
-      if (!Number.isFinite(accuracy) || accuracy > TERRITORY_SWITCH_MAX_ACCURACY_M) return;
-      const outside = !isInsideParisTerritory(lat, lng);
-      if (outside) {
-        outsideFixStreakRef.current += 1;
-        insideFixStreakRef.current = 0;
-        if (outsideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
-          setOutsideCoverage(true);
+  const animateMarker = useCallback((from: { lat: number; lng: number }, to: { lat: number; lng: number }, durationMs: number) => {
+    if (motion.prefersReducedMotion()) {
+      setPresenceMarker((prev) => ({
+        lat: to.lat,
+        lng: to.lng,
+        moving: false,
+        pulsePaused: prev?.pulsePaused ?? false,
+      }));
+      return;
+    }
+    if (markerAnimationRef.current != null) {
+      cancelAnimationFrame(markerAnimationRef.current);
+    }
+    if (stoneReleaseRef.current) {
+      stoneReleaseRef.current();
+      stoneReleaseRef.current = null;
+    }
+    const releaseStone = motion.acquireStone('presence-marker');
+    if (!releaseStone) {
+      setPresenceMarker((prev) => ({
+        lat: to.lat,
+        lng: to.lng,
+        moving: false,
+        pulsePaused: prev?.pulsePaused ?? false,
+      }));
+      return;
+    }
+    stoneReleaseRef.current = releaseStone;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = motion.interpolate('transition', t);
+      const lat = from.lat + (to.lat - from.lat) * eased;
+      const lng = from.lng + (to.lng - from.lng) * eased;
+      setPresenceMarker((prev) => ({
+        lat,
+        lng,
+        moving: prev?.moving ?? true,
+        pulsePaused: prev?.pulsePaused ?? false,
+      }));
+      if (t < 1) {
+        markerAnimationRef.current = requestAnimationFrame(tick);
+      } else {
+        markerAnimationRef.current = null;
+        if (stoneReleaseRef.current) {
+          stoneReleaseRef.current();
+          stoneReleaseRef.current = null;
         }
-        return;
       }
+    };
+    markerAnimationRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  // React to stabilized position changes: territory hysteresis + marker animation
+  useEffect(() => {
+    if (!stabilized.pos) return;
+    const { lat, lng } = stabilized.pos;
+
+    // Territory hysteresis
+    const outside = !isInsideParisTerritory(lat, lng);
+    if (outside) {
+      outsideFixStreakRef.current += 1;
+      insideFixStreakRef.current = 0;
+      if (outsideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
+        setOutsideCoverage(true);
+      }
+    } else {
       insideFixStreakRef.current += 1;
       outsideFixStreakRef.current = 0;
       if (insideFixStreakRef.current >= TERRITORY_FIX_STREAK_REQUIRED) {
         setOutsideCoverage(false);
       }
-    };
+    }
 
-    const animateMarker = (from: { lat: number; lng: number }, to: { lat: number; lng: number }, durationMs: number) => {
-      if (motion.prefersReducedMotion()) {
-        setPresenceMarker((prev) => ({
-          lat: to.lat,
-          lng: to.lng,
-          moving: false,
-          pulsePaused: prev?.pulsePaused ?? false,
-        }));
-        return;
-      }
-      if (markerAnimationRef.current != null) {
-        cancelAnimationFrame(markerAnimationRef.current);
-      }
-      if (stoneReleaseRef.current) {
-        stoneReleaseRef.current();
-        stoneReleaseRef.current = null;
-      }
-      const releaseStone = motion.acquireStone('presence-marker');
-      if (!releaseStone) {
-        setPresenceMarker((prev) => ({
-          lat: to.lat,
-          lng: to.lng,
-          moving: false,
-          pulsePaused: prev?.pulsePaused ?? false,
-        }));
-        return;
-      }
-      stoneReleaseRef.current = releaseStone;
-      const start = performance.now();
-      const tick = (now: number) => {
-        const t = Math.min(1, (now - start) / durationMs);
-        const eased = motion.interpolate('transition', t);
-        const lat = from.lat + (to.lat - from.lat) * eased;
-        const lng = from.lng + (to.lng - from.lng) * eased;
-        setPresenceMarker((prev) => ({
-          lat,
-          lng,
-          moving: prev?.moving ?? true,
-          pulsePaused: prev?.pulsePaused ?? false,
-        }));
-        if (t < 1) {
-          markerAnimationRef.current = requestAnimationFrame(tick);
-        } else {
-          markerAnimationRef.current = null;
-          if (stoneReleaseRef.current) {
-            stoneReleaseRef.current();
-            stoneReleaseRef.current = null;
-          }
-        }
-      };
-      markerAnimationRef.current = requestAnimationFrame(tick);
-    };
+    const incoming = { lat, lng };
+    const now = Date.now();
+    const prevTarget = markerTargetRef.current;
+    if (!prevTarget) {
+      markerTargetRef.current = incoming;
+      markerLastMoveAtRef.current = now;
+      setPresenceMarker({ ...incoming, moving: false, pulsePaused: false });
+      return;
+    }
+    const movedMeters = distanceMeters(prevTarget, incoming);
+    if (movedMeters < MARKER_MIN_MOVE_M) return;
+    markerTargetRef.current = incoming;
+    markerLastMoveAtRef.current = now;
+    const from = presenceMarkerRef.current
+      ? { lat: presenceMarkerRef.current.lat, lng: presenceMarkerRef.current.lng }
+      : prevTarget;
+    const smoothedIncoming = lerpPoint(from, incoming, MARKER_LERP_ALPHA);
+    const minMs = motion.t('paper');
+    const maxMs = motion.t('glass');
+    const durationMs = Math.max(minMs, Math.min(maxMs, Math.round(minMs + movedMeters * 12)));
+    markerTargetRef.current = smoothedIncoming;
+    setPresenceMarker((prev) => ({ lat: from.lat, lng: from.lng, moving: true, pulsePaused: prev?.pulsePaused ?? false }));
+    animateMarker(from, smoothedIncoming, durationMs);
+  }, [stabilized.pos, animateMarker]);
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
-        applyTerritoryHysteresis(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-
-        if (pos.coords.accuracy > STABILIZER_GOOD_ACCURACY_M) {
-          goodReadingStreakRef.current = 0;
-          return;
-        }
-
-        const incoming = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const now = Date.now();
-
-        // Teleport rejection: discard jumps > 150m within < 3s
-        const lastAccepted = lastAcceptedPosRef.current;
-        if (lastAccepted) {
-          const jumpM = distanceMeters(lastAccepted, incoming);
-          const elapsedMs = now - lastAccepted.ts;
-          if (jumpM > STABILIZER_TELEPORT_MAX_M && elapsedMs < STABILIZER_TELEPORT_MIN_INTERVAL_MS) {
-            return;
-          }
-        }
-
-        goodReadingStreakRef.current += 1;
-
-        // Require N consecutive good readings before first dot placement
-        if (!markerTargetRef.current && goodReadingStreakRef.current < STABILIZER_MIN_GOOD_READINGS) {
-          return;
-        }
-
-        lastAcceptedPosRef.current = { ...incoming, ts: now };
-        const prevTarget = markerTargetRef.current;
-        if (!prevTarget) {
-          markerTargetRef.current = incoming;
-          markerLastMoveAtRef.current = now;
-          setPresenceMarker({ ...incoming, moving: false, pulsePaused: false });
-          return;
-        }
-        const movedMeters = distanceMeters(prevTarget, incoming);
-        if (movedMeters < MARKER_MIN_MOVE_M) return;
-        markerTargetRef.current = incoming;
-        markerLastMoveAtRef.current = now;
-        const from = presenceMarkerRef.current
-          ? { lat: presenceMarkerRef.current.lat, lng: presenceMarkerRef.current.lng }
-          : prevTarget;
-        const smoothedIncoming = lerpPoint(from, incoming, MARKER_LERP_ALPHA);
-        const minMs = motion.t('paper');
-        const maxMs = motion.t('glass');
-        const durationMs = Math.max(minMs, Math.min(maxMs, Math.round(minMs + movedMeters * 12)));
-        markerTargetRef.current = smoothedIncoming;
-        setPresenceMarker((prev) => ({ lat: from.lat, lng: from.lng, moving: true, pulsePaused: prev?.pulsePaused ?? false }));
-        animateMarker(from, smoothedIncoming, durationMs);
-      },
-      () => {
-        // Silent fail: marker is best effort.
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 }
-    );
-
+  // Moving ticker
+  useEffect(() => {
     const movingTicker = window.setInterval(() => {
       const isMoving = Date.now() - markerLastMoveAtRef.current < 5000;
       setPresenceMarker((prev) => (prev ? { ...prev, moving: isMoving } : prev));
     }, 800);
-
     return () => {
-      navigator.geolocation.clearWatch(watchId);
       window.clearInterval(movingTicker);
       if (markerAnimationRef.current != null) {
         cancelAnimationFrame(markerAnimationRef.current);

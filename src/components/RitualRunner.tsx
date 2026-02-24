@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, generateIdempotencyKey, clientTs } from '../lib/api';
-import { useGeolocation } from '../hooks/useGeolocation';
+import { getStabilizedFix, type StabilizedFix } from '../lib/getStabilizedFix';
 import { useTranslation } from '../utils/i18n';
 
 export type RitualType = 'presence' | 'observation';
@@ -59,12 +59,12 @@ function haptic(type: 'light' | 'medium' | 'success' | 'error') {
 export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: RitualRunnerProps) {
   const { t } = useTranslation();
   const config = RITUAL_CONFIG[ritualType];
-  const geo = useGeolocation();
 
   const [state, setState] = useState<RitualState>('idle');
   const [runId, setRunId] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [lastFix, setLastFix] = useState<StabilizedFix | null>(null);
 
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -74,17 +74,16 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
     setState('acquiring_gps');
     setError(null);
 
-    // 1. Get GPS
-    const position = await geo.refresh();
-    if (!position) {
+    const fix = await getStabilizedFix({ durationMs: 6000, intervalMs: 600 });
+    if (!fix) {
       setState('rejected');
-      setError({ code: 'GPS_FAILED', message: geo.error || 'Impossible d\'obtenir la position GPS' });
+      setError({ code: 'GPS_FAILED', message: 'Impossible d\'obtenir la position GPS' });
       haptic('error');
       return;
     }
+    setLastFix(fix);
 
-    // Check accuracy before even starting (code unchanged; message is user-facing only)
-    if (position.coords.accuracy > config.maxAccuracyM) {
+    if (fix.accuracy > config.maxAccuracyM) {
       setState('rejected');
       setError({
         code: 'ACCURACY_TOO_LOW',
@@ -96,13 +95,12 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
 
     setState('starting');
 
-    // 2. Call rituals-start
     const result = await api.ritualsStart({
       zone_id: zoneId,
       ritual_type: ritualType,
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-      accuracy_m: position.coords.accuracy,
+      lat: fix.lat,
+      lng: fix.lng,
+      accuracy_m: fix.accuracy,
       client_ts: clientTs(),
       idempotency_key: generateIdempotencyKey(`ritual-${ritualType}-${zoneId}`),
     });
@@ -134,7 +132,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
         haptic('medium');
       }
     }, 100);
-  }, [zoneId, ritualType, config, geo, t]);
+  }, [zoneId, ritualType, config, t]);
 
   // Complete the ritual
   const completeRitual = useCallback(async () => {
@@ -147,14 +145,14 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
 
     setState('completing');
 
-    // Get fresh GPS for completion
-    const position = await geo.refresh();
-    if (!position) {
+    const fix = await getStabilizedFix({ durationMs: 4000, intervalMs: 500 });
+    if (!fix) {
       setState('rejected');
       setError({ code: 'GPS_FAILED', message: 'GPS perdu pendant le moment' });
       haptic('error');
       return;
     }
+    setLastFix(fix);
 
     const dwellMs = Date.now() - startTimeRef.current;
 
@@ -162,9 +160,9 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
       run_id: runId,
       zone_id: zoneId,
       dwell_ms: dwellMs,
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-      accuracy_m: position.coords.accuracy,
+      lat: fix.lat,
+      lng: fix.lng,
+      accuracy_m: fix.accuracy,
       client_ts: clientTs(),
       idempotency_key: generateIdempotencyKey(`ritual-complete-${runId}`),
     });
@@ -190,7 +188,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
 
     setState('success');
     haptic('success');
-  }, [runId, zoneId, geo]);
+  }, [runId, zoneId]);
 
   // Abort the ritual
   const abortRitual = useCallback(async () => {
@@ -409,7 +407,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
       </div>
 
       {/* GPS status — no coords/accuracy in production */}
-      {(state === 'running' || state === 'completing') && geo.lat !== null && (
+      {(state === 'running' || state === 'completing') && lastFix !== null && (
         <div
           style={{
             fontFamily: 'var(--font-sans)',
@@ -420,7 +418,7 @@ export function RitualRunner({ zoneId, ritualType, onComplete, onCancel }: Ritua
           }}
         >
           {import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY
-            ? `${geo.lat?.toFixed(5)}, ${geo.lng?.toFixed(5)} ±${geo.accuracy_m?.toFixed(0) ?? '?'}m`
+            ? `${lastFix.lat.toFixed(5)}, ${lastFix.lng.toFixed(5)} ±${lastFix.accuracy.toFixed(0)}m`
             : t('presence.signalSettling')}
         </div>
       )}
