@@ -39,6 +39,7 @@
             "clsx": "*",
             "cmdk": "^1.1.1",
             "d3-shape": "^3.2.0",
+            "delaunator": "^5.0.1",
             "embla-carousel-react": "^8.6.0",
             "framer-motion": "*",
             "hono": "^4.6.14",
@@ -82,6 +83,9 @@
       "scripts": {
             "dev": "vite",
             "build": "vite build",
-            "typecheck": "tsc --noEmit"
+            "typecheck": "tsc --noEmit",
+            "lint:i18n": "node scripts/lint-i18n-keys.mjs",
+            "lint:i18n:orphans": "node scripts/lint-i18n-keys.mjs --orphans",
+            "lint:i18n:ci": "node scripts/lint-i18n-keys.mjs --fail-on-missing"
       }
 }

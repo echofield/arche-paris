@@ -1,6 +1,6 @@
 import { ARRONDISSEMENT_MAP_POSITION } from '../../data/arrondissement-positions';
 import { arrToZoneId } from '../../hooks/useZoneEntry';
-import { project, VIEWBOX_WIDTH, VIEWBOX_HEIGHT } from '../../utils/map-project';
+import { project, projectLinear, projectWithMeta, VIEWBOX_WIDTH, VIEWBOX_HEIGHT } from '../../utils/map-project';
 import type { ZoneProgressItem } from '../../lib/api';
 import type { MapLayerMode } from './MapLayers';
 
@@ -241,33 +241,44 @@ export function ZoneOverlay({
         );
       })()}
 
-      {/* Debug overlay: env var OR ?debug=territory URL param */}
+      {/* Debug overlay: env var OR ?debug URL param */}
       {(import.meta.env.VITE_DEBUG_TERRITORY || new URLSearchParams(window.location.search).has('debug')) && marker && (() => {
-        const pt = project(marker.lat, marker.lng);
-        const xPct = (pt.x / VIEWBOX_WIDTH) * 100;
-        const yPct = (pt.y / VIEWBOX_HEIGHT) * 100;
+        const warped = projectWithMeta(marker.lat, marker.lng);
+        const linear = projectLinear(marker.lat, marker.lng);
+        const wPct = { x: (warped.x / VIEWBOX_WIDTH) * 100, y: (warped.y / VIEWBOX_HEIGHT) * 100 };
+        const lPct = { x: (linear.x / VIEWBOX_WIDTH) * 100, y: (linear.y / VIEWBOX_HEIGHT) * 100 };
         return (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 4,
-              left: 4,
-              zIndex: 99,
-              background: 'rgba(0,0,0,0.85)',
-              color: '#0f0',
-              fontFamily: 'monospace',
-              fontSize: 11,
-              padding: '6px 8px',
-              borderRadius: 4,
-              lineHeight: 1.6,
-              pointerEvents: 'none',
-            }}
-          >
-            lat {marker.lat.toFixed(5)}<br />
-            lng {marker.lng.toFixed(5)}<br />
-            svg {pt.x.toFixed(0)},{pt.y.toFixed(0)}<br />
-            pct {xPct.toFixed(1)}%,{yPct.toFixed(1)}%
-          </div>
+          <>
+            {/* Gray dot: linear projection (for comparison) */}
+            <svg
+              viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+              preserveAspectRatio="xMidYMid meet"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9 }}
+            >
+              <circle cx={linear.x} cy={linear.y} r="30" fill="rgba(120,120,120,0.25)" />
+              <circle cx={linear.x} cy={linear.y} r="12" fill="#888" stroke="#fff" strokeWidth="3" opacity="0.6" />
+            </svg>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 4,
+                left: 4,
+                zIndex: 99,
+                background: 'rgba(0,0,0,0.88)',
+                color: '#0f0',
+                fontFamily: 'monospace',
+                fontSize: 10,
+                padding: '6px 8px',
+                borderRadius: 4,
+                lineHeight: 1.5,
+                pointerEvents: 'none',
+              }}
+            >
+              {marker.lat.toFixed(5)}, {marker.lng.toFixed(5)}<br />
+              <span style={{ color: '#0f0' }}>warp</span> {wPct.x.toFixed(1)}%,{wPct.y.toFixed(1)}% tri:{warped.triangleIndex}<br />
+              <span style={{ color: '#888' }}>lin</span>&nbsp; {lPct.x.toFixed(1)}%,{lPct.y.toFixed(1)}%
+            </div>
+          </>
         );
       })()}
     </>
