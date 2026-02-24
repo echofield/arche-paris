@@ -21,12 +21,12 @@ import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
 import { InstrumentsCabinetOverlay } from './components/InstrumentsCabinetOverlay';
 import { TresorCache } from './components/TresorCache';
-import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, clearCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
 import { runEchoIfNeeded, runMilestonesIfNeeded } from './utils/echo-milestone-runner';
-import { LanguageProvider } from './utils/i18n';
+import { useTranslation } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
@@ -55,6 +55,7 @@ const LazyEtudesHub = lazy(() =>
  * - Others can access but we track it
  */
 export default function App() {
+  const { t } = useTranslation();
   const [appState, setAppState] = useState<AppState>('loading');
   const [cardStatus, setCardStatus] = useState<CardStatus | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>('homepage');
@@ -88,7 +89,7 @@ export default function App() {
         const demoStatus: CardStatus = {
           valid: true,
           status: 'DEMO',
-          message: 'Mode démo.',
+          message: t('app.demoMode'),
           cardId: 'DEMO-DEV',
         };
         setCardStatus(demoStatus);
@@ -150,7 +151,7 @@ export default function App() {
     if (result.needsPassword && result.cardId) {
       setForceUnpairCardId(result.cardId);
       setForceUnpairPassword('');
-      setForceUnpairError(result.message || null);
+      setForceUnpairError(result.message || t('app.disconnectFailed'));
       setShowForceUnpairPrompt(true);
       return;
     }
@@ -187,7 +188,7 @@ export default function App() {
         setForceUnpairError(result.message || 'Échec de la déconnexion');
       }
     } catch (err) {
-      setForceUnpairError(err instanceof Error ? err.message : 'Erreur inattendue');
+      setForceUnpairError(err instanceof Error ? err.message : t('app.unexpectedError'));
     } finally {
       setForceUnpairLoading(false);
     }
@@ -215,7 +216,7 @@ export default function App() {
     setCardStatus({
       valid: false,
       status: 'NEEDS_GATE',
-      message: 'Vérifiez la carte.',
+      message: t('app.verifyCard'),
       cardId: '',
       cardCode: code,
     });
@@ -229,7 +230,7 @@ export default function App() {
       setCardStatus({
         valid: true,
         status: 'WELCOME_BACK',
-        message: 'Bon retour.',
+        message: t('app.welcomeBack'),
         cardId: cardData.id,
       });
       setAppState('welcome');
@@ -272,7 +273,7 @@ export default function App() {
       setCardStatus({
         valid: false,
         status: 'ERROR',
-        message: errMsg || 'Connexion limitée. Réessayez.',
+        message: errMsg || t('app.rateLimitRetry'),
         cardId: cardData.id,
       });
       setAppState('invalid');
@@ -368,7 +369,7 @@ export default function App() {
     }
   };
 
-  const renderScreenLoading = (label = 'Chargement...') => (
+  const renderScreenLoading = (label?: string) => (
     <div
       style={{
         minHeight: '100vh',
@@ -383,7 +384,7 @@ export default function App() {
         opacity: 0.7,
       }}
     >
-      {label}
+      {label ?? t('app.loading')}
     </div>
   );
 
@@ -464,7 +465,7 @@ export default function App() {
         return <CultureQuiz onBack={() => navigateTo('homepage')} />;
       case 'etudes':
         return (
-          <Suspense fallback={renderScreenLoading('Chargement des Etudes...')}>
+          <Suspense fallback={renderScreenLoading(t('app.loadingEtudes'))}>
             <LazyEtudesHub onClose={() => navigateTo('homepage')} />
           </Suspense>
         );
@@ -483,7 +484,7 @@ export default function App() {
         );
       case 'meridiens':
         return (
-          <Suspense fallback={renderScreenLoading('Chargement des Meridiens...')}>
+          <Suspense fallback={renderScreenLoading(t('app.loadingMeridiens'))}>
             <LazyMeridiensLive
               onBack={() => navigateTo('homepage')}
               cardId={cardStatus?.cardId ?? null}
@@ -492,7 +493,7 @@ export default function App() {
         );
       case 'place-scan':
         return (
-          <Suspense fallback={renderScreenLoading('Lecture du lieu...')}>
+          <Suspense fallback={renderScreenLoading(t('app.loadingPlaceScan'))}>
             <LazyPlaceScanSurface onExit={() => navigateTo('homepage')} />
           </Suspense>
         );
@@ -528,8 +529,7 @@ export default function App() {
   };
 
   return (
-    <LanguageProvider>
-      <WhisperProvider>
+    <WhisperProvider>
       <SyncStateProvider>
       <div style={{ minHeight: '100vh', width: '100%', maxWidth: '100%', overflowX: 'hidden', background: '#FAF8F2', position: 'relative' }}>
         {appState !== 'ready' ? (
@@ -573,7 +573,31 @@ export default function App() {
                   borderBottom: '1px solid rgba(0,0,0,0.06)',
                 }}
               >
-                Session expirée. Utilisez le lien de votre carte pour vous reconnecter.
+                {t('app.sessionExpired')}. {t('nav.login')}{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearCard();
+                    setCardStatus(null);
+                    setCurrentScreen('homepage');
+                    setAppState('no_card');
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('card');
+                    window.history.replaceState({}, '', url.toString());
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#1A3C34',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    padding: 0,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {t('nav.disconnect')}
+                </button>
               </div>
             )}
             {renderScreen()}
@@ -662,16 +686,16 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 style={{ fontFamily: 'var(--font-serif)', marginBottom: '16px', color: 'var(--ink, #1A1A1A)' }}>
-                Session expirée
+                {t('app.sessionExpired')}
               </h3>
               <p style={{ fontSize: '14px', marginBottom: '24px', color: 'var(--ink, #1A1A1A)', opacity: 0.7 }}>
-                Entrez votre mot de passe pour déconnecter cette carte.
+                {t('app.sessionExpiredPassword')}
               </p>
               <input
                 type="password"
                 value={forceUnpairPassword}
                 onChange={(e) => setForceUnpairPassword(e.target.value)}
-                placeholder="Mot de passe"
+                placeholder={t('app.password')}
                 autoComplete="current-password"
                 style={{
                   width: '100%',
@@ -705,7 +729,7 @@ export default function App() {
                     minHeight: '44px'
                   }}
                 >
-                  Annuler
+                  {t('app.cancel')}
                 </button>
                 <button
                   onClick={handleForceUnpair}
@@ -722,7 +746,7 @@ export default function App() {
                     minHeight: '44px'
                   }}
                 >
-                  {forceUnpairLoading ? 'Déconnexion...' : 'Déconnecter'}
+                  {forceUnpairLoading ? t('app.disconnecting') : t('app.disconnect')}
                 </button>
               </div>
             </div>
@@ -732,7 +756,6 @@ export default function App() {
         <Whisper />
       </div>
       </SyncStateProvider>
-      </WhisperProvider>
-    </LanguageProvider>
+    </WhisperProvider>
   );
 }
