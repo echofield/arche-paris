@@ -4,10 +4,11 @@ import { GeometricBackground } from './GeometricBackground';
 interface CardLoginProps {
   cardCode: string;
   onLoggedIn: (cardData: { id: string; code: string; activated_at: string; password?: string }) => void;
+  pairingInProgress?: boolean;
   onBack?: () => void;
 }
 
-export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
+export function CardLogin({ cardCode, onLoggedIn, pairingInProgress = false, onBack }: CardLoginProps) {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +32,8 @@ export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
       return;
     }
 
-    // Prevent double submission
-    if (isSubmitting) return;
+    // Prevent double submission and block while parent is pairing (409 flow)
+    if (isSubmitting || pairingInProgress) return;
 
     // Abort any pending request
     if (abortControllerRef.current) {
@@ -145,7 +146,7 @@ export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
     }
   };
 
-  const canSubmit = password.length > 0 && !isSubmitting && !isLocked;
+  const canSubmit = password.length > 0 && !isSubmitting && !isLocked && !pairingInProgress;
 
   const preLoginLayout = {
     minHeight: '100dvh',
@@ -254,7 +255,7 @@ export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              disabled={isLocked}
+              disabled={isLocked || pairingInProgress}
               autoComplete="current-password"
               style={{
                 width: '100%',
@@ -337,7 +338,7 @@ export function CardLogin({ cardCode, onLoggedIn, onBack }: CardLoginProps) {
               }
             }}
           >
-            {isSubmitting ? 'Connexion...' : isLocked ? 'Carte verrouillée' : 'Entrer'}
+            {pairingInProgress ? 'Transfert de la carte…' : isSubmitting ? 'Connexion...' : isLocked ? 'Carte verrouillée' : 'Entrer'}
           </button>
 
           {/* Warning */}

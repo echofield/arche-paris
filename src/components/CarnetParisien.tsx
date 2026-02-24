@@ -3,7 +3,7 @@ import { BookOpen, Feather, Download } from 'lucide-react';
 import { MamlukGrid } from './MamlukGrid';
 import { BackButton } from './BackButton';
 import { formatDateDisplay } from '../utils/codex-helpers';
-import { loadJournalEntries, appendJournalEntry, getOfflineMessage, CardGateOfflineError } from '../utils/card-gate-client';
+import { loadJournalEntries, appendJournalEntry, getOfflineMessage, CardGateOfflineError, CardGateServerError } from '../utils/card-gate-client';
 import { useSyncState, COMPRESSED_MESSAGE } from '../contexts/SyncStateContext';
 import { WALK_PLACE_ID } from '../utils/journal-sync';
 import { getReflectiveQuestion } from '../data/oracle';
@@ -29,6 +29,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
   const [currentLieu, setCurrentLieu] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const { pendingCount, isSyncing, showCompressedMessage, flushNow } = useSyncState();
 
   // Charger les souvenirs depuis vault API au montage
@@ -98,6 +99,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
     setCurrentText('');
     setCurrentLieu('');
 
+    setSaveError(null);
     try {
       await appendJournalEntry(cardId, lieuToSave || '', textToSave);
       setSouvenirs(prev =>
@@ -107,7 +109,9 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
       );
       loadSouvenirs();
     } catch (error) {
-      if (error instanceof CardGateOfflineError || (error as { code?: string })?.code === 'CARD_GATE_OFFLINE') {
+      if (error instanceof CardGateServerError || (error as { code?: string })?.code === 'CARD_GATE_SERVER_ERROR') {
+        setSaveError(error instanceof Error ? error.message : 'Problème temporaire côté serveur. Réessayez plus tard.');
+      } else if (error instanceof CardGateOfflineError || (error as { code?: string })?.code === 'CARD_GATE_OFFLINE') {
         // pendingCount updates via SyncState subscription
       }
       console.error('Erreur lors de la sauvegarde (Card Gate):', error);
@@ -170,6 +174,49 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
       <div className="no-print">
         <BackButton onClick={onBack} />
       </div>
+
+      {/* Server error (5xx): show message and keep retry queue */}
+      {saveError && (
+        <div
+          className="no-print"
+          style={{
+            position: 'fixed',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            maxWidth: '90vw',
+            padding: '12px 20px',
+            background: 'rgba(180, 80, 60, 0.95)',
+            color: '#F5F3ED',
+            borderRadius: '4px',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '14px',
+            textAlign: 'center',
+            zIndex: 90,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+          }}
+        >
+          {saveError}
+          <button
+            type="button"
+            onClick={() => setSaveError(null)}
+            style={{
+              display: 'block',
+              margin: '8px auto 0',
+              padding: '6px 14px',
+              border: '1px solid #F5F3ED',
+              borderRadius: '4px',
+              background: 'transparent',
+              color: '#F5F3ED',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Fermer
+          </button>
+        </div>
+      )}
 
       {/* Offline: traces gardées, graveront au retour du réseau */}
       {cardId && pendingCount > 0 && (

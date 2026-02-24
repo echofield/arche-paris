@@ -306,6 +306,7 @@ function InstrumentFrame({
   maturity,
   speedFactor = 1,
   arrivalTightness = 0,
+  smoothedHeadingDeg = null,
   children,
 }: {
   proximity: number;
@@ -314,6 +315,8 @@ function InstrumentFrame({
   maturity: number;
   speedFactor?: number;
   arrivalTightness?: number;
+  /** Smoothed device heading (degrees, 0 = North). When set, a compass needle is drawn. */
+  smoothedHeadingDeg?: number | null;
   children: React.ReactNode;
 }) {
   const isLocked = holdProgress >= 1;
@@ -450,6 +453,35 @@ function InstrumentFrame({
           arrivalTightness={arrivalTightness}
         />
       </div>
+      {smoothedHeadingDeg != null && Number.isFinite(smoothedHeadingDeg) && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: FRAME_W / 2,
+            top: FRAME_H / 2,
+            width: 0,
+            height: 0,
+            transform: `translate(-50%, -50%) rotate(${-smoothedHeadingDeg}deg)`,
+            transformOrigin: 'center center',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: -1,
+              bottom: 0,
+              width: 2,
+              height: 28,
+              background: 'linear-gradient(to top, rgba(0,61,44,0.9), rgba(0,61,44,0.4))',
+              borderRadius: 1,
+              boxShadow: '0 0 4px rgba(0,61,44,0.2)',
+            }}
+          />
+        </div>
+      )}
       <HoldRing progress={holdProgress} visible={isHolding || isLocked} />
       <SealMarks recognizedSites={recognizedSites} sites={SITES} />
       {children}
@@ -599,15 +631,45 @@ const INTRO_SKIP_KEY = 'arche_meridian_intro_seen';
 
 type IntroPhase = 'idle' | 'calibration' | 'measuring';
 
+const HEADING_SMOOTH_ALPHA = 0.18;
+
+/** Shortest angular difference in [-180, 180] so EMA doesn't jump at 359°→0°. */
+function shortestAngleDiff(toDeg: number, fromDeg: number): number {
+  return ((toDeg - fromDeg) % 360 + 540) % 360 - 180;
+}
+
+function normalizeAngle360(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
 export interface MeridiensInterfaceProps {
   meridian: MeridianStateInput;
+  /** Device heading in degrees (0 = North). Optional; when set, a compass needle is shown with UI smoothing. */
+  headingDeg?: number;
   onExit: () => void;
   speedFactor?: number;
   arrivalTightness?: number;
 }
 
-export function MeridiensInterface({ meridian, onExit, speedFactor = 1, arrivalTightness = 0 }: MeridiensInterfaceProps) {
+export function MeridiensInterface({ meridian, headingDeg, onExit, speedFactor = 1, arrivalTightness = 0 }: MeridiensInterfaceProps) {
   const { t } = useTranslation();
+  const smoothedHeadingRef = useRef<number | null>(null);
+  const [smoothedHeading, setSmoothedHeading] = useState<number | null>(null);
+  useEffect(() => {
+    if (headingDeg == null || !Number.isFinite(headingDeg)) {
+      smoothedHeadingRef.current = null;
+      setSmoothedHeading(null);
+      return;
+    }
+    const prev = smoothedHeadingRef.current;
+    const next =
+      prev == null
+        ? headingDeg
+        : normalizeAngle360(prev + HEADING_SMOOTH_ALPHA * shortestAngleDiff(headingDeg, prev));
+    smoothedHeadingRef.current = next;
+    setSmoothedHeading(next);
+  }, [headingDeg]);
+
   const [introPhase, setIntroPhase] = useState<IntroPhase>(() => {
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(INTRO_SKIP_KEY)) {
       return 'measuring';
@@ -867,6 +929,7 @@ export function MeridiensInterface({ meridian, onExit, speedFactor = 1, arrivalT
               maturity={maturity}
               speedFactor={speedFactor}
               arrivalTightness={arrivalTightness}
+              smoothedHeadingDeg={smoothedHeading}
             >
               <div
                 style={{

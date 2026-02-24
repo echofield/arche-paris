@@ -21,7 +21,7 @@ import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
 import { InstrumentsCabinetOverlay } from './components/InstrumentsCabinetOverlay';
 import { TresorCache } from './components/TresorCache';
-import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, clearCard, AlreadyPairedError, RateLimitError, type CardStatus } from './utils/card-service';
+import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, clearCard, AlreadyPairedError, RateLimitError, AuthInProgressError, type CardStatus } from './utils/card-service';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -223,8 +223,12 @@ export default function App() {
     setAppState('validating');
   };
 
+  // Pairing in progress: block double submit and show "Connexion en cours…"
+  const [pairingInProgress, setPairingInProgress] = useState(false);
+
   // After CardGate activation/login: pair, validate, store card, then ready
   const handleCardGateAuthenticated = async (cardData: { id: string; code: string; activated_at: string; password?: string }) => {
+    setPairingInProgress(true);
     try {
       await afterCardGateAuthenticated(cardData);
       setCardStatus({
@@ -237,6 +241,11 @@ export default function App() {
       setTimeout(() => setAppState('ready'), 1500);
     } catch (err) {
       console.error('Card Gate after auth:', err);
+
+      // Second submit while first flow still running: do nothing, keep showing "in progress"
+      if (err instanceof AuthInProgressError) {
+        return;
+      }
 
       // Handle "already paired" - need password to transfer
       if (err instanceof AlreadyPairedError) {
@@ -277,6 +286,8 @@ export default function App() {
         cardId: cardData.id,
       });
       setAppState('invalid');
+    } finally {
+      setPairingInProgress(false);
     }
   };
 
@@ -537,6 +548,7 @@ export default function App() {
             <CardGate
               cardCode={cardStatus.cardCode}
               onAuthenticated={handleCardGateAuthenticated}
+              pairingInProgress={pairingInProgress}
               onBack={() => {
                 setCardStatus(null);
                 setAppState('no_card');

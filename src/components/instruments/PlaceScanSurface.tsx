@@ -481,6 +481,13 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
     return Math.max(0, 1 - diff / 40);
   }, [heading, directionDeg, phase]);
 
+  // Hysteresis for "so what" hint: show above 0.55, hide below 0.45 to avoid flicker when alignment is noisy
+  const [showAlignedHint, setShowAlignedHint] = useState(false);
+  useEffect(() => {
+    if (alignment > 0.55) setShowAlignedHint(true);
+    else if (alignment < 0.45) setShowAlignedHint(false);
+  }, [alignment]);
+
   const textClarify = alignment * 0.08;
 
   const scan = useCallback(async () => {
@@ -714,7 +721,7 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
                 transition={{ ...MO.emerge, delay: 1.2 }}
                 style={{
                   fontFamily: '"Cormorant Garamond", Georgia, serif',
-                  fontSize: '17px',
+                  fontSize: '19px',
                   fontWeight: 300,
                   fontStyle: 'italic',
                   lineHeight: 1.7,
@@ -727,18 +734,36 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
 
               <motion.span
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.18 + textClarify * 0.5 }}
+                animate={{ opacity: 0.22 + textClarify * 0.5 }}
                 transition={{ ...MO.emerge, delay: 2 }}
                 style={{
-                  fontSize: '10px',
+                  fontSize: '11px',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.45em',
+                  letterSpacing: '0.42em',
                   fontFamily: '"Inter", system-ui, sans-serif',
                   marginTop: 18,
+                  fontWeight: 500,
                 }}
               >
                 {reading.spatialIdentity}
               </motion.span>
+
+              {showAlignedHint && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.2 + alignment * 0.15 }}
+                  transition={{ ...MO.emerge, delay: 0.2 }}
+                  style={{
+                    fontSize: '10px',
+                    fontFamily: '"Inter", system-ui, sans-serif',
+                    letterSpacing: '0.12em',
+                    marginTop: 12,
+                    fontStyle: 'italic',
+                  }}
+                >
+                  {t('instruments.placeScan.alignedHint', 'Le lieu répond à ta position.')}
+                </motion.span>
+              )}
             </div>
           )}
         </AnimatePresence>

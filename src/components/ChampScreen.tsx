@@ -250,6 +250,14 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     setSelectedPlace(null);
   }, []);
 
+  // Add trace sheet state: declare before callbacks that reference these setters (avoid TDZ)
+  const [showAddTrace, setShowAddTrace] = useState(false);
+  const [traceContextArrondissement, setTraceContextArrondissement] = useState<number | null>(null);
+  const [traceTarget, setTraceTarget] = useState<InscriptionTarget | null>(null);
+  const [traceDraft, setTraceDraft] = useState('');
+  const [traceSaving, setTraceSaving] = useState(false);
+  const [traceError, setTraceError] = useState<string | null>(null);
+
   const openLeaveTraceFromPlace = useCallback(() => {
     if (!selectedPlace) return;
     const arr = placeArrondissementToNumber(selectedPlace.arrondissement);
@@ -258,6 +266,24 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     closePlaceSheet();
     setShowAddTrace(true);
   }, [selectedPlace, closePlaceSheet]);
+
+  const [axisSheet, setAxisSheet] = useState<number | null>(null);
+
+  const handleAxisTap = useCallback((axisIndex: number) => {
+    setAxisSheet(axisIndex);
+  }, []);
+
+  const axisSheetData = useMemo(() => {
+    if (axisSheet == null || !CITY_AXES[axisSheet]) return null;
+    return CITY_AXES[axisSheet];
+  }, [axisSheet]);
+
+  const handleActivateAxis = useCallback(() => {
+    if (axisSheetData) {
+      setActiveAxis(axisSheetData.name, axisSheetData.activation_mode);
+      setAxisSheet(null);
+    }
+  }, [axisSheetData]);
 
   const openLeaveTraceFromAxis = useCallback(() => {
     if (axisSheet == null || !axisSheetData) return;
@@ -288,31 +314,6 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     }));
   }, []);
 
-  const [axisSheet, setAxisSheet] = useState<number | null>(null);
-
-  const handleAxisTap = useCallback((axisIndex: number) => {
-    setAxisSheet(axisIndex);
-  }, []);
-
-  const axisSheetData = useMemo(() => {
-    if (axisSheet == null || !CITY_AXES[axisSheet]) return null;
-    return CITY_AXES[axisSheet];
-  }, [axisSheet]);
-
-  const handleActivateAxis = useCallback(() => {
-    if (axisSheetData) {
-      setActiveAxis(axisSheetData.name, axisSheetData.activation_mode);
-      setAxisSheet(null);
-    }
-  }, [axisSheetData]);
-
-  // Add trace sheet: optional arrondissement when opened from a place/axis; optional target (place | axis | arrondissement)
-  const [showAddTrace, setShowAddTrace] = useState(false);
-  const [traceContextArrondissement, setTraceContextArrondissement] = useState<number | null>(null);
-  const [traceTarget, setTraceTarget] = useState<InscriptionTarget | null>(null);
-  const [traceDraft, setTraceDraft] = useState('');
-  const [traceSaving, setTraceSaving] = useState(false);
-  const [traceError, setTraceError] = useState<string | null>(null);
   const traceValidationError = validateChampTrace(traceDraft);
   const traceWordCount = countWords(traceDraft);
   const hasTraceArrondissement = traceContextArrondissement != null || (geo.lat != null && geo.lng != null);

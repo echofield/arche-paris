@@ -59,6 +59,15 @@ export class CardGateOfflineError extends Error {
   }
 }
 
+/** Thrown when the card-gate server returns 5xx. UI should show server message; write is queued for retry. */
+export class CardGateServerError extends Error {
+  code = 'CARD_GATE_SERVER_ERROR';
+  constructor(message: string = 'Problème temporaire côté serveur. Réessayez plus tard.') {
+    super(message);
+    this.name = 'CardGateServerError';
+  }
+}
+
 // ============ IN-MEMORY TOKEN STORE ============
 // Access tokens are NEVER stored in localStorage - only in memory
 interface TokenEntry {
@@ -160,6 +169,7 @@ export function getPendingCardIds(): string[] {
   return [...new Set(getPendingQueue().map((w) => w.cardId))];
 }
 
+/** True when we should show "offline" / retry-later UX. 4xx (auth, validation) are never offline. 429 = rate limit, treated as retry-later like offline. */
 function isOfflineFailure(res: Response | null): boolean {
   if (!res) return true;
   return res.status >= 500 || res.status === 429;
@@ -373,10 +383,11 @@ export async function saveMyParisNote(cardId: string, content: string, idempoten
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (isOfflineFailure(res)) {
-      addToPendingQueue({ cardId, type: 'note', place_id: MY_PARIS_PLACE_ID, content: capped, ts: Date.now(), idempotency_key: key });
-      throw new CardGateOfflineError();
+    addToPendingQueue({ cardId, type: 'note', place_id: MY_PARIS_PLACE_ID, content: capped, ts: Date.now(), idempotency_key: key });
+    if (res.status >= 500) {
+      throw new CardGateServerError(data?.error ?? 'Problème temporaire côté serveur. Réessayez plus tard.');
     }
+    if (isOfflineFailure(res)) throw new CardGateOfflineError();
     throw new Error(data?.error ?? `Save note failed: ${res.status}`);
   }
 }
@@ -403,10 +414,11 @@ export async function appendJournalEntry(cardId: string, placeId: string, conten
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (isOfflineFailure(res)) {
-      addToPendingQueue({ cardId, type: 'entry', place_id: placeId, content: capped, ts: Date.now(), idempotency_key: key });
-      throw new CardGateOfflineError();
+    addToPendingQueue({ cardId, type: 'entry', place_id: placeId, content: capped, ts: Date.now(), idempotency_key: key });
+    if (res.status >= 500) {
+      throw new CardGateServerError(data?.error ?? 'Problème temporaire côté serveur. Réessayez plus tard.');
     }
+    if (isOfflineFailure(res)) throw new CardGateOfflineError();
     throw new Error(data?.error ?? `Append entry failed: ${res.status}`);
   }
 }

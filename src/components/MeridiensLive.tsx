@@ -799,6 +799,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
       )}
       <MeridiensInterface
         meridian={meridian}
+        headingDeg={stabilized.pos?.heading ?? undefined}
         onExit={onBack}
         speedFactor={axisId ? lock.speedFactor : 1}
         arrivalTightness={axisId ? lock.arrivalTightness : 0}

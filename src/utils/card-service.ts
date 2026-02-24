@@ -236,70 +236,77 @@ let authInProgress = false;
  * 3. If refresh fails and no password → throw AlreadyPairedError (UI shows password prompt)
  * 4. If password provided → force-unpair + pair
  */
+/** Thrown when a second auth/pair flow is started while the first is still running. Caller should not treat as success. */
+export class AuthInProgressError extends Error {
+  constructor() {
+    super('ALREADY_IN_PROGRESS');
+    this.name = 'AuthInProgressError';
+  }
+}
+
 export async function afterCardGateAuthenticated(cardData: {
   id: string;
   code: string;
   activated_at: string;
   password?: string;
 }): Promise<void> {
-  // Prevent concurrent calls (React StrictMode, double-renders, etc.)
+  // Prevent concurrent calls (React StrictMode, double-renders, retry, etc.)
   if (authInProgress) {
     console.log('[card-service] Auth already in progress, skipping');
-    return;
+    throw new AuthInProgressError();
   }
   authInProgress = true;
 
   const cardId = cardData.id;
   try {
-    await pairDevice(cardId);
-  } catch (e: unknown) {
-    const err = e as { code?: string; message?: string };
-    if (err?.code === 'ALREADY_PAIRED') {
-      console.log('[card-service] 409 ALREADY_PAIRED received, trying /refresh first...');
-
-      // First, try to refresh - maybe we have a valid cookie from this device
-      try {
-        const refreshResult = await checkSession();
-        if (refreshResult.valid && refreshResult.cardId === cardId) {
-          // We have a valid session! Just get token and continue
-          console.log('[card-service] Refresh succeeded, session is valid');
-          await getCardToken(cardId);
-          setStoredCard(cardId);
-          authInProgress = false;
-          return;
-        }
-        console.log('[card-service] Refresh returned different card or invalid');
-      } catch (refreshErr) {
-        console.log('[card-service] Refresh failed:', refreshErr);
-      }
-
-      // Refresh didn't work - need password to transfer to this device
-      if (!cardData.password) {
-        authInProgress = false;
-        throw new AlreadyPairedError();
-      }
-
-      // Have password, try force-unpair
-      console.log('[card-service] Attempting force-unpair with password');
-      const forceResult = await forceUnpairDevice(cardId, cardData.password);
-      if (!forceResult.ok) {
-        authInProgress = false;
-        // Check for rate limit
-        if (forceResult.message?.includes('Too many') || forceResult.message?.includes('Trop de')) {
-          throw new RateLimitError();
-        }
-        throw new Error(forceResult.message ?? 'Échec du transfert. Vérifiez le mot de passe.');
-      }
-
-      // Now re-pair
+    try {
       await pairDevice(cardId);
-    } else {
-      authInProgress = false;
-      throw e;
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      if (err?.code === 'ALREADY_PAIRED') {
+        console.log('[card-service] 409 ALREADY_PAIRED received, trying /refresh first...');
+
+        // First, try to refresh - maybe we have a valid cookie from this device
+        try {
+          const refreshResult = await checkSession();
+          if (refreshResult.valid && refreshResult.cardId === cardId) {
+            // We have a valid session! Just get token and continue
+            console.log('[card-service] Refresh succeeded, session is valid');
+            await getCardToken(cardId);
+            setStoredCard(cardId);
+            return;
+          }
+          console.log('[card-service] Refresh returned different card or invalid');
+        } catch (refreshErr) {
+          console.log('[card-service] Refresh failed:', refreshErr);
+        }
+
+        // Refresh didn't work - need password to transfer to this device
+        if (!cardData.password) {
+          throw new AlreadyPairedError();
+        }
+
+        // Have password, try force-unpair
+        console.log('[card-service] Attempting force-unpair with password');
+        const forceResult = await forceUnpairDevice(cardId, cardData.password);
+        if (!forceResult.ok) {
+          // Check for rate limit
+          if (forceResult.message?.includes('Too many') || forceResult.message?.includes('Trop de')) {
+            throw new RateLimitError();
+          }
+          throw new Error(forceResult.message ?? 'Échec du transfert. Vérifiez le mot de passe.');
+        }
+
+        // Now re-pair (if this throws, finally below still releases the lock)
+        await pairDevice(cardId);
+      } else {
+        throw e;
+      }
     }
+    await getCardToken(cardId);
+    setStoredCard(cardId);
+  } finally {
+    authInProgress = false;
   }
-  await getCardToken(cardId);
-  setStoredCard(cardId);
-  authInProgress = false;
 }
 

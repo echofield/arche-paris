@@ -23,10 +23,11 @@ import { createAuraWaveNoise, createAuraWavePath } from '../lib/aura-geometry';
 import { PassportLayerModule } from './PassportLayerModule';
 import { useIsMobile } from './ui/use-mobile';
 
+import { MARKER_MAX_ACCURACY_M } from '../constants/geo';
+
 const MAP_VIEWBOX_WIDTH = 2037.566;
 const MAP_VIEWBOX_HEIGHT = 1615.5;
 const MARKER_MIN_MOVE_M = 6;
-const MARKER_MAX_ACCURACY_M = 30;
 const PRESENCE_PULSE_INTERVAL_MS = 30_000;
 const TERRITORY_SWITCH_MAX_ACCURACY_M = 50;
 const TERRITORY_FIX_STREAK_REQUIRED = 3;

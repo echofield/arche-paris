@@ -5,12 +5,13 @@ import { CardLogin } from './CardLogin';
 interface CardGateProps {
   cardCode: string;
   onAuthenticated: (cardData: { id: string; code: string; activated_at: string; password?: string }) => void;
+  pairingInProgress?: boolean;
   onBack?: () => void;
 }
 
 type CardState = 'loading' | 'not_found' | 'needs_activation' | 'needs_login';
 
-export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
+export function CardGate({ cardCode, onAuthenticated, pairingInProgress = false, onBack }: CardGateProps) {
   const [cardState, setCardState] = useState<CardState>('loading');
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -236,6 +237,7 @@ export function CardGate({ cardCode, onAuthenticated, onBack }: CardGateProps) {
       <CardLogin 
         cardCode={cardCode} 
         onLoggedIn={onAuthenticated}
+        pairingInProgress={pairingInProgress}
         onBack={onBack}
       />
     );

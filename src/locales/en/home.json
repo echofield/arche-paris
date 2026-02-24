@@ -52,6 +52,7 @@
   "instruments.placeScan.cta": "Read the place.",
   "instruments.placeScan.error": "Weak signal. Unable to read the place.",
   "instruments.placeScan.authError": "Access denied. Check your session.",
+  "instruments.placeScan.alignedHint": "The place answers your position.",
   "async.loading": "Loading…",
   "async.errorTitle": "Error",
   "async.retry": "Retry",

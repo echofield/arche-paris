@@ -44,6 +44,7 @@ import { motion } from '../design/motion';
 import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
 import { arrToZoneId } from '../hooks/useZoneEntry';
 import { useActiveAxis } from '../hooks/useActiveAxis';
+import { MARKER_MAX_ACCURACY_M } from '../constants/geo';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAP_VIEWBOX_WIDTH = 2037.566;

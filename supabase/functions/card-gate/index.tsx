@@ -2621,7 +2621,10 @@ app.post("/journal/note", async (c) => {
       .from("journal_entries")
       .update({ content, updated_at: now })
       .eq("id", existing.id);
-    if (uErr) return c.json({ error: "Failed to save note" }, 500);
+    if (uErr) {
+      console.error("[card-gate] POST /journal/note update failed:", uErr.message, "code:", uErr.code, "details:", (uErr as { details?: string }).details, "hint:", (uErr as { hint?: string }).hint, "card_id:", payload.card_id, "place_id:", placeId);
+      return c.json({ error: "Failed to save note" }, 500);
+    }
   } else {
     const row: Record<string, unknown> = {
       content,
@@ -2634,6 +2637,7 @@ app.post("/journal/note", async (c) => {
     const { error: iErr } = await supabase.from("journal_entries").insert(row);
     if (iErr) {
       if (iErr.code === "23505") return c.json({ ok: true });
+      console.error("[card-gate] POST /journal/note insert failed:", iErr.message, "code:", iErr.code, "details:", (iErr as { details?: string }).details, "hint:", (iErr as { hint?: string }).hint, "card_id:", payload.card_id, "place_id:", placeId);
       return c.json({ error: "Failed to save note" }, 500);
     }
   }
