@@ -101,9 +101,12 @@ module.exports = async function handler(req, res) {
     .join('&');
   const qs = filteredQuery ? `?${filteredQuery}` : '';
   const isZoneConsciousness = proxiedPath === 'zone-consciousness';
+  const isPlaceScan = proxiedPath === 'place-scan';
   const targetUrl = isZoneConsciousness
     ? `${supabaseBase}/functions/v1/zone-consciousness${qs}`
-    : `${supabaseBase}/functions/v1/card-gate/${proxiedPath}${qs}`;
+    : isPlaceScan
+      ? `${supabaseBase}/functions/v1/place-scan${qs}`
+      : `${supabaseBase}/functions/v1/card-gate/${proxiedPath}${qs}`;
 
   const outgoingHeaders = {};
   const passHeaders = ['authorization', 'content-type', 'cookie', 'x-forwarded-for', 'user-agent', 'x-arche-card-code', 'x-arche-session'];

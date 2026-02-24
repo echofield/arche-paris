@@ -24,13 +24,36 @@ const blockStyle: React.CSSProperties = {
   color: 'var(--ink, #1A1A1A)',
 };
 
+function looksLikeI18nKey(value?: string): value is string {
+  if (!value) return false;
+  return /^[a-z0-9]+(\.[a-z0-9_]+)+$/i.test(value);
+}
+
 export function AsyncState({ loading, error, onRetry, onBack, children }: AsyncStateProps) {
   const { t } = useTranslation();
+  const loadingLabel = t('async.loading');
+  const retryLabel = t('async.retry');
+  const backLabel = t('async.back');
+  const baseErrorTitle = t('async.errorTitle');
+  const resolvedTitle = (() => {
+    const title = error?.title;
+    if (!title) return baseErrorTitle === 'async.errorTitle' ? 'Error' : baseErrorTitle;
+    if (!looksLikeI18nKey(title)) return title;
+    const translated = t(title);
+    return translated === title ? title : translated;
+  })();
+  const resolvedMessage = (() => {
+    const message = error?.message;
+    if (!message) return '';
+    if (!looksLikeI18nKey(message)) return message;
+    const translated = t(message);
+    return translated === message ? message : translated;
+  })();
 
   if (loading) {
     return (
       <div style={blockStyle}>
-        <span style={{ fontSize: 15, opacity: 0.6 }}>{t('async.loading')}</span>
+        <span style={{ fontSize: 15, opacity: 0.6 }}>{loadingLabel === 'async.loading' ? 'Loading...' : loadingLabel}</span>
       </div>
     );
   }
@@ -39,9 +62,9 @@ export function AsyncState({ loading, error, onRetry, onBack, children }: AsyncS
     return (
       <div style={blockStyle}>
         <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-          {error.title ?? t('async.errorTitle')}
+          {resolvedTitle}
         </p>
-        <p style={{ fontSize: 14, opacity: 0.85, marginBottom: 16 }}>{error.message}</p>
+        <p style={{ fontSize: 14, opacity: 0.85, marginBottom: 16 }}>{resolvedMessage}</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           {onRetry && (
             <button
@@ -59,7 +82,7 @@ export function AsyncState({ loading, error, onRetry, onBack, children }: AsyncS
                 cursor: 'pointer',
               }}
             >
-              {t('async.retry')}
+              {retryLabel === 'async.retry' ? 'Retry' : retryLabel}
             </button>
           )}
           {onBack && (
@@ -78,7 +101,7 @@ export function AsyncState({ loading, error, onRetry, onBack, children }: AsyncS
                 cursor: 'pointer',
               }}
             >
-              {t('async.back')}
+              {backLabel === 'async.back' ? 'Back' : backLabel}
             </button>
           )}
         </div>

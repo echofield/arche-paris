@@ -1,6 +1,16 @@
 /**
  * ARCHÉ Tiny Seed v0.1 API Client
- * Wraps Supabase Edge Functions for type-safe calls
+ * Wraps Supabase Edge Functions for type-safe calls.
+ *
+ * API boundary — when to use which path (see also docs/REPO_AUDIT.md §1.4):
+ * - **Card Gate (primary):** Use invokeCardGateRequest() for all routes served by the
+ *   single Edge Function "card-gate" (world/snapshot, zone-progress, zone-consciousness,
+ *   presence/pulse, law/evaluate, etc.). Client calls /api/card-gate/${path}; Vercel proxies
+ *   to Supabase Edge card-gate. Token and session come from card-gate-client (getSessionCardCode).
+ * - **Direct invoke:** Use invoke() only for discrete Edge Functions invoked by name
+ *   (e.g. zones-enter, rituals-start, inscriptions-create) when they are not proxied
+ *   through card-gate. Card identity is still sent via X-ARCHE-CARD-CODE from getSessionCardCode.
+ * Do not add a parallel data path that bypasses Card Gate for card lifecycle (activation, pair, journal, traces).
  */
 import { supabase } from '@/utils/supabase/client';
 import { getSessionCardCode } from '@/utils/card-gate-client';
@@ -208,6 +218,8 @@ export interface ZoneProgressItem {
 }
 
 export interface ZoneProgressData {
+  /** Present when Card Gate returns 200; allows discrimination from error payloads. */
+  ok?: true;
   zones: ZoneProgressItem[];
   stats: {
     total_zones_touched: number;
@@ -224,6 +236,17 @@ export interface ZoneProgressData {
     completed_rituals_count: number;
     revealed: boolean;
   };
+}
+
+/** Runtime guard for ZoneProgressData (AUDIT 2025-02-23). Use when validating response shape. */
+export function isZoneProgressData(x: unknown): x is ZoneProgressData {
+  if (!x || typeof x !== 'object') return false;
+  const o = x as Record<string, unknown>;
+  return (
+    Array.isArray(o.zones) &&
+    typeof o.stats === 'object' && o.stats != null &&
+    typeof o.complexion === 'object' && o.complexion != null
+  );
 }
 
 export interface Inscription {
@@ -453,12 +476,25 @@ export interface PlaceScanResult {
   ];
 }
 
+/** Runtime guard for PlaceScanResult (AUDIT 2025-02-23). Use when parsing untrusted or cached payloads. */
+export function isPlaceScanResult(x: unknown): x is PlaceScanResult {
+  if (!x || typeof x !== 'object') return false;
+  const o = x as Record<string, unknown>;
+  if (o.version !== 1 || typeof o.zone_id !== 'string' || typeof o.h3 !== 'string') return false;
+  if (!Array.isArray(o.cards) || o.cards.length !== 4) return false;
+  const [landmark, cultural, spatial, now] = o.cards as Record<string, unknown>[];
+  return (
+    landmark?.type === 'landmark' && cultural?.type === 'cultural' &&
+    spatial?.type === 'spatial' && now?.type === 'now'
+  );
+}
+
 // ============ API Methods ============
 
 export const api = {
   // Place Scan (Lecture du Lieu)
   placeScan: (params: { lat: number; lon: number; heading?: number }) =>
-    invoke<PlaceScanResult>('place-scan', params),
+    invokeCardGateRequest<PlaceScanResult>('POST', 'place-scan', params),
 
   // Zones
   zonesEnter: (params: {
@@ -606,7 +642,7 @@ export const api = {
   },
 
   worldSnapshotForZone: (h3: string, include: string = 'law,map,champ') =>
-    api.worldSnapshot({ include, h3_center: h3, k: 0 }),
+    invokeCardGate<WorldSnapshotData>(`world/snapshot?h3_center=${encodeURIComponent(h3)}&k=0&include=${encodeURIComponent(include)}`),
 
   // Zone Progress
   zoneProgress: () => invokeCardGate<ZoneProgressData>('zone-progress'),

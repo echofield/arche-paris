@@ -462,7 +462,7 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
   const { t } = useTranslation();
   const [phase, setPhase] = useState<Phase>('idle');
   const [reading, setReading] = useState<PlaceReading | null>(null);
-  const [errorHint, setErrorHint] = useState(false);
+  const [errorHint, setErrorHint] = useState<null | 'auth' | 'generic'>(null);
 
   const rawHeading = useDeviceHeading(phase === 'listening' || phase === 'reading');
   const heading = useSimulatedHeading(rawHeading, phase === 'reading');
@@ -514,12 +514,17 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
     const result = await api.placeScan({ lat, lon, heading: hdg });
 
     if (result.error || !result.data) {
-      setErrorHint(true);
+      const normalizedError = (result.error ?? '').toLowerCase();
+      const isAuthIssue =
+        normalizedError.includes('401') ||
+        normalizedError.includes('auth') ||
+        normalizedError.includes('missing or invalid authorization');
+      setErrorHint(isAuthIssue ? 'auth' : 'generic');
       setPhase('idle');
       return;
     }
 
-    setErrorHint(false);
+    setErrorHint(null);
     setReading(resultToReading(result.data));
     setPhase('reading');
   }, [phase]);
@@ -691,7 +696,9 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
                 textAlign: 'center',
               }}
             >
-              {t('instruments.placeScan.error', 'Signal faible. Impossible de lire le lieu.')}
+              {errorHint === 'auth'
+                ? t('instruments.placeScan.authError', 'Connexion refusée. Vérifiez votre session.')
+                : t('instruments.placeScan.error', 'Signal faible. Impossible de lire le lieu.')}
             </motion.span>
           )}
         </AnimatePresence>
