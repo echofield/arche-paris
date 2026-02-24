@@ -65,12 +65,16 @@ function SignalTrace({
   width,
   height,
   maturity,
+  speedFactor = 1,
+  arrivalTightness = 0,
 }: {
   proximity: number;
   holdProgress: number;
   width: number;
   height: number;
   maturity: number;
+  speedFactor?: number;
+  arrivalTightness?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeRef = useRef(0);
@@ -92,9 +96,11 @@ function SignalTrace({
     const step = 3;
     const pointCount = Math.floor(height / step) + 1;
     const isLocked = holdProgress >= 1;
+    const sf = Math.max(1, speedFactor);
+    const jitterScale = 1 - arrivalTightness * 0.5;
 
     const render = () => {
-      timeRef.current += 0.018;
+      timeRef.current += 0.018 * sf;
       const t = timeRef.current;
       ctx.clearRect(0, 0, width, height);
 
@@ -104,7 +110,7 @@ function SignalTrace({
 
       const maxAmplitude = width * 0.35;
       const amplitude = maxAmplitude * Math.pow(1 - effectiveProximity, 1.8);
-      const jitter = (1 - effectiveProximity) * 3.5;
+      const jitter = (1 - effectiveProximity) * 3.5 * jitterScale;
       const freq = 0.04 + (1 - effectiveProximity) * 0.06;
       const speed = 1.5 + (1 - effectiveProximity) * 4;
       const lineOpacity = 0.25 + effectiveProximity * 0.65;
@@ -184,7 +190,7 @@ function SignalTrace({
 
     render();
     return () => cancelAnimationFrame(frameRef.current);
-  }, [proximity, holdProgress, width, height, maturity]);
+  }, [proximity, holdProgress, width, height, maturity, speedFactor, arrivalTightness]);
 
   return (
     <canvas
@@ -298,12 +304,16 @@ function InstrumentFrame({
   holdProgress,
   recognizedSites,
   maturity,
+  speedFactor = 1,
+  arrivalTightness = 0,
   children,
 }: {
   proximity: number;
   holdProgress: number;
   recognizedSites: Set<string>;
   maturity: number;
+  speedFactor?: number;
+  arrivalTightness?: number;
   children: React.ReactNode;
 }) {
   const isLocked = holdProgress >= 1;
@@ -436,6 +446,8 @@ function InstrumentFrame({
           width={FRAME_W}
           height={FRAME_H}
           maturity={maturity}
+          speedFactor={speedFactor}
+          arrivalTightness={arrivalTightness}
         />
       </div>
       <HoldRing progress={holdProgress} visible={isHolding || isLocked} />
@@ -590,9 +602,11 @@ type IntroPhase = 'idle' | 'calibration' | 'measuring';
 export interface MeridiensInterfaceProps {
   meridian: MeridianStateInput;
   onExit: () => void;
+  speedFactor?: number;
+  arrivalTightness?: number;
 }
 
-export function MeridiensInterface({ meridian, onExit }: MeridiensInterfaceProps) {
+export function MeridiensInterface({ meridian, onExit, speedFactor = 1, arrivalTightness = 0 }: MeridiensInterfaceProps) {
   const { t } = useTranslation();
   const [introPhase, setIntroPhase] = useState<IntroPhase>(() => {
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(INTRO_SKIP_KEY)) {
@@ -851,6 +865,8 @@ export function MeridiensInterface({ meridian, onExit }: MeridiensInterfaceProps
               holdProgress={holdProgress}
               recognizedSites={recognizedSites}
               maturity={maturity}
+              speedFactor={speedFactor}
+              arrivalTightness={arrivalTightness}
             >
               <div
                 style={{

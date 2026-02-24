@@ -12,14 +12,14 @@ import { ChampLegend } from './ChampScreen/ChampLegend';
 import { PlaceDetailSheet, type PlaceDetail } from './ChampScreen/PlaceDetailSheet';
 import { useTranslation } from '../utils/i18n';
 import { loadChampItems, type FieldItem } from '../utils/card-gate-client';
-import { postInscription } from '../utils/card-gate-map-client';
+import { postInscription, type InscriptionTarget } from '../utils/card-gate-map-client';
 import { normalizeDisplayText } from '../utils/text-normalize';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { project } from '../utils/map-project';
 import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
 import { LIEUX_PARIS } from '../data/lieux-paris';
 import { GAME_CARDS } from '../data/game-cards';
-import { CITY_AXES, getAxisAnchorsOnMap } from '../data/axes';
+import { CITY_AXES, getAxisAnchorsOnMap, getAxisArrondissementSequence } from '../data/axes';
 import { setActiveAxis } from '../stores/active-axis-store';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { AsyncState } from './AsyncState';
@@ -64,6 +64,16 @@ function parseChampParams(): { arr: number | null; layers: ChampLayerMode[] } {
     ? layersStr.split(',').filter((l): l is ChampLayerMode => validLayers.includes(l as ChampLayerMode))
     : [];
   return { arr: Number.isFinite(arr) ? arr : null, layers };
+}
+
+function placeArrondissementToNumber(arr: number | string): number | null {
+  if (typeof arr === 'number' && Number.isFinite(arr) && arr >= 1 && arr <= 20) return arr;
+  if (typeof arr !== 'string') return null;
+  const m = arr.trim().match(/^(?:1er|\d+e)$/i);
+  if (!m) return null;
+  if (m[0].toLowerCase() === '1er') return 1;
+  const n = parseInt(m[0], 10);
+  return Number.isFinite(n) && n >= 1 && n <= 20 ? n : null;
 }
 
 function inferArrondissementFromGeo(lat: number, lng: number): number | null {
@@ -240,6 +250,25 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     setSelectedPlace(null);
   }, []);
 
+  const openLeaveTraceFromPlace = useCallback(() => {
+    if (!selectedPlace) return;
+    const arr = placeArrondissementToNumber(selectedPlace.arrondissement);
+    if (arr != null) setTraceContextArrondissement(arr);
+    setTraceTarget({ kind: 'place', id: selectedPlace.id, name: selectedPlace.name });
+    closePlaceSheet();
+    setShowAddTrace(true);
+  }, [selectedPlace, closePlaceSheet]);
+
+  const openLeaveTraceFromAxis = useCallback(() => {
+    if (axisSheet == null || !axisSheetData) return;
+    const seq = getAxisArrondissementSequence(axisSheet);
+    const firstArr = seq[0] ?? null;
+    if (firstArr != null) setTraceContextArrondissement(firstArr);
+    setTraceTarget({ kind: 'axis', id: String(axisSheet), name: axisSheetData.name });
+    setAxisSheet(null);
+    setShowAddTrace(true);
+  }, [axisSheet, axisSheetData]);
+
   // Axes layer data
   const axisMarkers = useMemo<AxisMarker[]>(() => {
     const anchors = getAxisAnchorsOnMap();
@@ -277,14 +306,17 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     }
   }, [axisSheetData]);
 
-  // Add trace sheet (preserved from original)
+  // Add trace sheet: optional arrondissement when opened from a place/axis; optional target (place | axis | arrondissement)
   const [showAddTrace, setShowAddTrace] = useState(false);
+  const [traceContextArrondissement, setTraceContextArrondissement] = useState<number | null>(null);
+  const [traceTarget, setTraceTarget] = useState<InscriptionTarget | null>(null);
   const [traceDraft, setTraceDraft] = useState('');
   const [traceSaving, setTraceSaving] = useState(false);
   const [traceError, setTraceError] = useState<string | null>(null);
   const traceValidationError = validateChampTrace(traceDraft);
   const traceWordCount = countWords(traceDraft);
-  const canSubmitTrace = !traceSaving && isCardEligible && geo.lat !== null && geo.lng !== null && traceDraft.trim().length > 0 && !traceValidationError;
+  const hasTraceArrondissement = traceContextArrondissement != null || (geo.lat != null && geo.lng != null);
+  const canSubmitTrace = !traceSaving && isCardEligible && traceDraft.trim().length > 0 && !traceValidationError && hasTraceArrondissement;
 
   const handleRetry = () => {
     if (!cardId || cardId === 'DEMO-DEV') return;
@@ -623,6 +655,41 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
               >
                 {t('champ.axes.activate')}
               </button>
+
+              <button
+                type="button"
+                onClick={openLeaveTraceFromAxis}
+                style={{
+                  marginTop: 8, width: '100%', padding: '12px 0',
+                  fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: '#003D2C', background: 'transparent',
+                  border: '1px solid rgba(0,61,44,0.35)',
+                  borderRadius: 6, cursor: 'pointer', minHeight: 44,
+                }}
+              >
+                {t('champ.detail.leaveTraceOnAxis')}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (axisSheet != null) {
+                    window.location.hash = `meridiens?axisId=${axisSheet}`;
+                    setAxisSheet(null);
+                  }
+                }}
+                style={{
+                  marginTop: 8, width: '100%', padding: '12px 0',
+                  fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: '#6B4C8A', background: 'transparent',
+                  border: '1px solid rgba(107,76,138,0.4)',
+                  borderRadius: 6, cursor: 'pointer', minHeight: 44,
+                }}
+              >
+                {t('meridiens.cta.guidance')}
+              </button>
             </div>
           )}
         </SheetContent>
@@ -638,10 +705,13 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
         weightLabel={t('champ.detail.weight')}
         arrondissementLabel={t('champ.detail.arrondissement')}
         openInMapsLabel={t('champ.detail.openInMaps')}
+        onLeaveTrace={openLeaveTraceFromPlace}
+        leaveTraceLabel={t('champ.detail.leaveTraceHere')}
+        moreLeadsTo={t('champ.detail.moreLeadsTo')}
       />
 
       {/* Add trace sheet */}
-      <Sheet open={showAddTrace} onOpenChange={setShowAddTrace}>
+      <Sheet open={showAddTrace} onOpenChange={(open) => { setShowAddTrace(open); if (!open) { setTraceContextArrondissement(null); setTraceTarget(null); } }}>
         <SheetContent
           side="bottom"
           className="max-h-[85vh] overflow-y-auto"
@@ -662,7 +732,16 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                 Une carte activée est requise pour partager au Champ.
               </p>
             )}
-            {geo.lat !== null && geo.lng !== null ? (
+            {traceTarget != null && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.8 }}>
+                {t('champ.trace.targeting', { name: traceTarget.name ?? traceTarget.id })}
+              </p>
+            )}
+            {traceContextArrondissement != null ? (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#007850', opacity: 0.7 }}>
+                {t('champ.traceInArrondissement', { arr: t(`map.arrondissements.${traceContextArrondissement}`) })}
+              </p>
+            ) : geo.lat !== null && geo.lng !== null ? (
               <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#007850', opacity: 0.7 }}>
                 {t('presence.signalSettling')}
               </p>
@@ -695,17 +774,18 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                 disabled={!canSubmitTrace}
                 aria-disabled={!canSubmitTrace}
                 onClick={async () => {
-                  if (!cardId || !canSubmitTrace || geo.lat === null || geo.lng === null) return;
+                  if (!cardId || !canSubmitTrace) return;
+                  const arrondissement = traceContextArrondissement ?? (geo.lat != null && geo.lng != null ? inferArrondissementFromGeo(geo.lat, geo.lng) : null);
+                  if (!arrondissement) throw new Error('Position hors zone');
                   setTraceSaving(true);
                   setTraceError(null);
                   try {
-                    const arrondissement = inferArrondissementFromGeo(geo.lat, geo.lng);
-                    if (!arrondissement) throw new Error('Position hors zone');
                     const idempotencyKey = `champ:${arrondissement}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
                     await postInscription(cardId, {
                       kind: 'arrondissement', arrondissement,
                       text: traceDraft.trim(), idempotency_key: idempotencyKey,
                       opt_in_field: true,
+                      target: traceTarget ?? undefined,
                     });
                     const data = await loadChampItems(cardId);
                     setChampItems(
@@ -714,6 +794,8 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                         .map(item => ({ ...item, textExcerpt: normalizeDisplayText(item.textExcerpt) }))
                     );
                     setTraceDraft('');
+                    setTraceContextArrondissement(null);
+                    setTraceTarget(null);
                     setShowAddTrace(false);
                   } catch (err) {
                     console.error('Failed to save trace:', err);

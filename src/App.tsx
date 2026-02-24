@@ -324,7 +324,7 @@ export default function App() {
       } else if (hash === 'instruments') {
         setCabinetOpen(true);
         setCurrentScreen('homepage');
-      } else if (hash === 'meridiens') {
+      } else if (hash === 'meridiens' || hash.startsWith('meridiens?')) {
         setCurrentScreen('meridiens');
       } else if (hash === 'place-scan') {
         setCurrentScreen('place-scan');

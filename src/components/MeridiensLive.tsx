@@ -11,6 +11,7 @@ import { MeridiensInterface, type LocalMeridianState } from './MeridiensInterfac
 import { getThresholds, type Threshold, type ThresholdId } from '../data/meridiens';
 import { haversineMeters } from '../utils/geo';
 import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
+import { useMeridianLock } from '../hooks/useMeridianLock';
 import {
   distanceToMeridianMeters,
   emaPoint,
@@ -92,6 +93,14 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const [snapshot, setSnapshot] = useState<WorldSnapshotData | null>(null);
   const [lireVerifying, setLireVerifying] = useState(false);
   const [observationVerifying, setObservationVerifying] = useState<string | null>(null);
+  const [axisId, setAxisId] = useState<string | null>(() => {
+    const hash = window.location.hash.slice(1);
+    const q = hash.indexOf('?');
+    if (q < 0) return null;
+    const params = new URLSearchParams(hash.slice(q + 1));
+    const id = params.get('axisId');
+    return id;
+  });
   const lastSmoothedRef = useRef<{ lat: number; lng: number } | null>(null);
   const positionBufferRef = useRef<PositionSample[]>([]);
   const headingsRef = useRef<number[]>([]);
@@ -154,8 +163,30 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     }
   }, [viewMode, nearest]);
 
+  useEffect(() => {
+    const onHash = () => {
+      const hash = window.location.hash.slice(1);
+      const q = hash.indexOf('?');
+      if (q < 0) {
+        setAxisId(null);
+        return;
+      }
+      const params = new URLSearchParams(hash.slice(q + 1));
+      setAxisId(params.get('axisId'));
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   // Stabilized GPS: replaces raw watchPosition with shared stabilizer
   const stabilized = useStabilizedPosition({ maxAccuracyM: MAX_ACCURACY_FOR_SMOOTHING_M });
+  const lock = useMeridianLock({
+    axisId,
+    position: stabilized.pos ? { lat: stabilized.pos.lat, lng: stabilized.pos.lng } : null,
+    headingDeg: stabilized.pos?.heading ?? null,
+    accuracyM: stabilized.pos?.accuracy ?? null,
+    speedMps: stabilized.pos?.speed ?? null,
+  });
   useEffect(() => {
     if (!stabilized.pos) {
       if (stabilized.status === 'error') {
@@ -235,6 +266,30 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   });
 
   const meridian: (LocalMeridianState & { quality?: typeof qualityResult.quality; hint?: string }) = (() => {
+    if (axisId && lock.axisName != null) {
+      const dist = lock.distToAxisM ?? 9999;
+      const localStateKey: LocalMeridianState['state'] =
+        lock.lockState === 'RESONANCE'
+          ? 'ALIGNE'
+          : lock.lockState === 'INTERFERENCE'
+            ? 'SUR_LIGNE'
+            : dist < 350
+              ? 'PROCHE'
+              : 'EGARE';
+      return {
+        state: localStateKey,
+        alignmentIndex: lock.alignmentScore,
+        holdProgress01: lock.lockState === 'RESONANCE' ? 1 : 0,
+        recognized: thresholds.map((t) => ({
+          placeId: t.id,
+          status: 'NON_RECONNU' as const
+        })),
+        nearestPlaceId: null,
+        micro: { statusLine: '' },
+        quality: 'good',
+        hint: undefined
+      };
+    }
     if (!userPos) return fallbackMeridianState();
     if (!signalGood) return fallbackMeridianState();
     const lineDistanceM = distanceToMeridianMeters(userPos.lng);
@@ -691,8 +746,52 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
 
   return (
     <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-      <MeridiensInterface meridian={meridian} onExit={onBack} />
-      {recognizedPlaceInRadius && nearest && (
+      {axisId && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 20,
+            fontFamily: 'var(--font-sans)',
+            fontSize: 11,
+            letterSpacing: '0.06em',
+            color: '#003D2C',
+            opacity: 0.7,
+          }}
+        >
+          {lock.axisName
+            ? t('meridiens.guidance.lockedOn', { name: lock.axisName })
+            : t('meridiens.guidance.searching')}
+        </div>
+      )}
+      <MeridiensInterface
+        meridian={meridian}
+        onExit={onBack}
+        speedFactor={axisId ? lock.speedFactor : 1}
+        arrivalTightness={axisId ? lock.arrivalTightness : 0}
+      />
+      {import.meta.env.DEV && import.meta.env.VITE_DEBUG_TERRITORY && axisId && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 80,
+            left: 8,
+            right: 8,
+            padding: 8,
+            background: 'rgba(0,0,0,0.75)',
+            color: '#eee',
+            fontFamily: 'monospace',
+            fontSize: 10,
+            zIndex: 100,
+            borderRadius: 4,
+          }}
+        >
+          distToAxisM: {lock.distToAxisM?.toFixed(0) ?? '—'} · headingErrorDeg: {lock.headingErrorDeg?.toFixed(1) ?? '—'} · accuracyM: {stabilized.pos?.accuracy?.toFixed(0) ?? '—'} · speedMps: {(stabilized.pos?.speed ?? 0).toFixed(2)} · {lock.lockState} · {lock.activationMode ?? '—'} · axisId: {axisId}
+        </div>
+      )}
+      {recognizedPlaceInRadius && nearest && !axisId && (
         <div
           style={{
             position: 'fixed',

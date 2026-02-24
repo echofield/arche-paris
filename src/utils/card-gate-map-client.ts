@@ -40,6 +40,13 @@ async function gateMapFetch(
   });
 }
 
+/** Optional contextual target for Le Champ traces (place, axis, or arrondissement). */
+export interface InscriptionTarget {
+  kind: "place" | "axis" | "arrondissement";
+  id: string;
+  name?: string;
+}
+
 export interface PostInscriptionPayload {
   kind: "arrondissement" | "quest" | "lieu";
   arrondissement?: number;
@@ -47,6 +54,8 @@ export interface PostInscriptionPayload {
   text: string;
   idempotency_key?: string;
   opt_in_field?: boolean; // Share to Le Champ (collective, anonymous)
+  /** Optional: link trace to a place, axis, or arrondissement (for contextual traces). */
+  target?: InscriptionTarget;
 }
 
 export async function postInscription(cardId: string, payload: PostInscriptionPayload): Promise<{ ok: boolean; id?: string; created_at?: string }> {

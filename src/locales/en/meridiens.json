@@ -45,5 +45,8 @@
   "meridiens.compass.pressure.warm": "Closer.",
   "meridiens.compass.pressure.hot": "Very close.",
   "meridiens.compass.pressure.near": "Here.",
-  "meridiens.seeWalk": "See the walk"
+  "meridiens.seeWalk": "See the walk",
+  "meridiens.cta.guidance": "Meridian guidance",
+  "meridiens.guidance.lockedOn": "Axis: {name}",
+  "meridiens.guidance.searching": "Seeking axis…"
 }

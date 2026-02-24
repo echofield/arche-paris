@@ -21,6 +21,11 @@ interface PlaceDetailSheetProps {
   weightLabel: string;
   arrondissementLabel: string;
   openInMapsLabel: string;
+  /** When set, show "Laisser une trace ici" and call this when clicked (then onClose). */
+  onLeaveTrace?: () => void;
+  leaveTraceLabel?: string;
+  /** Optional subtitle under the title (e.g. "Détails, carte, sceller, instruments, trace."). */
+  moreLeadsTo?: string;
 }
 
 export function PlaceDetailSheet({
@@ -32,6 +37,9 @@ export function PlaceDetailSheet({
   weightLabel,
   arrondissementLabel,
   openInMapsLabel,
+  onLeaveTrace,
+  leaveTraceLabel,
+  moreLeadsTo,
 }: PlaceDetailSheetProps) {
   const { t } = useTranslation();
   const activationLabel =
@@ -51,6 +59,11 @@ export function PlaceDetailSheet({
           <SheetTitle style={{ fontFamily: 'var(--font-serif)', color: '#1A1A1A' }}>
             {place?.name ?? titleLabel}
           </SheetTitle>
+          {place && moreLeadsTo && (
+            <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455', opacity: 0.7 }}>
+              {moreLeadsTo}
+            </p>
+          )}
         </SheetHeader>
         {place && (
           <div style={{ padding: '0 1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -121,6 +134,23 @@ export function PlaceDetailSheet({
             >
               {instrumentsLabel}
             </button>
+
+            {onLeaveTrace && leaveTraceLabel && (
+              <button
+                type="button"
+                onClick={() => { onLeaveTrace(); onClose(); }}
+                style={{
+                  width: '100%', padding: '10px 0',
+                  fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: '#003D2C', background: 'transparent',
+                  border: '1px solid rgba(0,61,44,0.2)',
+                  borderRadius: 6, cursor: 'pointer',
+                }}
+              >
+                {leaveTraceLabel}
+              </button>
+            )}
           </div>
         )}
       </SheetContent>
