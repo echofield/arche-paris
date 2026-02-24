@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { motion } from '../../design/motion';
 
-export type MapLayerMode = 'presence' | 'inscriptions' | 'constellation';
+export type MapLayerMode = 'presence' | 'sceaux' | 'constellation';
 
 interface MapLayersProps {
   mapMode: MapLayerMode;
@@ -19,11 +19,14 @@ interface MapLayersProps {
   segmentsLabel: string;
   inscriptionsLabel: string;
   presenceTabLabel: string;
-  inscriptionsTabLabel: string;
+  sceauxTabLabel: string;
   constellationTabLabel: string;
   presenceHint: string;
-  inscriptionsHint: string;
+  sceauxHint: string;
   constellationHint: string;
+  sceauxSealedLabel: string;
+  sceauxSealedEmpty: string;
+  sceauxDraftsLabel: string;
 }
 
 export function MapLayers({
@@ -42,24 +45,27 @@ export function MapLayers({
   segmentsLabel,
   inscriptionsLabel,
   presenceTabLabel,
-  inscriptionsTabLabel,
+  sceauxTabLabel,
   constellationTabLabel,
   presenceHint,
-  inscriptionsHint,
+  sceauxHint,
   constellationHint,
+  sceauxSealedLabel,
+  sceauxSealedEmpty,
+  sceauxDraftsLabel,
 }: MapLayersProps) {
   const hintByMode: Record<MapLayerMode, string> = {
     presence: presenceHint,
-    inscriptions: inscriptionsHint,
+    sceaux: sceauxHint,
     constellation: constellationHint,
   };
   return (
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-        {(['presence', 'inscriptions', 'constellation'] as const).map((mode) => {
+        {(['presence', 'sceaux', 'constellation'] as const).map((mode) => {
           const labels: Record<MapLayerMode, string> = {
             presence: presenceTabLabel,
-            inscriptions: inscriptionsTabLabel,
+            sceaux: sceauxTabLabel,
             constellation: constellationTabLabel,
           };
           const isActive = mapMode === mode;
@@ -110,7 +116,49 @@ export function MapLayers({
         {hintByMode[mapMode]}
       </p>
 
-      {mapMode === 'inscriptions' && (
+      {mapMode === 'sceaux' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+          <div style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: '#003D2C',
+            opacity: 0.6,
+          }}>
+            {sceauxSealedLabel}
+          </div>
+          <p style={{
+            margin: 0,
+            fontFamily: 'var(--font-serif)',
+            fontSize: 12,
+            fontStyle: 'italic',
+            color: '#8E8982',
+            opacity: 0.7,
+          }}>
+            {sceauxSealedEmpty}
+          </p>
+          <div style={{
+            width: '80%',
+            maxWidth: 300,
+            height: 1,
+            background: 'rgba(0,61,44,0.08)',
+            margin: '6px 0',
+          }} />
+          <div style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 10,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: '#6B6455',
+            opacity: 0.5,
+          }}>
+            {sceauxDraftsLabel}
+          </div>
+        </div>
+      )}
+
+      {mapMode === 'sceaux' && (
         (() => {
           const visuallyHidden: CSSProperties = {
             position: 'absolute',

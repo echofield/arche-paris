@@ -248,7 +248,7 @@ function buildFallbackResult(lat: number, lon: number): PlaceScanResult {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: { ...corsHeaders } });
   }
 
   if (req.method !== "POST") {

@@ -4,7 +4,7 @@
  * If h3-js fails at bundle/runtime, returns null so caller can use zone_id.
  */
 
-import { latLngToCell } from "https://esm.sh/h3-js@4.3.2";
+import { latLngToCell } from "npm:h3-js@4";
 
 const DEFAULT_RES = 9;
 

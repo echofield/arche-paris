@@ -39,6 +39,24 @@
 | **Card Gate** | Primary data path. Client: `src/utils/card-gate-client.ts` (token in memory, httpOnly cookies). Requests via `src/lib/api.ts` → `invokeCardGateRequest` to `/api/card-gate/${path}`. Service: `src/utils/card-service.ts` (init, pair, unpair, `getStoredCard`). |
 | **Vercel** | `vercel.json` rewrites `/api/card-gate/:path*`; handler `api/card-gate/index.js` (or `api/card-gate/[...path].js`) proxies to Supabase Edge `card-gate`. Env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. |
 
+#### 1.4.1 Decision: invoke() vs Card Gate
+
+- **Use `invokeCardGateRequest`** (and thus `/api/card-gate/${path}`) for everything the single Edge Function `card-gate` serves: world/snapshot, zone-progress, zone-consciousness, presence/pulse, law/evaluate, journal/traces proxy, etc. Session comes from `getSessionCardCode()` in card-gate-client; token is sent via cookies by the proxy.
+- **Use `invoke(fn, body)`** (Supabase `functions.invoke`) only for discrete Edge Functions called by name (e.g. `zones-enter`, `rituals-start`, `inscriptions-create`) when the backend routes them as separate functions. The client still sends `X-ARCHE-CARD-CODE` from `getSessionCardCode()` when `includeCardHeader` is true.
+- **Do not** introduce a third path (e.g. direct fetch to a different URL) for card lifecycle or data that belongs behind Card Gate. Exceptions must be documented here.
+
+**Examples:** `api.worldSnapshot()` → invokeCardGate; `api.zonesEnter()` → invoke('zones-enter', body).
+
+#### 1.4.2 Contract delta (AUDIT 2025-02-23)
+
+- **placeScan:** Types in `api.ts` are aligned with place-scan Edge and `docs/PLACE_SCAN_FRONTEND_CONTRACT.md`. No delta. Runtime guard `isPlaceScanResult()` added for optional validation.
+- **zoneProgress:** Card Gate `GET /zone-progress` returns `{ ok: true, zones, stats, complexion }`. `ZoneProgressData` updated with optional `ok?: true`; `isZoneProgressData()` guard added. No breaking change for consumers.
+
+#### 1.4.3 cardId convention
+
+- **Convention:** `CardId = string | null`. Use **null** when the card is unknown or not set; do not use the string `'unknown'` as a sentinel.
+- **At boundaries:** Use `normalizeCardId(value)` from `card-service` to coerce `undefined` / `'unknown'` to `null`. Components receive `cardId: string | null`; type is exported from `shared/types` as `CardId`.
+
 ### 1.5 Top-level modules
 
 | Area | Location | Notes |
@@ -50,11 +68,24 @@
 | Locales | `src/locales/` + i18n | fr/en (map, church, etc.); `useTranslation`, `t`. |
 | Edge / API | `supabase/functions/` | `card-gate/`, `zone-consciousness`, rituals, inscriptions, decision-made, etc.; shared `_shared/auth.ts`, `validation.ts`, `cors.ts`, `event-writer.ts`. |
 
+**CORS (Edge Functions):** All deployable functions either use `_shared/cors.ts` and handle `OPTIONS` at the start of the handler (place-scan, zone-consciousness, rituals, inscriptions, etc.) or implement their own CORS (card-gate, make-server). No project-level CORS for Functions in dashboard — in-code only. See `docs/SUPABASE_AGENT_PROMPT_PLACE_SCAN_CORS.md` and `docs/SECRETS_RUNBOOK.md` for `CORS_ORIGIN`.
+
 ### 1.6 Boundaries and dependencies
 
 - **No full dependency-graph run.** No obvious circular imports.
 - **Boundaries:** `lib/api.ts` imports Supabase client and defines Card Gate fetch; `card-service` → `card-gate-client`; components use both `card-service` and `card-gate-client` / `card-gate-map-client`.
 - **Note:** `src/utils/codex-helpers.ts` has commented-out `inscribeCodexEntry` from `./supabase/client` (“TEMPORAIRE”).
+
+### 1.7 Presence flow (AUDIT 2025-02-23)
+
+State transitions that affect “I am here” (seal, unlock, progression, “Lire”) must go through **verify()** and a confidence grade (e.g. MED for soft confirmation, HIGH for seal). Do not trust raw position for these. Single source of truth: one presence protocol, no alternate GPS paradigm in production.
+
+**Sequence (conceptual):** User → UI → presence layer (e.g. `verify()`) → card-gate-client / Edge function → DB/RLS → (optional) Realtime → UI sync. Smoothing and “you are here” dot may use `watchPosition` for feel; **state changes** (threshold, crossing, proof) go through the presence layer. See `docs/DESIGN_PHILOSOPHY.md` (§3 One source of truth for “I am here”).
+
+### 1.8 Design philosophy checks
+
+- **No raw coordinates/accuracy in production UI:** Grep for `lat`, `lng`, `latitude`, `longitude`, `accuracy` in rendered strings (JSX/text). If any appear, guard behind a non-production flag or replace with a single i18n “witness” line per DESIGN_PHILOSOPHY.
+- **Server:** Confirm no new raw location persistence beyond what the product already needs (e.g. proof with radius, place-scan request). See DESIGN_PHILOSOPHY §5 Privacy by default.
 
 ---
 

@@ -33,11 +33,12 @@ import enTreasure from '../locales/en/treasure.json';
 import enSeuil from '../locales/en/seuil.json';
 import enMeridiens from '../locales/en/meridiens.json';
 import enChurch from '../locales/en/church.json';
+import enChamp from '../locales/en/champ.json';
 
 // Merge all translations per language
 const translations: Record<Language, Record<string, any>> = {
   fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure, ...frSeuil, ...frMeridiens, ...frChurch, ...frChamp, ...frPaths, ...frMiroir },
-  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil, ...enMeridiens, ...enChurch }
+  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil, ...enMeridiens, ...enChurch, ...enChamp }
 };
 
 // Storage key

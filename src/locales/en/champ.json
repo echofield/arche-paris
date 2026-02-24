@@ -1,5 +1,7 @@
 {
   "champ.title": "The Field",
   "champ.placeholder": "Shared traces of the city.",
-  "champ.leaveTrace": "Leave a trace"
+  "champ.leaveTrace": "Leave a trace",
+  "champ.loadError": "The Field is unavailable. Retry or go back.",
+  "champ.sendError": "Send failed."
 }

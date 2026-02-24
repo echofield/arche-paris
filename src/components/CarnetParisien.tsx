@@ -7,6 +7,8 @@ import { loadJournalEntries, appendJournalEntry, getOfflineMessage, CardGateOffl
 import { useSyncState, COMPRESSED_MESSAGE } from '../contexts/SyncStateContext';
 import { WALK_PLACE_ID } from '../utils/journal-sync';
 import { getReflectiveQuestion } from '../data/oracle';
+import { AsyncState } from './AsyncState';
+import { useTranslation } from '../utils/i18n';
 
 interface CarnetParisienProps {
   cardId: string | null;
@@ -21,6 +23,7 @@ interface Souvenir {
 }
 
 export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
+  const { t } = useTranslation();
   const [souvenirs, setSouvenirs] = useState<Souvenir[]>([]);
   const [currentText, setCurrentText] = useState('');
   const [currentLieu, setCurrentLieu] = useState('');
@@ -221,7 +224,7 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
               opacity: isSyncing ? 0.7 : 1,
             }}
           >
-            {isSyncing ? '…' : 'Réessayer'}
+            {isSyncing ? '…' : t('async.retry')}
           </button>
         </div>
       )}
@@ -482,60 +485,17 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
                 cursor: 'pointer',
               }}
             >
-              Retour
+              {t('async.back')}
             </button>
           </div>
-        ) : isLoading ? (
-          <div
-            style={{
-              textAlign: 'left',
-              padding: '32px 0',
-              fontFamily: 'var(--font-serif)',
-              fontSize: '14px',
-              fontStyle: 'italic',
-              color: '#1A1A1A',
-              opacity: 0.25,
-              lineHeight: '32px'
-            }}
+        ) : (
+          <AsyncState
+            loading={isLoading}
+            error={loadError ? { message: t('carnet.inaccessible') } : null}
+            onRetry={loadSouvenirs}
+            onBack={onBack}
           >
-            Chargement...
-          </div>
-        ) : loadError ? (
-          <div
-            style={{
-              textAlign: 'left',
-              padding: '32px 0',
-              fontFamily: 'var(--font-serif)',
-              fontSize: '14px',
-              fontStyle: 'italic',
-              color: '#1A1A1A',
-              opacity: 0.35,
-              lineHeight: '32px'
-            }}
-          >
-            Le carnet est inaccessible.
-            <button
-              type="button"
-              onClick={() => loadSouvenirs()}
-              style={{
-                display: 'block',
-                marginTop: '16px',
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
-                fontFamily: 'var(--font-sans)',
-                fontSize: '11px',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: '#003D2C',
-                opacity: 0.6,
-                cursor: 'pointer',
-              }}
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : souvenirs.length === 0 ? (
+        {souvenirs.length === 0 ? (
           <div
             style={{
               textAlign: 'left',
@@ -613,6 +573,8 @@ export function CarnetParisien({ cardId, onBack }: CarnetParisienProps) {
               </div>
             ))}
           </div>
+        )}
+          </AsyncState>
         )}
       </div>
 

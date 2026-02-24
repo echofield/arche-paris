@@ -1,0 +1,518 @@
+﻿{
+  "App.tsx": [
+    "components/ArcheInterface.tsx",
+    "components/ArcheSymbol.tsx",
+    "components/CardDrawer.tsx",
+    "components/CardEntry.tsx",
+    "components/CardGate.tsx",
+    "components/CarnetParisien.tsx",
+    "components/ChampScreen.tsx",
+    "components/CompanionBlock.tsx",
+    "components/CultureQuiz.tsx",
+    "components/EtudesHub.tsx",
+    "components/HistoireArchives.tsx",
+    "components/HomepageV1.tsx",
+    "components/HunterMontmartre.tsx",
+    "components/InstrumentsCabinetOverlay.tsx",
+    "components/KeptSentences.tsx",
+    "components/LanguageSelector.tsx",
+    "components/MeridianQuest.tsx",
+    "components/MeridiensLive.tsx",
+    "components/OrigineMap.tsx",
+    "components/PersonalMemoryMap.tsx",
+    "components/QuestRun.tsx",
+    "components/QueteDetail.tsx",
+    "components/QuetesV1.tsx",
+    "components/TresorCache.tsx",
+    "components/ZoneTestPanel.tsx",
+    "components/instruments/PlaceScanSurface.tsx",
+    "contexts/SyncStateContext.tsx",
+    "contexts/WhisperContext.tsx",
+    "utils/card-service.ts",
+    "utils/companion-service.ts",
+    "utils/echo-milestone-runner.ts",
+    "utils/i18n.tsx",
+    "utils/silence-prompt.ts"
+  ],
+  "components/AccelerationIntro.tsx": [],
+  "components/ArcheCard.tsx": [
+    "shared/types.ts"
+  ],
+  "components/ArcheInterface.tsx": [],
+  "components/ArcheSymbol.tsx": [],
+  "components/AsyncState.tsx": [
+    "utils/i18n.tsx"
+  ],
+  "components/BackButton.tsx": [
+    "utils/i18n.tsx"
+  ],
+  "components/CardActivation.tsx": [
+    "components/GeometricBackground.tsx"
+  ],
+  "components/CardDrawer.tsx": [
+    "components/ArcheCard.tsx",
+    "shared/arche.ids.json",
+    "shared/entitlements.ts",
+    "shared/types.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/CardEntry.tsx": [
+    "components/MamlukGrid.tsx",
+    "utils/card-service.ts"
+  ],
+  "components/CardGate.tsx": [
+    "components/CardActivation.tsx",
+    "components/CardLogin.tsx"
+  ],
+  "components/CardLogin.tsx": [
+    "components/GeometricBackground.tsx"
+  ],
+  "components/CarnetParisien.tsx": [
+    "components/AsyncState.tsx",
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx",
+    "contexts/SyncStateContext.tsx",
+    "data/oracle.ts",
+    "utils/card-gate-client.ts",
+    "utils/codex-helpers.ts",
+    "utils/i18n.tsx",
+    "utils/journal-sync.ts"
+  ],
+  "components/CarteInteractive.tsx": [],
+  "components/ChampMapSection.tsx": [
+    "components/CarteInteractive.tsx"
+  ],
+  "components/ChampScreen.tsx": [
+    "components/AsyncState.tsx",
+    "components/BackButton.tsx",
+    "components/ChampMapSection.tsx",
+    "components/ui/sheet.tsx",
+    "data/arrondissement-positions.ts",
+    "hooks/useGeolocation.ts",
+    "utils/card-gate-client.ts",
+    "utils/card-gate-map-client.ts",
+    "utils/i18n.tsx",
+    "utils/map-project.ts",
+    "utils/text-normalize.ts"
+  ],
+  "components/CompanionBlock.tsx": [
+    "components/ArcheSymbol.tsx",
+    "data/oracle.ts",
+    "utils/companion-service.ts",
+    "utils/engrave-events.ts"
+  ],
+  "components/CompassSVG.tsx": [],
+  "components/CultureQuiz.tsx": [
+    "data/quiz-questions.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/DecisionNode.tsx": [
+    "lib/api.ts"
+  ],
+  "components/EtudesFormesV2.tsx": [
+    "components/FormesAcceleration.tsx",
+    "components/FormesAxe.tsx",
+    "components/FormesCoupole.tsx",
+    "components/FormesSeuil.tsx"
+  ],
+  "components/EtudesHub.tsx": [
+    "components/EtudesFormesV2.tsx",
+    "components/EtudesLangages.tsx",
+    "components/EtudesSystemes.tsx",
+    "components/FormesAcceleration.tsx"
+  ],
+  "components/EtudesLangages.tsx": [
+    "components/LangagesAcceleration.tsx",
+    "components/LangagesArgot.tsx",
+    "components/LangagesOrigine.tsx",
+    "components/LangagesSalon.tsx",
+    "components/LangagesTest.tsx"
+  ],
+  "components/EtudesSystemes.tsx": [
+    "components/SystemesArchitecture.tsx",
+    "components/SystemesCite.tsx",
+    "components/SystemesPouvoir.tsx"
+  ],
+  "components/FormesAcceleration.tsx": [
+    "components/AccelerationIntro.tsx"
+  ],
+  "components/FormesAxe.tsx": [
+    "components/BackButton.tsx"
+  ],
+  "components/FormesCoupole.tsx": [
+    "components/BackButton.tsx"
+  ],
+  "components/FormesSeuil.tsx": [
+    "components/BackButton.tsx"
+  ],
+  "components/GeometricBackground.tsx": [],
+  "components/HistoireArchives.tsx": [
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx",
+    "utils/i18n.tsx"
+  ],
+  "components/HomepageV1.tsx": [
+    "components/LivingQuest.tsx",
+    "components/MamlukGrid.tsx",
+    "components/ui/use-mobile.ts",
+    "design/motion.ts",
+    "lib/api.ts",
+    "utils/i18n.tsx",
+    "utils/walk-service.ts"
+  ],
+  "components/HunterMontmartre.tsx": [
+    "components/BackButton.tsx",
+    "components/CompassSVG.tsx",
+    "components/MamlukGrid.tsx",
+    "data/artifacts.ts",
+    "utils/card-service.ts",
+    "utils/collection-service.ts",
+    "utils/compass-constants.ts",
+    "utils/geo.ts",
+    "utils/i18n.tsx",
+    "utils/journal-sync.ts",
+    "utils/nocturne.ts",
+    "utils/place-visits.ts",
+    "utils/proof-density.ts",
+    "utils/proof-echo.ts"
+  ],
+  "components/InstrumentsCabinetOverlay.tsx": [
+    "design/motion.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/KeptSentences.tsx": [
+    "components/BackButton.tsx",
+    "utils/card-gate-client.ts"
+  ],
+  "components/LangagesAcceleration.tsx": [],
+  "components/LangagesArgot.tsx": [],
+  "components/LangagesOrigine.tsx": [],
+  "components/LangagesSalon.tsx": [],
+  "components/LangagesTest.tsx": [],
+  "components/LanguageSelector.tsx": [
+    "utils/i18n.tsx"
+  ],
+  "components/LivingQuest.tsx": [
+    "data/meridiens.ts",
+    "lib/api.ts",
+    "utils/i18n.tsx",
+    "utils/meridien-storage.ts"
+  ],
+  "components/MamlukGrid.tsx": [],
+  "components/MeridianQuest.tsx": [
+    "components/BackButton.tsx",
+    "components/DecisionNode.tsx",
+    "contexts/WhisperContext.tsx",
+    "data/oracle.ts",
+    "hooks/usePerceptionState.ts",
+    "hooks/usePresence.ts",
+    "utils/i18n.tsx",
+    "utils/meridien-geo.ts",
+    "utils/meridien-presence-gate.ts"
+  ],
+  "components/MeridiensInterface.tsx": [
+    "design/motion.ts",
+    "lib/api.ts",
+    "utils/i18n.tsx",
+    "utils/meridien-geo.ts"
+  ],
+  "components/MeridiensLive.tsx": [
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx",
+    "components/MeridiensInterface.tsx",
+    "data/meridiens.ts",
+    "design/motion.ts",
+    "hooks/usePresence.ts",
+    "lib/api.ts",
+    "utils/card-gate-map-client.ts",
+    "utils/geo.ts",
+    "utils/i18n.tsx",
+    "utils/journal-sync.ts",
+    "utils/meridien-geo.ts",
+    "utils/meridien-presence-gate.ts",
+    "utils/meridien-storage.ts"
+  ],
+  "components/OrigineMap.tsx": [
+    "components/BackButton.tsx",
+    "utils/i18n.tsx"
+  ],
+  "components/PersonalMemoryMap.tsx": [
+    "components/AsyncState.tsx",
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx",
+    "components/PersonalMemoryMap/InstrumentReadingLayer.tsx",
+    "components/PersonalMemoryMap/MapLayers.tsx",
+    "components/PersonalMemoryMap/ReadingCard.tsx",
+    "components/PersonalMemoryMap/TraceRenderer.tsx",
+    "components/PersonalMemoryMap/ZoneOverlay.tsx",
+    "components/ZoneDetailSheet.tsx",
+    "components/ui/sheet.tsx",
+    "data/arrondissement-positions.ts",
+    "data/lieux-paris.ts",
+    "data/symbols.ts",
+    "design/motion.ts",
+    "lib/api.ts",
+    "types/map-engraving.ts",
+    "types/traces.ts",
+    "utils/card-gate-client.ts",
+    "utils/card-gate-map-client.ts",
+    "utils/collection-service.ts",
+    "utils/companion-service.ts",
+    "utils/engrave-events.ts",
+    "utils/i18n.tsx",
+    "utils/journal-sync.ts",
+    "utils/map-project.ts",
+    "utils/quest-run-service.ts",
+    "utils/refused-arrondissements.ts",
+    "utils/trace-service.ts",
+    "utils/walk-service.ts"
+  ],
+  "components/PersonalMemoryMap/InstrumentReadingLayer.tsx": [
+    "data/lieux-paris.ts",
+    "design/motion.ts",
+    "utils/map-project.ts"
+  ],
+  "components/PersonalMemoryMap/MapLayers.tsx": [
+    "design/motion.ts"
+  ],
+  "components/PersonalMemoryMap/ReadingCard.tsx": [
+    "lib/api.ts"
+  ],
+  "components/PersonalMemoryMap/TraceRenderer.tsx": [
+    "components/PersonalMemoryMap/MapLayers.tsx",
+    "components/QueteDetail.tsx",
+    "data/arrondissement-positions.ts",
+    "design/motion.ts",
+    "types/map-engraving.ts",
+    "utils/map-project.ts"
+  ],
+  "components/PersonalMemoryMap/ZoneOverlay.tsx": [
+    "components/PersonalMemoryMap/MapLayers.tsx",
+    "data/arrondissement-positions.ts",
+    "hooks/useZoneEntry.ts",
+    "lib/api.ts",
+    "utils/map-project.ts"
+  ],
+  "components/QuestRun.tsx": [
+    "components/BackButton.tsx",
+    "data/oracle.ts",
+    "data/quests.ts",
+    "types/traces.ts",
+    "utils/card-gate-map-client.ts",
+    "utils/card-service.ts",
+    "utils/companion-service.ts",
+    "utils/journal-sync.ts",
+    "utils/trace-service.ts",
+    "utils/walk-service.ts"
+  ],
+  "components/QueteDetail.tsx": [
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx",
+    "components/Traces.tsx",
+    "data/oracle.ts",
+    "types/quest-run.ts",
+    "types/traces.ts",
+    "utils/card-service.ts",
+    "utils/companion-service.ts",
+    "utils/journal-sync.ts",
+    "utils/quest-run-service.ts",
+    "utils/trace-service.ts",
+    "utils/walk-service.ts"
+  ],
+  "components/QuetesV1.tsx": [
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx"
+  ],
+  "components/RitualRunner.tsx": [
+    "hooks/useGeolocation.ts",
+    "lib/api.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/SystemesArchitecture.tsx": [],
+  "components/SystemesCite.tsx": [],
+  "components/SystemesPouvoir.tsx": [],
+  "components/Traces.tsx": [
+    "contexts/SyncStateContext.tsx",
+    "utils/card-gate-client.ts",
+    "utils/traces-service.ts"
+  ],
+  "components/TresorCache.tsx": [
+    "components/presence/PresenceBanner.tsx",
+    "data/treasure-symbols.ts",
+    "hooks/usePresence.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/ZoneDetailSheet.tsx": [
+    "components/RitualRunner.tsx",
+    "components/ZoneEntryFeedback.tsx",
+    "components/presence/PresenceBanner.tsx",
+    "components/ui/sheet.tsx",
+    "hooks/usePresence.ts",
+    "hooks/useZoneEntry.ts",
+    "lib/api.ts",
+    "utils/i18n.tsx",
+    "utils/situational-activation.ts"
+  ],
+  "components/ZoneEntryFeedback.tsx": [
+    "hooks/useZoneEntry.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/ZoneTestPanel.tsx": [
+    "components/BackButton.tsx",
+    "components/MamlukGrid.tsx",
+    "components/ZoneEntryFeedback.tsx",
+    "hooks/useZoneEntry.ts"
+  ],
+  "components/instruments/PlaceScanSurface.tsx": [
+    "lib/api.ts",
+    "utils/i18n.tsx"
+  ],
+  "components/presence/PresenceBanner.tsx": [],
+  "components/ui/sheet.tsx": [
+    "components/ui/utils.ts"
+  ],
+  "components/ui/use-mobile.ts": [],
+  "components/ui/utils.ts": [],
+  "contexts/SyncStateContext.tsx": [
+    "utils/card-gate-client.ts"
+  ],
+  "contexts/WhisperContext.tsx": [],
+  "data/arrondissement-positions.ts": [],
+  "data/artifacts.ts": [],
+  "data/lieux-paris.ts": [],
+  "data/meridiens.ts": [],
+  "data/oracle.ts": [],
+  "data/quests.ts": [],
+  "data/quiz-questions.ts": [],
+  "data/symbols.ts": [],
+  "data/treasure-symbols.ts": [],
+  "design/motion.ts": [],
+  "hooks/useGeolocation.ts": [],
+  "hooks/usePerceptionState.ts": [
+    "hooks/useGeolocation.ts",
+    "utils/meridien-geo.ts"
+  ],
+  "hooks/usePresence.ts": [],
+  "hooks/useZoneEntry.ts": [
+    "lib/api.ts",
+    "lib/location-trust.ts"
+  ],
+  "lib/api.ts": [],
+  "lib/location-trust.ts": [],
+  "lib/presence/index.ts": [],
+  "locales/en/champ.json": [],
+  "locales/en/church.json": [],
+  "locales/en/history.json": [],
+  "locales/en/home.json": [],
+  "locales/en/map.json": [],
+  "locales/en/meridiens.json": [],
+  "locales/en/origin.json": [],
+  "locales/en/seuil.json": [],
+  "locales/en/treasure.json": [],
+  "locales/fr/champ.json": [],
+  "locales/fr/church.json": [],
+  "locales/fr/history.json": [],
+  "locales/fr/home.json": [],
+  "locales/fr/map.json": [],
+  "locales/fr/meridiens.json": [],
+  "locales/fr/miroir.json": [],
+  "locales/fr/origin.json": [],
+  "locales/fr/paths.json": [],
+  "locales/fr/seuil.json": [],
+  "locales/fr/treasure.json": [],
+  "shared/arche.ids.json": [],
+  "shared/entitlements.ts": [],
+  "shared/types.ts": [],
+  "types/companion.ts": [],
+  "types/map-engraving.ts": [],
+  "types/quest-run.ts": [],
+  "types/traces.ts": [],
+  "types/walk.ts": [],
+  "utils/card-gate-client.ts": [
+    "utils/text-normalize.ts"
+  ],
+  "utils/card-gate-map-client.ts": [
+    "types/map-engraving.ts",
+    "utils/card-gate-client.ts"
+  ],
+  "utils/card-service.ts": [
+    "utils/card-gate-client.ts"
+  ],
+  "utils/codex-helpers.ts": [],
+  "utils/collection-service.ts": [
+    "utils/card-service.ts"
+  ],
+  "utils/companion-service.ts": [
+    "types/companion.ts"
+  ],
+  "utils/compass-constants.ts": [],
+  "utils/echo-milestone-runner.ts": [
+    "data/artifacts.ts",
+    "utils/card-service.ts",
+    "utils/journal-sync.ts",
+    "utils/proof-echo.ts",
+    "utils/walk-service.ts"
+  ],
+  "utils/engrave-events.ts": [],
+  "utils/geo.ts": [],
+  "utils/i18n.tsx": [
+    "locales/en/champ.json",
+    "locales/en/church.json",
+    "locales/en/history.json",
+    "locales/en/home.json",
+    "locales/en/map.json",
+    "locales/en/meridiens.json",
+    "locales/en/origin.json",
+    "locales/en/seuil.json",
+    "locales/en/treasure.json",
+    "locales/fr/champ.json",
+    "locales/fr/church.json",
+    "locales/fr/history.json",
+    "locales/fr/home.json",
+    "locales/fr/map.json",
+    "locales/fr/meridiens.json",
+    "locales/fr/miroir.json",
+    "locales/fr/origin.json",
+    "locales/fr/paths.json",
+    "locales/fr/seuil.json",
+    "locales/fr/treasure.json"
+  ],
+  "utils/journal-sync.ts": [
+    "data/symbols.ts",
+    "utils/card-gate-client.ts"
+  ],
+  "utils/map-project.ts": [],
+  "utils/meridien-geo.ts": [
+    "data/meridiens.ts",
+    "utils/geo.ts"
+  ],
+  "utils/meridien-presence-gate.ts": [
+    "lib/presence/index.ts"
+  ],
+  "utils/meridien-storage.ts": [
+    "data/meridiens.ts"
+  ],
+  "utils/nocturne.ts": [],
+  "utils/place-visits.ts": [
+    "utils/season.ts"
+  ],
+  "utils/proof-density.ts": [],
+  "utils/proof-echo.ts": [],
+  "utils/quest-run-service.ts": [
+    "types/quest-run.ts"
+  ],
+  "utils/refused-arrondissements.ts": [],
+  "utils/season.ts": [],
+  "utils/silence-prompt.ts": [],
+  "utils/situational-activation.ts": [],
+  "utils/text-normalize.ts": [],
+  "utils/trace-service.ts": [
+    "types/traces.ts"
+  ],
+  "utils/traces-service.ts": [
+    "utils/card-gate-client.ts"
+  ],
+  "utils/walk-service.ts": [
+    "types/walk.ts"
+  ]
+}

@@ -1,0 +1,122 @@
+# RLS Smoke Canary — ping la Edge Function rls-smoke après déploiement (multi-schémas + X-API-Key).
+# Déclencher après db push + functions deploy rls-smoke, avant déploiement applicatif.
+# Variables: RLS_SMOKE_URL, RLS_SMOKE_TIMEOUT, RLS_SMOKE_RETRIES, RLS_SMOKE_MAX_DURATION_MS (optionnel).
+# Secret: RLS_SMOKE_API_KEY.
+
+name: RLS Smoke Canary
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/functions/rls-smoke/**'
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    env:
+      RLS_SMOKE_URL: ${{ vars.RLS_SMOKE_URL }}
+      RLS_SMOKE_API_KEY: ${{ secrets.RLS_SMOKE_API_KEY }}
+      RLS_SMOKE_TIMEOUT: ${{ vars.RLS_SMOKE_TIMEOUT || '12000' }}
+      RLS_SMOKE_RETRIES: ${{ vars.RLS_SMOKE_RETRIES || '5' }}
+      RLS_SMOKE_MAX_DURATION_MS: ${{ vars.RLS_SMOKE_MAX_DURATION_MS }}
+    steps:
+      - name: RLS Smoke Canary
+        run: |
+          set -euo pipefail
+          URL="${RLS_SMOKE_URL:-}"
+          API_KEY="${RLS_SMOKE_API_KEY:-}"
+          TIMEOUT_MS="${RLS_SMOKE_TIMEOUT:-12000}"
+          RETRIES="${RLS_SMOKE_RETRIES:-5}"
+
+          if [[ -z "$URL" ]]; then
+            echo "::error title=RLS Smoke::RLS_SMOKE_URL is not set"
+            exit 1
+          fi
+          if [[ -z "$API_KEY" ]]; then
+            echo "::error title=RLS Smoke::RLS_SMOKE_API_KEY is not set"
+            exit 1
+          fi
+
+          attempt=0
+          while (( attempt < RETRIES )); do
+            attempt=$((attempt+1))
+            echo "RLS Smoke attempt $attempt/$RETRIES → $URL"
+            HTTP_CODE=$(curl -sS -o /tmp/rls_smoke_body.json -w "%{http_code}" \
+              --max-time $(( (TIMEOUT_MS+999)/1000 )) \
+              -H "X-Canary: rls-smoke" \
+              -H "X-API-Key: ${API_KEY}" \
+              "$URL")
+            echo "HTTP $HTTP_CODE"
+            cat /tmp/rls_smoke_body.json || true
+
+            if command -v jq >/dev/null 2>&1; then
+              echo "request_id=$(jq -r '.request_id? // "n/a"' /tmp/rls_smoke_body.json)" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+              DUR_MS=$(jq -r '.meta.duration_ms? // empty' /tmp/rls_smoke_body.json 2>/dev/null)
+              if [[ -n "$DUR_MS" ]]; then
+                echo "duration_ms: $DUR_MS"
+                echo "duration_ms: $DUR_MS" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+              fi
+              CHECKED=$(jq -r '.meta.checked_count? // empty' /tmp/rls_smoke_body.json 2>/dev/null)
+              TABLES=$(jq -r '.meta.tables_scanned? // empty' /tmp/rls_smoke_body.json 2>/dev/null)
+              if [[ -n "$CHECKED" ]]; then echo "checked_count: $CHECKED"; echo "checked_count: $CHECKED" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true; fi
+              if [[ -n "$TABLES" ]]; then echo "tables_scanned: $TABLES"; echo "tables_scanned: $TABLES" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true; fi
+            fi
+
+            if [[ "$HTTP_CODE" == "200" ]]; then
+              HARDEN_FAIL=0
+              if command -v jq >/dev/null 2>&1; then
+                echo "## RLS Smoke Canary" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+                jq -r '.schemas | to_entries[] | " - \(.key): \(if .value.ok then "OK" else "NOK" end)"' /tmp/rls_smoke_body.json >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+                # Seuil duration_ms (optionnel)
+                if [[ -n "${RLS_SMOKE_MAX_DURATION_MS:-}" ]] && [[ "${RLS_SMOKE_MAX_DURATION_MS}" =~ ^[0-9]+$ ]]; then
+                  DUR_MS=$(jq -r '.meta.duration_ms? // 0' /tmp/rls_smoke_body.json 2>/dev/null)
+                  if [[ -n "$DUR_MS" ]] && [[ "$DUR_MS" =~ ^[0-9]+$ ]] && [[ "$DUR_MS" -gt "${RLS_SMOKE_MAX_DURATION_MS}" ]]; then
+                    echo "::error title=RLS Smoke::duration_ms ${DUR_MS} > max ${RLS_SMOKE_MAX_DURATION_MS}"
+                    echo "**Durée dépassée:** duration_ms=${DUR_MS} (max=${RLS_SMOKE_MAX_DURATION_MS})" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+                    HARDEN_FAIL=1
+                  fi
+                fi
+
+                # Cohérence checked_count vs meta.checked
+                CHECKED_CNT=$(jq -r '.meta.checked_count? // empty' /tmp/rls_smoke_body.json 2>/dev/null)
+                CHECKED_LEN=$(jq -r '.meta.checked | length' /tmp/rls_smoke_body.json 2>/dev/null)
+                if [[ -n "$CHECKED_CNT" ]] && [[ -n "$CHECKED_LEN" ]] && [[ "$CHECKED_CNT" != "$CHECKED_LEN" ]]; then
+                  echo "::error title=RLS Smoke::checked_count (${CHECKED_CNT}) != meta.checked length (${CHECKED_LEN})"
+                  echo "**Incohérence schémas:** checked_count=${CHECKED_CNT}, attendu=${CHECKED_LEN}" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+                  HARDEN_FAIL=1
+                fi
+              fi
+
+              if [[ "${HARDEN_FAIL:-0}" -eq 1 ]]; then
+                echo "::error title=RLS Smoke::Seuils CI non respectés (duration_ms ou checked_count). Voir le Summary."
+                exit 1
+              fi
+              echo "RLS Smoke OK"
+              exit 0
+            fi
+
+            if command -v jq >/dev/null 2>&1; then
+              echo "Fail detail:"
+              jq '.' /tmp/rls_smoke_body.json 2>/dev/null || true
+              jq -r '"code=\(.code // "n/a") error=\(.error // .detail // "")"' /tmp/rls_smoke_body.json >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+              jq -r '"code=\(.code // "n/a") error=\(.error // .detail // "")"' /tmp/rls_smoke_body.json || true
+              jq -r '.schemas | to_entries[]? | select(.value.ok==false) | " - \(.key): NOK"' /tmp/rls_smoke_body.json 2>/dev/null || true
+            else
+              echo "Schemas NOK (fallback without jq):"
+              grep -B 1 '"ok"[[:space:]]*:[[:space:]]*false' /tmp/rls_smoke_body.json 2>/dev/null | grep -o '"schema"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/"schema"[[:space:]]*:[[:space:]]*"\([^"]*\)"/ - \1: NOK/' || true
+            fi
+
+            if (( attempt < RETRIES )); then
+              BACKOFF=$(( 2 ** attempt ))
+              [[ "$BACKOFF" -gt 30 ]] && BACKOFF=30
+              echo "Retrying in ${BACKOFF}s (exponential backoff)..."
+              sleep "$BACKOFF"
+            fi
+          done
+
+          echo "::error title=RLS Smoke::RLS smoke canary failed after $RETRIES attempts. See logs above."
+          exit 1

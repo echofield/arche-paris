@@ -285,7 +285,7 @@ export function ZoneOverlay({
         );
       })}
 
-      {/* Precise marker: only in non-presence modes (inscriptions/constellation) */}
+      {/* Precise marker: only in non-presence modes (sceaux/constellation) */}
       {mapMode !== 'presence' && marker && (() => {
         const pt = project(marker.lat, marker.lng);
         const pulseDur = marker.moving ? '2.5s' : '4.2s';

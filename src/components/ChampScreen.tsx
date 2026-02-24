@@ -16,6 +16,7 @@ import { postInscription } from '../utils/card-gate-map-client';
 import { normalizeDisplayText } from '../utils/text-normalize';
 import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
+import { AsyncState } from './AsyncState';
 
 interface ChampScreenProps {
   cardId: string | null;
@@ -50,6 +51,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const [items, setItems] = useState<ChampFieldItem[]>([]);
   const [fullItems, setFullItems] = useState<FieldItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ChampFieldItem | null>(null);
 
   // GPS for "You are here"
@@ -110,6 +112,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     loadChampItems(cardId)
       .then((data) => {
         if (!cancelled) {
+          setLoadError(false);
           const mappedItems: ChampFieldItem[] = data
             .filter((item): item is FieldItem & { arrondissement: number } => item.arrondissement != null)
             .map((item) => ({
@@ -136,6 +139,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
         if (!cancelled) {
           console.error('[ChampScreen] Failed to load items:', e);
           setItems([]);
+          setLoadError(true);
         }
       })
       .finally(() => {
@@ -143,6 +147,35 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
       });
     return () => { cancelled = true; };
   }, [cardId]);
+
+  const handleRetryChamp = () => {
+    if (!cardId || cardId === 'DEMO-DEV') return;
+    setLoadError(false);
+    setLoading(true);
+    loadChampItems(cardId)
+      .then((data) => {
+        const mappedItems: ChampFieldItem[] = data
+          .filter((item): item is FieldItem & { arrondissement: number } => item.arrondissement != null)
+          .map((item) => ({
+            id: item.id,
+            arrondissement: item.arrondissement,
+            textExcerpt: normalizeDisplayText(item.textExcerpt),
+            timeLabel: item.timeLabel,
+          }));
+        setFullItems(
+          data
+            .filter((item): item is FieldItem & { arrondissement: number; textFull?: string } => item.arrondissement != null)
+            .map((item) => ({
+              ...item,
+              textExcerpt: normalizeDisplayText(item.textExcerpt),
+              textFull: item.textFull ? normalizeDisplayText(item.textFull) : item.textFull,
+            }))
+        );
+        setItems(mappedItems);
+      })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
+  };
 
   return (
     <div
@@ -204,20 +237,12 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           position: 'relative',
         }}
       >
-        {loading ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '60px 24px',
-              fontFamily: 'var(--font-serif, "Cormorant Garamond", Georgia, serif)',
-              fontSize: 15,
-              color: '#6B6455',
-              opacity: 0.6,
-            }}
-          >
-            …
-          </div>
-        ) : (
+        <AsyncState
+          loading={loading}
+          error={loadError ? { message: t('champ.loadError') } : null}
+          onRetry={handleRetryChamp}
+          onBack={onBack}
+        >
           <div style={{ position: 'relative' }}>
             {/* Map with traces */}
             <ChampMapSection
@@ -309,7 +334,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
               )}
             </div>
           </div>
-        )}
+        </AsyncState>
 
         {/* Add trace CTA — position relative + z-index so it stays clickable above map */}
         <div
@@ -540,7 +565,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                     setShowAddTrace(false);
                   } catch (err) {
                     console.error('Failed to save trace:', err);
-                    setTraceError(err instanceof Error ? err.message : 'Envoi impossible');
+                    setTraceError(err instanceof Error ? err.message : t('champ.sendError'));
                   } finally {
                     setTraceSaving(false);
                   }

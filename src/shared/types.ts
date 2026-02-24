@@ -5,6 +5,9 @@
 
 export type Language = 'fr' | 'en';
 
+/** Card identity for UI/service boundaries. Use null when unknown; do not use 'unknown' sentinel. */
+export type CardId = string | null;
+
 export interface BilingualText {
   fr: string;
   en: string;

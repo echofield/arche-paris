@@ -29,6 +29,15 @@ export interface CardStatus {
 const STORAGE_KEY = 'arche_card_id';
 
 /**
+ * Normalize card identity at boundaries. Use for props and API call sites.
+ * Convention: null when unknown; do not use 'unknown' string sentinel.
+ */
+export function normalizeCardId(value: string | null | undefined | 'unknown'): string | null {
+  if (value == null || value === '' || value === 'unknown') return null;
+  return value;
+}
+
+/**
  * Get stored card ID (set after CardGate onAuthenticated).
  */
 export function getStoredCard(): string | null {

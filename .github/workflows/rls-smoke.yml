@@ -1,0 +1,120 @@
+# RLS Smoke Recap — exécute le script read-only, publie les compteurs en commentaire PR, optionnellement échoue selon seuils.
+# Renseigner les secrets PG* (Supabase ou autre) ou exécuter contre une DB éphémère.
+# Récap parsé via la ligne RECAP_CSV (docs/RLS_SMOKE_TEST_READONLY.sql).
+# Preset 100 % RLS : CI_RLS_ALLOW_ANON_GRANTS=0 et CI_RLS_ALLOW_AUTHENTICATED_GRANTS=0.
+
+name: RLS Smoke Recap
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    # Rejouer à la demande (ex. label "RLS-hardening", gros refactors de schéma)
+
+jobs:
+  rls-smoke:
+    runs-on: ubuntu-latest
+    env:
+      PGHOST: ${{ secrets.PGHOST }}
+      PGPORT: ${{ secrets.PGPORT }}
+      PGDATABASE: ${{ secrets.PGDATABASE }}
+      PGUSER: ${{ secrets.PGUSER }}
+      PGPASSWORD: ${{ secrets.PGPASSWORD }}
+      # 0 = fail si anon_grants > 0
+      CI_RLS_ALLOW_ANON_GRANTS: "0"
+      # 0 = fail si authenticated_grants > 0 (preset 100 % RLS : mettre les deux à 0)
+      CI_RLS_ALLOW_AUTHENTICATED_GRANTS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql (pinned ≥ 12, évite régressions)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-14
+
+      - name: Echo contexte (debug)
+        run: |
+          psql --version
+          echo "PGHOST length: ${#PGHOST}"
+          [ -n "$PGHOST" ] && echo "PGHOST suffix: ${PGHOST: -8}" || echo "PGHOST: (not set)"
+          echo "PGDATABASE: ${PGDATABASE:- (not set)}"
+
+      - name: Run RLS smoke (read-only)
+        id: rls
+        run: |
+          psql "sslmode=require" -v ON_ERROR_STOP=1 -f docs/RLS_SMOKE_TEST_READONLY.sql 2>&1 | tee rls_output.txt
+          RAW=$(grep '^RECAP_CSV:' rls_output.txt | head -1)
+          if [ -z "$RAW" ]; then
+            echo "RECAP_CSV not found in script output"
+            exit 1
+          fi
+          LINE=$(echo "$RAW" | sed 's/^RECAP_CSV://' | tr -d ' \r')
+          IFS=, read -r TOTAL NO_POLICY ANON_GRANTS AUTH_GRANTS <<< "$LINE"
+          test -n "$TOTAL" -a -n "$NO_POLICY" -a -n "$ANON_GRANTS" -a -n "$AUTH_GRANTS" || { echo "Malformed RECAP_CSV (expected 4 fields)"; exit 1; }
+          echo "Extracted: total=$TOTAL no_policy=$NO_POLICY anon_grants=$ANON_GRANTS auth_grants=$AUTH_GRANTS"
+          echo "RECAP_SHA1=$(echo -n "$LINE" | sha1sum | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "total_tables_tested=$TOTAL" >> $GITHUB_OUTPUT
+          echo "tables_without_policy=$NO_POLICY" >> $GITHUB_OUTPUT
+          echo "anon_grants=$ANON_GRANTS" >> $GITHUB_OUTPUT
+          echo "authenticated_grants=$AUTH_GRANTS" >> $GITHUB_OUTPUT
+          echo "TOTAL=$TOTAL" >> $GITHUB_ENV
+          echo "NO_POLICY=$NO_POLICY" >> $GITHUB_ENV
+          echo "ANON_GRANTS=$ANON_GRANTS" >> $GITHUB_ENV
+          echo "AUTH_GRANTS=$AUTH_GRANTS" >> $GITHUB_ENV
+          ANON_OK=0; [ "${CI_RLS_ALLOW_ANON_GRANTS}" != "0" ] || [ "${ANON_GRANTS}" -eq 0 ] && ANON_OK=1
+          AUTH_OK=0; [ "${CI_RLS_ALLOW_AUTHENTICATED_GRANTS}" != "0" ] || [ "${AUTH_GRANTS}" -eq 0 ] && AUTH_OK=1
+          [ "$ANON_OK" = 1 ] && echo "ANON_EMOJI=✅" >> $GITHUB_ENV || echo "ANON_EMOJI=❌" >> $GITHUB_ENV
+          [ "$AUTH_OK" = 1 ] && echo "AUTH_EMOJI=✅" >> $GITHUB_ENV || echo "AUTH_EMOJI=❌" >> $GITHUB_ENV
+
+      - name: Compute RLS status
+        run: |
+          STATUS="✅"
+          [ "${CI_RLS_ALLOW_ANON_GRANTS}" = "0" ] && [ "${ANON_GRANTS}" -gt 0 ] && STATUS="❌"
+          [ "${CI_RLS_ALLOW_AUTHENTICATED_GRANTS}" = "0" ] && [ "${AUTH_GRANTS}" -gt 0 ] && STATUS="❌"
+          echo "RLS_STATUS=$STATUS" >> $GITHUB_ENV
+
+      - name: Comment PR with recap
+        if: github.event.pull_request.number != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          number: ${{ github.event.pull_request.number }}
+          message: |
+            ## RLS Smoke Recap ${{ env.RLS_STATUS }}
+            - total_tables_tested: ${{ env.TOTAL }}
+            - tables_without_policy: ${{ env.NO_POLICY }}
+
+            **Grants:**
+            - anon_has_grant: ${{ env.ANON_GRANTS }} (gate: ${{ env.CI_RLS_ALLOW_ANON_GRANTS }}) ${{ env.ANON_EMOJI }}
+            - authenticated_has_grant: ${{ env.AUTH_GRANTS }} (gate: ${{ env.CI_RLS_ALLOW_AUTHENTICATED_GRANTS }}) ${{ env.AUTH_EMOJI }}
+
+            **Debug:** recap_sha1: `${{ env.RECAP_SHA1 }}`
+
+            [Voir les logs détaillés](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Job summary
+        run: |
+          {
+            echo "## RLS Smoke Recap ${RLS_STATUS}"
+            echo "- total_tables_tested: ${TOTAL}"
+            echo "- tables_without_policy: ${NO_POLICY}"
+            echo ""
+            echo "### Grants"
+            echo "- anon_has_grant: ${ANON_GRANTS} (gate: ${CI_RLS_ALLOW_ANON_GRANTS}) ${ANON_EMOJI}"
+            echo "- authenticated_has_grant: ${AUTH_GRANTS} (gate: ${CI_RLS_ALLOW_AUTHENTICATED_GRANTS}) ${AUTH_EMOJI}"
+            echo ""
+            echo "### Debug"
+            echo "- recap_sha1: ${RECAP_SHA1}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce gates
+        run: |
+          FAIL=0
+          if [ "${CI_RLS_ALLOW_ANON_GRANTS}" = "0" ] && [ "${ANON_GRANTS}" -gt 0 ] 2>/dev/null; then
+            echo "Fail: anon_grants=${ANON_GRANTS} (expected 0)"
+            FAIL=1
+          fi
+          if [ "${CI_RLS_ALLOW_AUTHENTICATED_GRANTS}" = "0" ] && [ "${AUTH_GRANTS}" -gt 0 ] 2>/dev/null; then
+            echo "Fail: authenticated_grants=${AUTH_GRANTS} (expected 0 for 100% RLS)"
+            FAIL=1
+          fi
+          exit $FAIL

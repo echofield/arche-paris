@@ -62,7 +62,7 @@ export function TraceRenderer({
         />
       )}
 
-      {mapMode === 'inscriptions' && showSegments && mapState?.segments && mapState.segments.length > 0 && (
+      {mapMode === 'sceaux' && showSegments && mapState?.segments && mapState.segments.length > 0 && (
         <svg
           viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
           preserveAspectRatio="xMidYMid meet"
@@ -104,7 +104,7 @@ export function TraceRenderer({
         </svg>
       )}
 
-      {mapMode === 'inscriptions' && showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
+      {mapMode === 'sceaux' && showInscriptionsLayer && mapState?.inscriptions && mapState.inscriptions.length > 0 && (() => {
         const arrsWithInscriptions = new Set(
           mapState.inscriptions.map((i) => i.arrondissement).filter((a): a is number => a != null)
         );
@@ -135,7 +135,7 @@ export function TraceRenderer({
         );
       })()}
 
-      {mapMode === 'inscriptions' && showThreads && runs.length > 0 && (
+      {mapMode === 'sceaux' && showThreads && runs.length > 0 && (
         <svg
           viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
           preserveAspectRatio="xMidYMid meet"
@@ -219,7 +219,7 @@ export function TraceRenderer({
         </div>
       )}
 
-      {mapMode === 'inscriptions' && points.map(({ symbol, x, y }) => (
+      {mapMode === 'sceaux' && points.map(({ symbol, x, y }) => (
         <div
           key={symbol.id}
           style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', zIndex: 2 }}

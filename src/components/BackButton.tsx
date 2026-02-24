@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from '../utils/i18n';
 
 const STACK_KEY = 'arche_hash_stack';
 const STACK_CAP = 20;
@@ -37,7 +38,8 @@ interface BackButtonProps {
  * BACK BUTTON — Hash stack navigation.
  * Pushes hash on hashchange (cap 20). On click: pop current, go to previous hash; fallback if stack empty.
  */
-export function BackButton({ onClick, onBack, label = 'Retour à la cité', fallbackHref = '#etudes' }: BackButtonProps) {
+export function BackButton({ onClick, onBack, label, fallbackHref = '#etudes' }: BackButtonProps) {
+  const { t } = useTranslation();
   const navigatingBackRef = useRef(false);
 
   useEffect(() => {
@@ -111,7 +113,7 @@ export function BackButton({ onClick, onBack, label = 'Retour à la cité', fall
       onTouchEnd={(e) => (e.currentTarget.style.opacity = '0.5')}
     >
       <span style={{ fontSize: 'clamp(16px, 3vw, 20px)', flexShrink: 0 }}>‹</span>
-      <span className="back-label" style={{ whiteSpace: 'nowrap' }}>{label}</span>
+      <span className="back-label" style={{ whiteSpace: 'nowrap' }}>{label ?? t('back.toCity')}</span>
     </button>
   );
 }

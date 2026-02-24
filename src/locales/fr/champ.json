@@ -1,5 +1,7 @@
 {
   "champ.title": "Le Champ",
   "champ.placeholder": "Les traces partagées de la cité.",
-  "champ.leaveTrace": "Laisser une trace"
+  "champ.leaveTrace": "Laisser une trace",
+  "champ.loadError": "Le Champ est inaccessible. Réessayez ou revenez.",
+  "champ.sendError": "Envoi impossible."
 }

@@ -723,11 +723,14 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           segmentsLabel={t('myparis.layers.segments')}
           inscriptionsLabel={t('myparis.layers.inscriptions')}
           presenceTabLabel={t('map.tabs.presence')}
-          inscriptionsTabLabel={t('map.tabs.inscriptions')}
+          sceauxTabLabel={t('map.tabs.sceaux')}
           constellationTabLabel={t('map.tabs.constellation')}
           presenceHint={t('map.tabs.presenceHint')}
-          inscriptionsHint={t('map.tabs.inscriptionsHint')}
+          sceauxHint={t('map.tabs.sceauxHint')}
           constellationHint={t('map.tabs.constellationHint')}
+          sceauxSealedLabel={t('map.sceaux.sealedLabel')}
+          sceauxSealedEmpty={t('map.sceaux.sealedEmpty')}
+          sceauxDraftsLabel={t('map.sceaux.draftsLabel')}
         />
 
         {encounter && mapMode === 'presence' && (

@@ -3,7 +3,7 @@
  * Carnet, Traces, My Paris use this instead of each inventing their own sync logic.
  */
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   getPendingWritesCount,
   flushPendingWrites,
@@ -71,14 +71,17 @@ export function SyncStateProvider({ children }: { children: React.ReactNode }) {
 
   const showCompressedMessage = lastCompressedAt > 0 && lastCompressedAt > Date.now() - COMPRESSED_MESSAGE_TTL_MS;
 
-  const value: SyncState = {
-    pendingCount,
-    isSyncing,
-    lastSyncAt,
-    lastError,
-    showCompressedMessage,
-    flushNow,
-  };
+  const value = useMemo<SyncState>(
+    () => ({
+      pendingCount,
+      isSyncing,
+      lastSyncAt,
+      lastError,
+      showCompressedMessage,
+      flushNow,
+    }),
+    [pendingCount, isSyncing, lastSyncAt, lastError, showCompressedMessage, flushNow]
+  );
 
   return (
     <SyncStateContext.Provider value={value}>
