@@ -4,6 +4,7 @@
  * Uses motion.ts only; no setTimeout. Callbacks drive state transitions via animation complete.
  */
 
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { project } from '../../utils/map-project';
 import { motion as motionTokens } from '../../design/motion';
@@ -12,8 +13,13 @@ import type { Lieu } from '../../data/lieux-paris';
 const VIEWBOX_WIDTH = 2037.566;
 const VIEWBOX_HEIGHT = 1615.5;
 const MARK_HIT_RADIUS = 18;
-const READING_TO_INTERPRETATION_DELAY_S = (motionTokens.t('measured') * 3 + motionTokens.t('contemplative') * 0.3) / 1000;
-const INTERPRETATION_DISPLAY_DURATION_S = (motionTokens.t('contemplative') * 7) / 1000;
+/** Computed at render time to avoid TDZ when module loads before design/motion is ready. */
+function getReadingDelays() {
+  return {
+    toInterpretationS: (motionTokens.t('measured') * 3 + motionTokens.t('contemplative') * 0.3) / 1000,
+    interpretationDisplayS: (motionTokens.t('contemplative') * 7) / 1000,
+  };
+}
 
 export type InstrumentState = 'quiet' | 'reading' | 'interpretation';
 
@@ -36,6 +42,7 @@ export function InstrumentReadingLayer({
   onTransitionToInterpretation,
   onTransitionToQuiet,
 }: InstrumentReadingLayerProps) {
+  const { toInterpretationS, interpretationDisplayS } = useMemo(() => getReadingDelays(), []);
   return (
     <>
       <svg
@@ -116,7 +123,7 @@ export function InstrumentReadingLayer({
           initial={{ opacity: 0 }}
           animate={{ opacity: 0 }}
           transition={{
-            delay: READING_TO_INTERPRETATION_DELAY_S,
+            delay: toInterpretationS,
             duration: 0,
           }}
           onAnimationComplete={onTransitionToInterpretation}
@@ -169,7 +176,7 @@ export function InstrumentReadingLayer({
           initial={{ opacity: 0 }}
           animate={{ opacity: 0 }}
           transition={{
-            delay: INTERPRETATION_DISPLAY_DURATION_S,
+            delay: interpretationDisplayS,
             duration: 0,
           }}
           onAnimationComplete={onTransitionToQuiet}
