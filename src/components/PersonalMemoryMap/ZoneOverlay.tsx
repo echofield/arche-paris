@@ -33,7 +33,7 @@ export function ZoneOverlay({
 }: ZoneOverlayProps) {
   return (
     <>
-      {globalPulseActive && (
+      {mapMode !== 'presence' && globalPulseActive && (
         <div
           style={{
             position: 'absolute',

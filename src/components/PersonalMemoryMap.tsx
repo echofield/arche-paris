@@ -42,6 +42,7 @@ import { LIEUX_PARIS, type Lieu } from '../data/lieux-paris';
 import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
 import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
+import { arrToZoneId } from '../hooks/useZoneEntry';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAP_VIEWBOX_WIDTH = 2037.566;
@@ -883,48 +884,88 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         </div>
         </div>
 
-        {mapMode === 'presence' && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              marginTop: 4,
-              marginBottom: 8,
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: activeArrondissement
-                  ? (stabilized.status === 'locked' ? '#007850' : '#d4af37')
-                  : '#8E8982',
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 12,
-                letterSpacing: '0.04em',
-                color: '#003D2C',
-                opacity: 0.75,
-              }}
-            >
-              {activeArrondissement
-                ? t(`map.arrondissements.${activeArrondissement}`)
-                : outsideCoverage
-                  ? t('map.presence.outside')
-                  : stabilized.status === 'weak' || stabilized.status === 'error'
-                    ? t('map.presence.weak')
-                    : t('map.tabs.presenceHint')
-              }
-            </span>
-          </div>
-        )}
+        {mapMode === 'presence' && (() => {
+          const zoneId = activeArrondissement ? arrToZoneId(activeArrondissement) : null;
+          const progress = zoneId ? zoneProgressMap[zoneId] : null;
+          const isSealed = progress?.presence_ritual && progress?.observation_ritual;
+          const hasEntered = progress?.entered === true;
+          const signalLabel = stabilized.status === 'locked'
+            ? t('map.territory.signalStable')
+            : stabilized.status === 'warming'
+              ? t('map.territory.signalSettling')
+              : t('map.territory.signalWeak');
+          const signalColor = stabilized.status === 'locked' ? '#007850' : stabilized.status === 'warming' ? '#d4af37' : '#8E8982';
+
+          if (!activeArrondissement) {
+            return (
+              <div style={{
+                marginTop: 4, marginBottom: 8, textAlign: 'center',
+                fontFamily: 'var(--font-serif)', fontSize: 13, fontStyle: 'italic',
+                color: '#8E8982', opacity: 0.7,
+              }}>
+                {outsideCoverage ? t('map.presence.outside') : stabilized.status === 'weak' || stabilized.status === 'error' ? t('map.presence.weak') : t('map.tabs.presenceHint')}
+              </div>
+            );
+          }
+
+          return (
+            <div style={{
+              width: '100%', maxWidth: 400,
+              marginTop: 4, marginBottom: 12,
+              padding: '14px 16px',
+              border: '1px solid rgba(0,61,44,0.10)',
+              borderRadius: 8,
+              background: 'rgba(250,248,242,0.8)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{
+                  fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 500,
+                  color: '#1A1A1A', letterSpacing: '-0.01em',
+                }}>
+                  {t(`map.arrondissements.${activeArrondissement}`)}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-sans)', fontSize: 10,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: isSealed ? '#007850' : '#6B6455', opacity: 0.8,
+                }}>
+                  {isSealed ? t('map.territory.sealed') : t('map.territory.open')}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: signalColor, flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.7 }}>
+                    {t('map.territory.signal')}: {signalLabel}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    background: isSealed ? '#007850' : '#DBD4C6',
+                  }} />
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.7 }}>
+                    {isSealed
+                      ? t('map.territory.sealCount', { count: (progress?.objectives_complete ?? 0) })
+                      : t('map.territory.noSeal')}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    background: hasEntered ? '#d4af37' : '#DBD4C6',
+                  }} />
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.7 }}>
+                    {hasEntered ? t('map.territory.entered') : t('map.territory.notEntered')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <p
           style={{
