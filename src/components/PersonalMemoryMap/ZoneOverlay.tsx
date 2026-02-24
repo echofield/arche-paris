@@ -241,8 +241,8 @@ export function ZoneOverlay({
         );
       })()}
 
-      {/* Debug overlay: raw positioning data (VITE_DEBUG_TERRITORY only) */}
-      {import.meta.env.VITE_DEBUG_TERRITORY && marker && (() => {
+      {/* Debug overlay: env var OR ?debug=territory URL param */}
+      {(import.meta.env.VITE_DEBUG_TERRITORY || new URLSearchParams(window.location.search).has('debug')) && marker && (() => {
         const pt = project(marker.lat, marker.lng);
         const xPct = (pt.x / VIEWBOX_WIDTH) * 100;
         const yPct = (pt.y / VIEWBOX_HEIGHT) * 100;
@@ -253,18 +253,19 @@ export function ZoneOverlay({
               bottom: 4,
               left: 4,
               zIndex: 99,
-              background: 'rgba(0,0,0,0.75)',
+              background: 'rgba(0,0,0,0.85)',
               color: '#0f0',
               fontFamily: 'monospace',
-              fontSize: 9,
-              padding: '4px 6px',
+              fontSize: 11,
+              padding: '6px 8px',
               borderRadius: 4,
-              lineHeight: 1.5,
+              lineHeight: 1.6,
               pointerEvents: 'none',
             }}
           >
-            lat {marker.lat.toFixed(5)} lng {marker.lng.toFixed(5)}<br />
-            svgXY {pt.x.toFixed(0)},{pt.y.toFixed(0)}<br />
+            lat {marker.lat.toFixed(5)}<br />
+            lng {marker.lng.toFixed(5)}<br />
+            svg {pt.x.toFixed(0)},{pt.y.toFixed(0)}<br />
             pct {xPct.toFixed(1)}%,{yPct.toFixed(1)}%
           </div>
         );
