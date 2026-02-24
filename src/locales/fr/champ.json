@@ -1,7 +1,25 @@
 {
   "champ.title": "Le Champ",
+  "champ.subtitle": "L'observatoire vivant de la cité.",
   "champ.placeholder": "Les traces partagées de la cité.",
   "champ.leaveTrace": "Laisser une trace",
   "champ.loadError": "Le Champ est inaccessible. Réessayez ou revenez.",
-  "champ.sendError": "Envoi impossible."
+  "champ.sendError": "Envoi impossible.",
+  "champ.layer.resonance": "Résonance",
+  "champ.layer.aujourdhui": "Aujourd'hui",
+  "champ.layer.invisible": "Invisible",
+  "champ.legend.title": "Légende",
+  "champ.legend.resonance": "Lieu culturel ou sacré",
+  "champ.legend.aujourdhui": "Actif aujourd'hui",
+  "champ.legend.invisible": "Inscription collective",
+  "champ.legend.noData": "Aucune inscription collective encore.",
+  "champ.detail.title": "Lieu",
+  "champ.detail.approachToSeal": "Approcher pour sceller",
+  "champ.detail.weight": "Poids",
+  "champ.detail.arrondissement": "Arrondissement",
+  "champ.filter.fromPresence": "Vous explorez le {arr} depuis Présence",
+  "champ.filter.dismiss": "Fermer",
+  "champ.aujourdhui.empty": "Aucune activité dans les dernières 24h.",
+  "champ.aujourdhui.count": "{count} trace(s) aujourd'hui",
+  "champ.invisible.count": "{count} inscription(s) collective(s)"
 }

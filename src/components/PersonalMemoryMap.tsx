@@ -963,6 +963,38 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                   </span>
                 </div>
               </div>
+
+              {(() => {
+                const arrStr = activeArrondissement === 1 ? '1er' : `${activeArrondissement}e`;
+                const hasAnchor = LIEUX_PARIS.some(l => l.isAnchor && l.arrondissement === arrStr);
+                return (
+                  <>
+                    {hasAnchor && (
+                      <p style={{
+                        margin: '8px 0 0', fontFamily: 'var(--font-serif)',
+                        fontSize: 12, fontStyle: 'italic', color: '#003D2C', opacity: 0.55,
+                      }}>
+                        {t('map.territory.nearbyHint')}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { window.location.hash = `champ?arr=${activeArrondissement}&layers=resonance,aujourdhui`; }}
+                      style={{
+                        marginTop: 10, width: '100%',
+                        padding: '10px 0',
+                        fontFamily: 'var(--font-sans)', fontSize: 11,
+                        letterSpacing: '0.08em', textTransform: 'uppercase',
+                        color: '#003D2C', background: 'rgba(0,61,44,0.05)',
+                        border: '1px solid rgba(0,61,44,0.14)',
+                        borderRadius: 6, cursor: 'pointer',
+                      }}
+                    >
+                      {t('map.territory.exploreLeChamp')}
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           );
         })()}

@@ -69,6 +69,8 @@
   "map.territory.signalStable": "Stable",
   "map.territory.signalSettling": "En cours",
   "map.territory.signalWeak": "Faible",
+  "map.territory.exploreLeChamp": "Explorer le Champ",
+  "map.territory.nearbyHint": "Un lieu proche attend.",
   "map.panel.arrondissement": "Arrondissement",
   "map.detail.collect": "Collecter ce symbole",
   "map.detail.collected": "Symbole déjà collecté",

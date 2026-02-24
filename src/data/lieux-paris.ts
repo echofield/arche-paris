@@ -10,6 +10,7 @@ export interface Lieu {
   coordinates: { lat: number; lng: number };
   poeticLine: string;
   arrondissement: string;
+  isAnchor?: boolean;
 }
 
 export const LIEUX_PARIS: Lieu[] = [
@@ -33,6 +34,7 @@ export const LIEUX_PARIS: Lieu[] = [
     coordinates: { lat: 48.8555, lng: 2.3658 },
     poeticLine: 'Un carré parfait de brique et de pierre, suspendu hors du temps.',
     arrondissement: '4e',
+    isAnchor: true,
   },
   {
     id: 'rue-mouffetard',
@@ -47,6 +49,7 @@ export const LIEUX_PARIS: Lieu[] = [
     coordinates: { lat: 48.8462, lng: 2.3372 },
     poeticLine: 'Un théâtre de verdure où chaque banc est une scène.',
     arrondissement: '6e',
+    isAnchor: true,
   },
   {
     id: 'palais-royal-jardins',
@@ -54,6 +57,7 @@ export const LIEUX_PARIS: Lieu[] = [
     coordinates: { lat: 48.8631, lng: 2.3364 },
     poeticLine: 'Un carré de silence au cœur du tumulte, gardé par des colonnes.',
     arrondissement: '1er',
+    isAnchor: true,
   },
   {
     id: 'sacre-coeur-parvis',
@@ -61,6 +65,7 @@ export const LIEUX_PARIS: Lieu[] = [
     coordinates: { lat: 48.8867, lng: 2.3431 },
     poeticLine: 'Le balcon blanc de Paris, où la ville s\'étale comme une maquette.',
     arrondissement: '18e',
+    isAnchor: true,
   },
   {
     id: 'arenes-de-lutece',
@@ -68,6 +73,7 @@ export const LIEUX_PARIS: Lieu[] = [
     coordinates: { lat: 48.8456, lng: 2.3526 },
     poeticLine: 'Un amphithéâtre romain caché derrière des immeubles haussmanniens.',
     arrondissement: '5e',
+    isAnchor: true,
   },
   {
     id: 'square-vert-galant',

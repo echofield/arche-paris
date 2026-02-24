@@ -1,7 +1,25 @@
 {
   "champ.title": "The Field",
+  "champ.subtitle": "The living observatory of the city.",
   "champ.placeholder": "Shared traces of the city.",
   "champ.leaveTrace": "Leave a trace",
   "champ.loadError": "The Field is unavailable. Retry or go back.",
-  "champ.sendError": "Send failed."
+  "champ.sendError": "Send failed.",
+  "champ.layer.resonance": "Resonance",
+  "champ.layer.aujourdhui": "Today",
+  "champ.layer.invisible": "Invisible",
+  "champ.legend.title": "Legend",
+  "champ.legend.resonance": "Cultural or sacred place",
+  "champ.legend.aujourdhui": "Active today",
+  "champ.legend.invisible": "Collective inscription",
+  "champ.legend.noData": "No collective inscriptions yet.",
+  "champ.detail.title": "Place",
+  "champ.detail.approachToSeal": "Approach to seal",
+  "champ.detail.weight": "Weight",
+  "champ.detail.arrondissement": "Arrondissement",
+  "champ.filter.fromPresence": "Exploring {arr} from Presence",
+  "champ.filter.dismiss": "Close",
+  "champ.aujourdhui.empty": "No activity in the last 24 hours.",
+  "champ.aujourdhui.count": "{count} trace(s) today",
+  "champ.invisible.count": "{count} collective inscription(s)"
 }

@@ -328,7 +328,7 @@ export default function App() {
         setCurrentScreen('meridiens');
       } else if (hash === 'place-scan') {
         setCurrentScreen('place-scan');
-      } else if (hash === 'champ') {
+      } else if (hash === 'champ' || hash.startsWith('champ?')) {
         setCurrentScreen('champ');
       } else if (hash === 'kept') {
         setCurrentScreen('kept');
