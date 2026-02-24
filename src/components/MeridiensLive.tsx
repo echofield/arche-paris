@@ -48,7 +48,7 @@ import { api } from '../lib/api';
 const MERIDIAN_ZONE_ID = 'MERIDIAN_LINE';
 /** Cooldown between heuristic-driven verifies (ms). */
 const MERIDIAN_VERIFY_COOLDOWN_MS = 30000;
-import type { WorldSnapshotData, MeridianInstrumentSnapshot } from '../lib/api';
+import type { WorldSnapshotData } from '../lib/api';
 import {
   MERIDIAN_FETCH_DEADBAND_M,
   MERIDIAN_FETCH_DEADBAND_DEG,
@@ -203,11 +203,11 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     if (!shouldFetch) return;
 
     lastFetchRef.current = { lat: userPos.lat, lng: userPos.lng, heading, ts: now };
-    const h3 = 'PAR-06'; // default for Saint-Sulpice area; could use TerritoryResolver later
+    const h3 = 'PAR-06';
     api
-      .worldSnapshot({ lat: userPos.lat, lng: userPos.lng, heading, h3_center: h3 })
+      .worldSnapshot({ h3_center: h3, k: 0, include: 'map,champ,law' })
       .then((res) => {
-        if (res.ok && res.data) {
+        if (res.data) {
           setSnapshot(res.data);
         }
       })
@@ -234,8 +234,7 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     hint: hintText || undefined
   });
 
-  const meridian: MeridianInstrumentSnapshot | (LocalMeridianState & { quality?: typeof qualityResult.quality; hint?: string }) = (() => {
-    if (snapshot?.world?.meridian) return snapshot.world.meridian;
+  const meridian: (LocalMeridianState & { quality?: typeof qualityResult.quality; hint?: string }) = (() => {
     if (!userPos) return fallbackMeridianState();
     if (!signalGood) return fallbackMeridianState();
     const lineDistanceM = distanceToMeridianMeters(userPos.lng);
