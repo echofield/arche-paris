@@ -22,6 +22,7 @@ export interface ResonancePlace {
   x: number;
   y: number;
   weight?: number;
+  isAnchor?: boolean;
 }
 
 export interface ArrondissementCount {
@@ -36,6 +37,7 @@ export type ChampMapSectionProps = {
   invisibleCounts: ArrondissementCount[];
   highlightArr: number | null;
   onPlaceSelect?: (place: ResonancePlace) => void;
+  onArrTap?: (arr: number, layer: 'aujourdhui' | 'invisible') => void;
   mapVariant?: MapVariant;
 };
 
@@ -71,6 +73,7 @@ export function ChampMapSection({
   invisibleCounts,
   highlightArr,
   onPlaceSelect,
+  onArrTap,
   mapVariant = 'draw',
 }: ChampMapSectionProps) {
 
@@ -120,7 +123,8 @@ export function ChampMapSection({
           if (!center || count === 0) return null;
           const r = Math.min(60, 20 + count * 4);
           return (
-            <g key={`inv-${arr}`}>
+            <g key={`inv-${arr}`} style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+              onClick={() => onArrTap?.(arr, 'invisible')}>
               <circle
                 cx={center.x} cy={center.y} r={r}
                 fill="rgba(0,61,44,0.06)"
@@ -146,7 +150,8 @@ export function ChampMapSection({
           const center = ARRONDISSEMENT_CENTERS[arr];
           if (!center || count === 0) return null;
           return (
-            <g key={`ajd-${arr}`}>
+            <g key={`ajd-${arr}`} style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+              onClick={() => onArrTap?.(arr, 'aujourdhui')}>
               <circle
                 cx={center.x} cy={center.y} r="18"
                 fill="rgba(0,120,80,0.12)"
@@ -172,22 +177,23 @@ export function ChampMapSection({
         {/* Layer: Resonance — cultural halos at place coordinates */}
         {activeLayers.has('resonance') && resonancePlaces.map((place) => {
           const r = place.weight ? 12 + place.weight * 4 : 20;
+          const anchor = place.isAnchor;
           return (
             <g key={`res-${place.id}`} style={{ cursor: 'pointer', pointerEvents: 'auto' }}
               onClick={() => onPlaceSelect?.(place)}>
               <circle
                 cx={place.x} cy={place.y} r={r + 10}
-                fill="rgba(139,105,20,0.06)"
+                fill={anchor ? 'rgba(139,105,20,0.10)' : 'rgba(139,105,20,0.06)'}
               />
               <circle
                 cx={place.x} cy={place.y} r={r}
-                fill="rgba(139,105,20,0.12)"
-                stroke="rgba(139,105,20,0.3)"
-                strokeWidth="0.8"
+                fill={anchor ? 'rgba(139,105,20,0.18)' : 'rgba(139,105,20,0.12)'}
+                stroke={anchor ? 'rgba(139,105,20,0.5)' : 'rgba(139,105,20,0.3)'}
+                strokeWidth={anchor ? '1.6' : '0.8'}
               />
               <circle
-                cx={place.x} cy={place.y} r="4"
-                fill="rgba(139,105,20,0.6)"
+                cx={place.x} cy={place.y} r={anchor ? '5' : '4'}
+                fill={anchor ? 'rgba(139,105,20,0.85)' : 'rgba(139,105,20,0.6)'}
               />
             </g>
           );

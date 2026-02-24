@@ -966,15 +966,15 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
 
               {(() => {
                 const arrStr = activeArrondissement === 1 ? '1er' : `${activeArrondissement}e`;
-                const hasAnchor = LIEUX_PARIS.some(l => l.isAnchor && l.arrondissement === arrStr);
+                const anchor = LIEUX_PARIS.find(l => l.isAnchor && l.arrondissement === arrStr);
                 return (
                   <>
-                    {hasAnchor && (
+                    {anchor && (
                       <p style={{
                         margin: '8px 0 0', fontFamily: 'var(--font-serif)',
                         fontSize: 12, fontStyle: 'italic', color: '#003D2C', opacity: 0.55,
                       }}>
-                        {t('map.territory.nearbyHint')}
+                        {t('map.territory.nearbyHint', { name: anchor.name })}
                       </p>
                     )}
                     <button

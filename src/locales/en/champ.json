@@ -21,5 +21,12 @@
   "champ.filter.dismiss": "Close",
   "champ.aujourdhui.empty": "No activity in the last 24 hours.",
   "champ.aujourdhui.count": "{count} trace(s) today",
-  "champ.invisible.count": "{count} collective inscription(s)"
+  "champ.aujourdhui.sheetTitle": "Recent activity",
+  "champ.aujourdhui.sheetLine": "Traces left in this arrondissement in the last 24 hours.",
+  "champ.aujourdhui.lastActivity": "Last activity",
+  "champ.aujourdhui.ago": "{value} ago",
+  "champ.invisible.count": "{count} collective inscription(s)",
+  "champ.invisible.sheetTitle": "Collective inscriptions",
+  "champ.invisible.sheetLine": "Anonymous traces accumulated in this arrondissement since the Field opened.",
+  "champ.detail.openInstruments": "Open instruments"
 }

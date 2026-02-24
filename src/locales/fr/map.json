@@ -70,7 +70,7 @@
   "map.territory.signalSettling": "En cours",
   "map.territory.signalWeak": "Faible",
   "map.territory.exploreLeChamp": "Explorer le Champ",
-  "map.territory.nearbyHint": "Un lieu proche attend.",
+  "map.territory.nearbyHint": "Un lieu proche attend : {name}.",
   "map.panel.arrondissement": "Arrondissement",
   "map.detail.collect": "Collecter ce symbole",
   "map.detail.collected": "Symbole déjà collecté",

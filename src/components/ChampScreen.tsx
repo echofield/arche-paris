@@ -144,7 +144,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const resonancePlaces = useMemo<ResonancePlace[]>(() => {
     const fromLieux: ResonancePlace[] = LIEUX_PARIS.map(l => {
       const p = project(l.coordinates.lat, l.coordinates.lng);
-      return { id: `lieu-${l.id}`, name: l.name, x: p.x, y: p.y };
+      return { id: `lieu-${l.id}`, name: l.name, x: p.x, y: p.y, isAnchor: l.isAnchor };
     });
     const fromCards: ResonancePlace[] = GAME_CARDS.map(c => {
       const p = project(c.gps.lat, c.gps.lng);
@@ -179,6 +179,40 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     });
     return Array.from(map.entries()).map(([arrondissement, count]) => ({ arrondissement, count }));
   }, [champItems]);
+
+  // Arrondissement tap sheet (aujourdhui / invisible)
+  const [arrSheet, setArrSheet] = useState<{ arr: number; layer: 'aujourdhui' | 'invisible' } | null>(null);
+
+  const handleArrTap = useCallback((arr: number, layer: 'aujourdhui' | 'invisible') => {
+    setArrSheet({ arr, layer });
+  }, []);
+
+  const arrSheetData = useMemo(() => {
+    if (!arrSheet) return null;
+    const { arr, layer } = arrSheet;
+    if (layer === 'aujourdhui') {
+      const count = aujourdhuiCounts.find(c => c.arrondissement === arr)?.count ?? 0;
+      const recentItems = champItems
+        .filter(item => item.arrondissement === arr)
+        .sort((a, b) => {
+          const tsA = (a as FieldItem & { created_at?: string }).created_at;
+          const tsB = (b as FieldItem & { created_at?: string }).created_at;
+          return (tsB ? new Date(tsB).getTime() : 0) - (tsA ? new Date(tsA).getTime() : 0);
+        });
+      const lastTs = (recentItems[0] as FieldItem & { created_at?: string })?.created_at;
+      let relativeTime = '';
+      if (lastTs) {
+        const diffMs = Date.now() - new Date(lastTs).getTime();
+        const diffMin = Math.floor(diffMs / 60_000);
+        if (diffMin < 60) relativeTime = `${diffMin}min`;
+        else if (diffMin < 1440) relativeTime = `${Math.floor(diffMin / 60)}h`;
+        else relativeTime = `${Math.floor(diffMin / 1440)}j`;
+      }
+      return { count, relativeTime, layer };
+    }
+    const count = invisibleCounts.find(c => c.arrondissement === arr)?.count ?? 0;
+    return { count, relativeTime: '', layer };
+  }, [arrSheet, aujourdhuiCounts, invisibleCounts, champItems]);
 
   // Place detail sheet
   const [selectedPlace, setSelectedPlace] = useState<PlaceDetail | null>(null);
@@ -311,6 +345,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
             invisibleCounts={invisibleCounts}
             highlightArr={highlightArr}
             onPlaceSelect={handlePlaceSelect}
+            onArrTap={handleArrTap}
             mapVariant="draw"
           />
         </AsyncState>
@@ -352,12 +387,83 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
         </button>
       </div>
 
+      {/* Arrondissement sheet (aujourdhui / invisible tap) */}
+      <Sheet open={arrSheet !== null} onOpenChange={(open) => { if (!open) setArrSheet(null); }}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[55vh] overflow-y-auto"
+          style={{ background: '#FAF8F2', borderColor: 'rgba(0,61,44,0.15)' }}
+        >
+          <SheetHeader>
+            <SheetTitle style={{ fontFamily: 'var(--font-serif)', color: '#1A1A1A' }}>
+              {arrSheet ? t(`map.arrondissements.${arrSheet.arr}`) : ''}
+            </SheetTitle>
+          </SheetHeader>
+          {arrSheetData && arrSheet && (
+            <div style={{ padding: '0 1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{
+                margin: 0, fontFamily: 'var(--font-sans)', fontSize: 10,
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: arrSheetData.layer === 'aujourdhui' ? '#007850' : '#003D2C', opacity: 0.7,
+              }}>
+                {arrSheetData.layer === 'aujourdhui'
+                  ? t('champ.aujourdhui.sheetTitle')
+                  : t('champ.invisible.sheetTitle')}
+              </p>
+
+              <div style={{
+                display: 'flex', alignItems: 'baseline', gap: 8,
+              }}>
+                <span style={{
+                  fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500,
+                  color: '#1A1A1A',
+                }}>
+                  {arrSheetData.count}
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#6B6455' }}>
+                  {arrSheetData.layer === 'aujourdhui'
+                    ? t('champ.aujourdhui.count', { count: arrSheetData.count })
+                    : t('champ.invisible.count', { count: arrSheetData.count })}
+                </span>
+              </div>
+
+              {arrSheetData.layer === 'aujourdhui' && arrSheetData.relativeTime && (
+                <p style={{
+                  margin: 0, fontFamily: 'var(--font-sans)', fontSize: 11, color: '#003D2C', opacity: 0.6,
+                }}>
+                  {t('champ.aujourdhui.lastActivity')}: {t('champ.aujourdhui.ago', { value: arrSheetData.relativeTime })}
+                </p>
+              )}
+
+              {arrSheetData.count === 0 && arrSheetData.layer === 'aujourdhui' && (
+                <p style={{
+                  margin: 0, fontFamily: 'var(--font-serif)', fontSize: 13,
+                  fontStyle: 'italic', color: '#8E8982', opacity: 0.7,
+                }}>
+                  {t('champ.aujourdhui.empty')}
+                </p>
+              )}
+
+              <p style={{
+                margin: '4px 0 0', fontFamily: 'var(--font-serif)', fontSize: 13,
+                fontStyle: 'italic', color: '#1A1A1A', opacity: 0.55, lineHeight: 1.6,
+              }}>
+                {arrSheetData.layer === 'aujourdhui'
+                  ? t('champ.aujourdhui.sheetLine')
+                  : t('champ.invisible.sheetLine')}
+              </p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* Place detail sheet (bridge to Mon Paris) */}
       <PlaceDetailSheet
         place={selectedPlace}
         onClose={() => setSelectedPlace(null)}
         titleLabel={t('champ.detail.title')}
         approachLabel={t('champ.detail.approachToSeal')}
+        instrumentsLabel={t('champ.detail.openInstruments')}
         weightLabel={t('champ.detail.weight')}
         arrondissementLabel={t('champ.detail.arrondissement')}
       />

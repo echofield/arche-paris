@@ -74,7 +74,7 @@
   "map.territory.signalSettling": "Settling",
   "map.territory.signalWeak": "Weak",
   "map.territory.exploreLeChamp": "Explore the Field",
-  "map.territory.nearbyHint": "A place nearby awaits.",
+  "map.territory.nearbyHint": "A place nearby awaits: {name}.",
   "map.panel.arrondissement": "Arrondissement",
 
   "map.detail.collect": "Collect this symbol",

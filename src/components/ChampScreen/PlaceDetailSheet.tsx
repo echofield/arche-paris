@@ -14,6 +14,7 @@ interface PlaceDetailSheetProps {
   onClose: () => void;
   titleLabel: string;
   approachLabel: string;
+  instrumentsLabel: string;
   weightLabel: string;
   arrondissementLabel: string;
 }
@@ -23,6 +24,7 @@ export function PlaceDetailSheet({
   onClose,
   titleLabel,
   approachLabel,
+  instrumentsLabel,
   weightLabel,
   arrondissementLabel,
 }: PlaceDetailSheetProps) {
@@ -72,6 +74,20 @@ export function PlaceDetailSheet({
               }}
             >
               {approachLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => { window.location.hash = 'instruments'; onClose(); }}
+              style={{
+                width: '100%', padding: '10px 0',
+                fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 400,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                color: '#003D2C', background: 'transparent',
+                border: '1px solid rgba(0,61,44,0.14)',
+                borderRadius: 6, cursor: 'pointer',
+              }}
+            >
+              {instrumentsLabel}
             </button>
           </div>
         )}
