@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { BackButton } from './BackButton';
-import { ChampMapSection, type ResonancePlace, type ArrondissementCount } from './ChampMapSection';
+import { ChampMapSection, type ResonancePlace, type ArrondissementCount, type AxisMarker } from './ChampMapSection';
 import { LayerToggles, type ChampLayerMode } from './ChampScreen/LayerToggles';
 import { ChampLegend } from './ChampScreen/ChampLegend';
 import { PlaceDetailSheet, type PlaceDetail } from './ChampScreen/PlaceDetailSheet';
@@ -19,6 +19,8 @@ import { project } from '../utils/map-project';
 import { ARRONDISSEMENT_MAP_POSITION } from '../data/arrondissement-positions';
 import { LIEUX_PARIS } from '../data/lieux-paris';
 import { GAME_CARDS } from '../data/game-cards';
+import { CITY_AXES, getAxisAnchorsOnMap } from '../data/axes';
+import { setActiveAxis } from '../stores/active-axis-store';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { AsyncState } from './AsyncState';
 
@@ -57,7 +59,7 @@ function parseChampParams(): { arr: number | null; layers: ChampLayerMode[] } {
   const arrStr = params.get('arr');
   const arr = arrStr ? parseInt(arrStr, 10) : null;
   const layersStr = params.get('layers');
-  const validLayers: ChampLayerMode[] = ['resonance', 'aujourdhui', 'invisible'];
+  const validLayers: ChampLayerMode[] = ['resonance', 'aujourdhui', 'invisible', 'axes'];
   const layers = layersStr
     ? layersStr.split(',').filter((l): l is ChampLayerMode => validLayers.includes(l as ChampLayerMode))
     : [];
@@ -230,6 +232,43 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     });
   }, []);
 
+  // Axes layer data
+  const axisMarkers = useMemo<AxisMarker[]>(() => {
+    const anchors = getAxisAnchorsOnMap();
+    const seen = new Set<number>();
+    return anchors.filter(a => {
+      if (seen.has(a.axisIndex)) return false;
+      seen.add(a.axisIndex);
+      return true;
+    }).map(a => ({ axisIndex: a.axisIndex, axisName: a.axisName, arrondissement: a.arrondissement }));
+  }, []);
+
+  const allAxisMarkers = useMemo<AxisMarker[]>(() => {
+    return getAxisAnchorsOnMap().map(a => ({
+      axisIndex: a.axisIndex,
+      axisName: a.axisName,
+      arrondissement: a.arrondissement,
+    }));
+  }, []);
+
+  const [axisSheet, setAxisSheet] = useState<number | null>(null);
+
+  const handleAxisTap = useCallback((axisIndex: number) => {
+    setAxisSheet(axisIndex);
+  }, []);
+
+  const axisSheetData = useMemo(() => {
+    if (axisSheet == null || !CITY_AXES[axisSheet]) return null;
+    return CITY_AXES[axisSheet];
+  }, [axisSheet]);
+
+  const handleActivateAxis = useCallback(() => {
+    if (axisSheetData) {
+      setActiveAxis(axisSheetData.name, axisSheetData.activation_mode);
+      setAxisSheet(null);
+    }
+  }, [axisSheetData]);
+
   // Add trace sheet (preserved from original)
   const [showAddTrace, setShowAddTrace] = useState(false);
   const [traceDraft, setTraceDraft] = useState('');
@@ -259,6 +298,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     resonance: t('champ.layer.resonance'),
     aujourdhui: t('champ.layer.aujourdhui'),
     invisible: t('champ.layer.invisible'),
+    axes: t('champ.layer.axes'),
   };
 
   return (
@@ -343,9 +383,11 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
             resonancePlaces={resonancePlaces}
             aujourdhuiCounts={aujourdhuiCounts}
             invisibleCounts={invisibleCounts}
+            axisMarkers={allAxisMarkers}
             highlightArr={highlightArr}
             onPlaceSelect={handlePlaceSelect}
             onArrTap={handleArrTap}
+            onAxisTap={handleAxisTap}
             mapVariant="draw"
           />
         </AsyncState>
@@ -359,6 +401,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           resonanceLabel={t('champ.legend.resonance')}
           aujourdhuiLabel={t('champ.legend.aujourdhui')}
           invisibleLabel={t('champ.legend.invisible')}
+          axesLabel={t('champ.legend.axes')}
           noDataLabel={t('champ.legend.noData')}
           invisibleCount={champItems.length}
           aujourdhuiCount={aujourdhuiCounts.reduce((sum, c) => sum + c.count, 0)}
@@ -452,6 +495,76 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
                   ? t('champ.aujourdhui.sheetLine')
                   : t('champ.invisible.sheetLine')}
               </p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Axis detail sheet */}
+      <Sheet open={axisSheet !== null} onOpenChange={(open) => { if (!open) setAxisSheet(null); }}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[70vh] overflow-y-auto"
+          style={{ background: '#FAF8F2', borderColor: 'rgba(107,76,138,0.2)' }}
+        >
+          <SheetHeader>
+            <SheetTitle style={{ fontFamily: 'var(--font-serif)', color: '#1A1A1A' }}>
+              {axisSheetData?.name ?? t('champ.axes.sheetTitle')}
+            </SheetTitle>
+          </SheetHeader>
+          {axisSheetData && (
+            <div style={{ padding: '0 1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{
+                margin: 0, fontFamily: 'var(--font-serif)',
+                fontSize: 14, fontStyle: 'italic',
+                color: '#1A1A1A', opacity: 0.75, lineHeight: 1.6,
+              }}>
+                {axisSheetData.experiential_description}
+              </p>
+
+              <p style={{
+                margin: 0, fontFamily: 'var(--font-serif)',
+                fontSize: 13, color: '#6B4C8A', opacity: 0.8, lineHeight: 1.5,
+              }}>
+                {axisSheetData.perceptual_hint}
+              </p>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                  {t(`axes.activation.${axisSheetData.activation_mode}`)}
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                  {t('champ.axes.strength')}: {axisSheetData.strength}/5
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                  {t('champ.axes.scale')}: {axisSheetData.scale}
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: '#6B6455' }}>
+                  {t('champ.axes.walkable')}: {axisSheetData.walkable_experience ? t('champ.axes.walkableYes') : t('champ.axes.walkableNo')}
+                </span>
+              </div>
+
+              <p style={{
+                margin: '4px 0 0', fontFamily: 'var(--font-serif)',
+                fontSize: 13, fontStyle: 'italic', color: '#6B4C8A', opacity: 0.7, lineHeight: 1.5,
+              }}>
+                {t(`axes.hint.${axisSheetData.activation_mode}`)}
+              </p>
+
+              <button
+                type="button"
+                onClick={handleActivateAxis}
+                style={{
+                  marginTop: 4, width: '100%', padding: '12px 0',
+                  fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 500,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: '#FAF8F2', background: '#6B4C8A',
+                  border: '1px solid rgba(107,76,138,0.5)',
+                  borderRadius: 6, cursor: 'pointer', minHeight: 44,
+                }}
+              >
+                {t('champ.axes.activate')}
+              </button>
             </div>
           )}
         </SheetContent>

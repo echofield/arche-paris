@@ -28,5 +28,21 @@
   "champ.invisible.count": "{count} inscription(s) collective(s)",
   "champ.invisible.sheetTitle": "Inscriptions collectives",
   "champ.invisible.sheetLine": "Traces anonymes accumulées dans cet arrondissement depuis l'ouverture du Champ.",
-  "champ.detail.openInstruments": "Ouvrir les instruments"
+  "champ.detail.openInstruments": "Ouvrir les instruments",
+  "champ.layer.axes": "Axes",
+  "champ.legend.axes": "Structure urbaine / axe",
+  "champ.axes.sheetTitle": "Axe structurel",
+  "champ.axes.activate": "Activer",
+  "champ.axes.activated": "Axe activé",
+  "champ.axes.strength": "Force",
+  "champ.axes.scale": "Échelle",
+  "champ.axes.walkable": "Parcourable",
+  "champ.axes.walkableYes": "Oui",
+  "champ.axes.walkableNo": "Non",
+  "axes.activation.movement": "Mouvement",
+  "axes.activation.alignment": "Alignement",
+  "axes.activation.arrival": "Arrivée",
+  "axes.hint.movement": "Marche 2–4 minutes sans tourner. Laisse le champ monter.",
+  "axes.hint.alignment": "Arrête-toi. Tourne lentement jusqu'à sentir l'axe se verrouiller.",
+  "axes.hint.arrival": "Pause. Reste immobile 20–40 secondes. Puis scelle."
 }

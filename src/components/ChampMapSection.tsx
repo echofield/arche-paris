@@ -30,14 +30,22 @@ export interface ArrondissementCount {
   count: number;
 }
 
+export interface AxisMarker {
+  axisIndex: number;
+  axisName: string;
+  arrondissement: number;
+}
+
 export type ChampMapSectionProps = {
   activeLayers: Set<ChampLayerMode>;
   resonancePlaces: ResonancePlace[];
   aujourdhuiCounts: ArrondissementCount[];
   invisibleCounts: ArrondissementCount[];
+  axisMarkers?: AxisMarker[];
   highlightArr: number | null;
   onPlaceSelect?: (place: ResonancePlace) => void;
   onArrTap?: (arr: number, layer: 'aujourdhui' | 'invisible') => void;
+  onAxisTap?: (axisIndex: number) => void;
   mapVariant?: MapVariant;
 };
 
@@ -71,9 +79,11 @@ export function ChampMapSection({
   resonancePlaces,
   aujourdhuiCounts,
   invisibleCounts,
+  axisMarkers = [],
   highlightArr,
   onPlaceSelect,
   onArrTap,
+  onAxisTap,
   mapVariant = 'draw',
 }: ChampMapSectionProps) {
 
@@ -141,6 +151,33 @@ export function ChampMapSection({
               >
                 {count}
               </text>
+            </g>
+          );
+        })}
+
+        {/* Layer: Axes — subtle halos at anchor arrondissement centers */}
+        {activeLayers.has('axes') && axisMarkers.map((marker) => {
+          const center = ARRONDISSEMENT_CENTERS[marker.arrondissement];
+          if (!center) return null;
+          return (
+            <g key={`axis-${marker.axisIndex}-${marker.arrondissement}`}
+              style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+              onClick={() => onAxisTap?.(marker.axisIndex)}
+            >
+              <circle
+                cx={center.x} cy={center.y} r="22"
+                fill="rgba(107,76,138,0.06)"
+              />
+              <circle
+                cx={center.x} cy={center.y} r="10"
+                fill="rgba(107,76,138,0.14)"
+                stroke="rgba(107,76,138,0.35)"
+                strokeWidth="0.8"
+              />
+              <circle
+                cx={center.x} cy={center.y} r="3"
+                fill="rgba(107,76,138,0.7)"
+              />
             </g>
           );
         })}

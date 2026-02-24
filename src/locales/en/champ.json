@@ -28,5 +28,21 @@
   "champ.invisible.count": "{count} collective inscription(s)",
   "champ.invisible.sheetTitle": "Collective inscriptions",
   "champ.invisible.sheetLine": "Anonymous traces accumulated in this arrondissement since the Field opened.",
-  "champ.detail.openInstruments": "Open instruments"
+  "champ.detail.openInstruments": "Open instruments",
+  "champ.layer.axes": "Axes",
+  "champ.legend.axes": "Urban structure / axis",
+  "champ.axes.sheetTitle": "Structural axis",
+  "champ.axes.activate": "Activate",
+  "champ.axes.activated": "Axis activated",
+  "champ.axes.strength": "Strength",
+  "champ.axes.scale": "Scale",
+  "champ.axes.walkable": "Walkable",
+  "champ.axes.walkableYes": "Yes",
+  "champ.axes.walkableNo": "No",
+  "axes.activation.movement": "Movement",
+  "axes.activation.alignment": "Alignment",
+  "axes.activation.arrival": "Arrival",
+  "axes.hint.movement": "Walk 2–4 minutes without turning. Let the field rise.",
+  "axes.hint.alignment": "Stop. Turn slowly until the axis locks.",
+  "axes.hint.arrival": "Pause. Stay still 20–40 seconds. Then seal."
 }

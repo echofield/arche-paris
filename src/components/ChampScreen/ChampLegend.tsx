@@ -6,6 +6,7 @@ interface ChampLegendProps {
   resonanceLabel: string;
   aujourdhuiLabel: string;
   invisibleLabel: string;
+  axesLabel?: string;
   noDataLabel: string;
   invisibleCount: number;
   aujourdhuiCount: number;
@@ -24,6 +25,7 @@ export function ChampLegend({
   resonanceLabel,
   aujourdhuiLabel,
   invisibleLabel,
+  axesLabel,
   noDataLabel,
   invisibleCount,
   aujourdhuiCount,
@@ -71,6 +73,13 @@ export function ChampLegend({
                 ? <>{invisibleLabel} <span style={{ opacity: 0.5 }}>({invisibleCount})</span></>
                 : noDataLabel}
             </span>
+          </div>
+        )}
+
+        {activeLayers.has('axes') && axesLabel && (
+          <div style={ROW_STYLE}>
+            <span style={{ ...DOT_STYLE, background: '#6B4C8A', opacity: 0.6, boxShadow: '0 0 4px rgba(107,76,138,0.3)' }} />
+            <span style={LABEL_STYLE}>{axesLabel}</span>
           </div>
         )}
       </div>

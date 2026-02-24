@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { motion as fm } from 'framer-motion';
 import { useTranslation } from '../utils/i18n';
 import { motion } from '../design/motion';
+import { useActiveAxis } from '../hooks/useActiveAxis';
 
 interface InstrumentsCabinetOverlayProps {
   onClose: () => void;
@@ -11,6 +12,7 @@ interface InstrumentsCabinetOverlayProps {
 
 export function InstrumentsCabinetOverlay({ onClose, onOpenMeridian, onOpenPlaceScan }: InstrumentsCabinetOverlayProps) {
   const { t } = useTranslation();
+  const activeAxis = useActiveAxis();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -77,6 +79,29 @@ export function InstrumentsCabinetOverlay({ onClose, onOpenMeridian, onOpenPlace
             {t('instruments.manual.close', 'Fermer')}
           </button>
         </div>
+
+        {activeAxis && (
+          <div style={{
+            marginBottom: 12, padding: '10px 14px',
+            background: 'rgba(107,76,138,0.06)',
+            border: '1px solid rgba(107,76,138,0.14)',
+            borderRadius: 6,
+          }}>
+            <p style={{
+              margin: 0, fontFamily: 'var(--font-sans)', fontSize: 10,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: '#6B4C8A', opacity: 0.7, marginBottom: 4,
+            }}>
+              {activeAxis.name}
+            </p>
+            <p style={{
+              margin: 0, fontFamily: 'var(--font-serif)', fontSize: 13,
+              fontStyle: 'italic', color: '#1A1A1A', opacity: 0.8, lineHeight: 1.5,
+            }}>
+              {t(`axes.hint.${activeAxis.mode}`)}
+            </p>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gap: '8px' }}>
           <button

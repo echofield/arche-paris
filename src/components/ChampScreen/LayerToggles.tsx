@@ -1,6 +1,6 @@
 import { motion } from '../../design/motion';
 
-export type ChampLayerMode = 'resonance' | 'aujourdhui' | 'invisible';
+export type ChampLayerMode = 'resonance' | 'aujourdhui' | 'invisible' | 'axes';
 
 interface LayerTogglesProps {
   activeLayers: Set<ChampLayerMode>;
@@ -8,12 +8,13 @@ interface LayerTogglesProps {
   labels: Record<ChampLayerMode, string>;
 }
 
-const LAYERS: ChampLayerMode[] = ['resonance', 'aujourdhui', 'invisible'];
+const LAYERS: ChampLayerMode[] = ['resonance', 'aujourdhui', 'invisible', 'axes'];
 
 const LAYER_COLORS: Record<ChampLayerMode, string> = {
   resonance: '#8B6914',
   aujourdhui: '#007850',
   invisible: '#003D2C',
+  axes: '#6B4C8A',
 };
 
 export function LayerToggles({ activeLayers, onToggle, labels }: LayerTogglesProps) {

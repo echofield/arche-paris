@@ -43,6 +43,7 @@ import { project } from '../utils/map-project';
 import { motion } from '../design/motion';
 import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
 import { arrToZoneId } from '../hooks/useZoneEntry';
+import { useActiveAxis } from '../hooks/useActiveAxis';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
 const MAP_VIEWBOX_WIDTH = 2037.566;
@@ -153,6 +154,7 @@ function lerpPoint(from: { lat: number; lng: number }, to: { lat: number; lng: n
 
 export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMemoryMapProps) {
   const { t, language } = useTranslation();
+  const activeAxis = useActiveAxis();
   const [note, setNote] = useState('');
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [showThreads, setShowThreads] = useState(true);
@@ -963,6 +965,29 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
                   </span>
                 </div>
               </div>
+
+              {activeAxis && (
+                <div style={{
+                  marginTop: 8, padding: '8px 10px',
+                  background: 'rgba(107,76,138,0.04)',
+                  border: '1px solid rgba(107,76,138,0.10)',
+                  borderRadius: 5,
+                }}>
+                  <p style={{
+                    margin: 0, fontFamily: 'var(--font-sans)', fontSize: 10,
+                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                    color: '#6B4C8A', opacity: 0.6, marginBottom: 3,
+                  }}>
+                    {activeAxis.name}
+                  </p>
+                  <p style={{
+                    margin: 0, fontFamily: 'var(--font-serif)', fontSize: 12,
+                    fontStyle: 'italic', color: '#1A1A1A', opacity: 0.7, lineHeight: 1.4,
+                  }}>
+                    {t(`axes.hint.${activeAxis.mode}`)}
+                  </p>
+                </div>
+              )}
 
               {(() => {
                 const arrStr = activeArrondissement === 1 ? '1er' : `${activeArrondissement}e`;

@@ -1,0 +1,292 @@
+[
+  {
+    "name": "Historical East–West Axis (Louvre → La Défense)",
+    "type": "planning_axis",
+    "anchor_points": [
+      "Cour Carrée du Louvre",
+      "Arc de Triomphe du Carrousel",
+      "Central allée of Jardin des Tuileries",
+      "Obelisk at Place de la Concorde",
+      "Rond-Point des Champs-Élysées",
+      "Arc de Triomphe",
+      "Porte Maillot",
+      "Grande Arche de La Défense"
+    ],
+    "experiential_description": "You feel continuously drawn forward as each arch, avenue, and square opens into the next, like a single unfolding corridor of sky.",
+    "walkable_experience": true,
+    "perceptual_hint": "Stand centered; keep your gaze fixed straight ahead.",
+    "strength": 5,
+    "invisibility_level": "obvious",
+    "scale": "city",
+    "activation_mode": "alignment"
+  },
+  {
+    "name": "Grande Arche – Eiffel Tower – Montparnasse Tower Alignment",
+    "type": "sightline",
+    "anchor_points": [
+      "Grande Arche rooftop terrace edge",
+      "Center of Pont d'Iéna",
+      "Base of the Eiffel Tower north pillar",
+      "Square in front of Tour Montparnasse entrance"
+    ],
+    "experiential_description": "From high up, Paris' tallest silhouettes fall into a single line, compressing distance into a thin vertical stack.",
+    "walkable_experience": false,
+    "perceptual_hint": "From the Grande Arche terrace, scan slowly toward the Eiffel Tower.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "city",
+    "activation_mode": "alignment"
+  },
+  {
+    "name": "Saint-Sulpice Solar Meridian Line",
+    "type": "solar",
+    "anchor_points": [
+      "Main entrance threshold of Saint-Sulpice",
+      "Brass meridian line at the crossing of the transept",
+      "Base of the gnomon obelisk at the south end"
+    ],
+    "experiential_description": "Inside the dim church, the straight brass line anchors your body to a precise north–south direction, making light feel almost mechanical.",
+    "walkable_experience": true,
+    "perceptual_hint": "Walk along the brass line, imagining true north behind you.",
+    "strength": 4,
+    "invisibility_level": "subtle",
+    "scale": "site",
+    "activation_mode": "arrival"
+  },
+  {
+    "name": "Paris Meridian (Arago Medallions Walk)",
+    "type": "meridian",
+    "anchor_points": [
+      "Arago medallion near Parc Montsouris lake",
+      "Main gate of Paris Observatory courtyard",
+      "Arago medallion in Luxembourg Gardens near central lawn",
+      "Arago medallion near Saint-Sulpice square",
+      "Arago medallion in Montmartre near Moulin de la Galette garden"
+    ],
+    "experiential_description": "Following scattered bronze disks, you sense an invisible vertical plane slicing through buildings, parks, and streets in a quiet north–south rhythm.",
+    "walkable_experience": true,
+    "perceptual_hint": "Seek the medallions and imagine a straight line beneath the city.",
+    "strength": 4,
+    "invisibility_level": "hidden",
+    "scale": "city",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Left-Bank North–South Axis (Boulevard Saint-Michel → Observatory)",
+    "type": "topographic",
+    "anchor_points": [
+      "Middle of Pont Saint-Michel on the Left-Bank side",
+      "Square in front of the Sorbonne on Boulevard Saint-Michel",
+      "Intersection of Boulevard Saint-Michel and Boulevard de Port-Royal",
+      "Gate of Paris Observatory on Avenue de l'Observatoire"
+    ],
+    "experiential_description": "Walking uphill in a straight line, façades pull you forward while the city slowly drops away behind, sharpening your sense of slope and depth.",
+    "walkable_experience": true,
+    "perceptual_hint": "Notice how the ground rises steadily as traffic flows directly toward you.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "district",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Montmartre Ridge Sightline",
+    "type": "topographic",
+    "anchor_points": [
+      "Place des Abbesses center",
+      "Corner of Rue des Trois Frères and Rue Yvonne-le-Tac",
+      "Small square at Rue Ravignan and Rue des Abbesses stair top",
+      "Place du Tertre center",
+      "Middle of the parvis of Sacré-Cœur at the balustrade"
+    ],
+    "experiential_description": "Each corner reveals a sudden plunge of roofs and distant monuments, as if the city were tilting away from the hill beneath your feet.",
+    "walkable_experience": true,
+    "perceptual_hint": "Pause at openings; let your gaze fall along the slope.",
+    "strength": 4,
+    "invisibility_level": "obvious",
+    "scale": "district",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Montmartre to Central Monuments Visual Corridor",
+    "type": "sightline",
+    "anchor_points": [
+      "Central axis of Sacré-Cœur terrace balustrade",
+      "Roofline edge above Forum des Halles",
+      "Mass of Notre-Dame on Île de la Cité",
+      "Silhouette of the Eiffel Tower above Champ-de-Mars"
+    ],
+    "experiential_description": "From the terrace the city flattens into layers; monuments appear as aligned anchors within a continuous carpet of stone.",
+    "walkable_experience": false,
+    "perceptual_hint": "From Sacré-Cœur, sweep your view slowly left to right.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "city",
+    "activation_mode": "alignment"
+  },
+  {
+    "name": "Seine Inner Bend Structural Curve",
+    "type": "topographic",
+    "anchor_points": [
+      "Sidewalk on Pont d'Austerlitz midspan",
+      "Eastern tip of Île Saint-Louis quay",
+      "Eastern tip of Île de la Cité quay below Notre-Dame",
+      "Middle of Pont Neuf upstream sidewalk",
+      "Sidewalk on Pont Alexandre III midspan",
+      "Sidewalk on Pont d'Iéna facing upstream"
+    ],
+    "experiential_description": "The river's slow curve keeps shifting your horizon; bridges and façades realign as if the city were rotating around you.",
+    "walkable_experience": true,
+    "perceptual_hint": "Walk downstream on one bank and track how bridges pivot in view.",
+    "strength": 5,
+    "invisibility_level": "subtle",
+    "scale": "city",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Île de la Cité Western Tip Axis (Vert-Galant → Louvre)",
+    "type": "sightline",
+    "anchor_points": [
+      "Stone platform at the tip of Square du Vert-Galant",
+      "Center of Pont des Arts",
+      "Cour Carrée du Louvre central courtyard",
+      "Start of the central allée of the Tuileries Garden"
+    ],
+    "experiential_description": "From the narrow island tip, the city funnels into a central perspective, with water framing a thin urban corridor ahead.",
+    "walkable_experience": true,
+    "perceptual_hint": "Stand at the very prow; align yourself with the Louvre.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "district",
+    "activation_mode": "alignment"
+  },
+  {
+    "name": "Rue Saint-Jacques Historic North–South Orientation",
+    "type": "historic_orientation",
+    "anchor_points": [
+      "South end of Petit Pont on the Left-Bank side",
+      "Intersection of Rue Saint-Jacques and Rue Galande",
+      "Square in front of Église Saint-Séverin",
+      "Intersection of Rue Saint-Jacques and Rue des Écoles",
+      "Place de l'Estrapade center",
+      "Entrance square of Val-de-Grâce"
+    ],
+    "experiential_description": "The straight, narrow street feels older than its façades, cutting through the Left Bank on a stubborn, almost archaic line.",
+    "walkable_experience": true,
+    "perceptual_hint": "Walk without turning; imagine the street ignoring later grids.",
+    "strength": 3,
+    "invisibility_level": "hidden",
+    "scale": "district",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Haussmannian Star around Arc de Triomphe",
+    "type": "planning_axis",
+    "anchor_points": [
+      "Exact center beneath the Arc de Triomphe",
+      "Start of Avenue des Champs-Élysées at the arch",
+      "Start of Avenue de la Grande Armée at the arch",
+      "Start of Avenue Kléber at the arch",
+      "Start of Avenue Victor-Hugo at the arch",
+      "Start of Avenue Foch at the arch",
+      "Start of Avenue Carnot at the arch",
+      "Start of Avenue Mac-Mahon at the arch",
+      "Start of Avenue Wagram at the arch",
+      "Start of Avenue Hoche at the arch",
+      "Start of Avenue Marceau at the arch",
+      "Start of Avenue d'Iéna at the arch"
+    ],
+    "experiential_description": "At the center, streets radiate like spokes; turning slowly, each avenue becomes a powerful arrow into the city.",
+    "walkable_experience": true,
+    "perceptual_hint": "Stand by the arch; rotate and feel each avenue pull outward.",
+    "strength": 5,
+    "invisibility_level": "obvious",
+    "scale": "city",
+    "activation_mode": "alignment"
+  },
+  {
+    "name": "Haussmann Left-Bank North–South Spine",
+    "type": "urban_geometry",
+    "anchor_points": [
+      "Middle of Pont Saint-Michel on Left-Bank side",
+      "Boulevard Saint-Michel at Place Saint-Michel",
+      "Boulevard Saint-Michel at the Luxembourg Gardens gate",
+      "Avenue de l'Observatoire central lawn edge",
+      "Gate of Paris Observatory"
+    ],
+    "experiential_description": "Traffic, trees, and façades all align in one broad chute, giving a strong sense of a single structural backbone on the Left Bank.",
+    "walkable_experience": true,
+    "perceptual_hint": "Walk along the median; keep reading the vanishing point ahead.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "district",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Observatory–Montsouris Meridian Segment",
+    "type": "meridian",
+    "anchor_points": [
+      "Main door of Paris Observatory central pavilion",
+      "Southern gate of Avenue de l'Observatoire",
+      "Obelisk in Parc Montsouris near the lake",
+      "Arago medallion close to that obelisk"
+    ],
+    "experiential_description": "Moving along this calm, leafy axis, you follow an abstract north–south line materialized by gardens, statues, and scientific buildings.",
+    "walkable_experience": true,
+    "perceptual_hint": "Walk in a straight line; imagine the Earth turning under this axis.",
+    "strength": 3,
+    "invisibility_level": "hidden",
+    "scale": "district",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Montsouris–Montmartre Meridian Extension",
+    "type": "meridian",
+    "anchor_points": [
+      "Obelisk in Parc Montsouris near the lake",
+      "Main gate of Paris Observatory",
+      "Arago medallion near Luxembourg Gardens",
+      "Arago medallion near Saint-Sulpice square",
+      "Garden obelisk near Moulin de la Galette in Montmartre"
+    ],
+    "experiential_description": "Crossing districts, you sense a quiet, vertical discipline tying distant hills and parks into one underlying north–south gesture.",
+    "walkable_experience": true,
+    "perceptual_hint": "Mentally project a single straight line through each crossing street.",
+    "strength": 2,
+    "invisibility_level": "hidden",
+    "scale": "city",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Hill Chain: Belleville – Buttes-Chaumont – Montmartre",
+    "type": "topographic",
+    "anchor_points": [
+      "Main terrace of Parc de Belleville viewpoint",
+      "High belvedere near the temple in Parc des Buttes-Chaumont",
+      "Central terrace in front of Sacré-Cœur"
+    ],
+    "experiential_description": "Shifting between hilltops, you feel Paris as a basin, with each summit offering angled, echoing views of the others across the low center.",
+    "walkable_experience": true,
+    "perceptual_hint": "On each hill, search the skyline for the next high point.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "city",
+    "activation_mode": "movement"
+  },
+  {
+    "name": "Île de la Cité Longitudinal Spine",
+    "type": "topographic",
+    "anchor_points": [
+      "End of the platform at Square de l'Île-de-France (eastern tip)",
+      "Center of the parvis Notre-Dame",
+      "Center of Place Dauphine",
+      "Middle of Pont Neuf at the western end of the island"
+    ],
+    "experiential_description": "The island narrows as you walk; water appears and disappears at the edges, giving the sense of walking a raised, ship-like ridge.",
+    "walkable_experience": true,
+    "perceptual_hint": "Stay centered; occasionally glance sideways to feel the drop to the river.",
+    "strength": 3,
+    "invisibility_level": "subtle",
+    "scale": "site",
+    "activation_mode": "movement"
+  }
+]
