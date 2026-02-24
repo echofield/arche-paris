@@ -53,13 +53,14 @@
         '@': path.resolve(__dirname, './src'),
       },
     },
-    build: {
-      target: 'esnext',
-      outDir: 'dist',
-      assetsDir: 'assets',
-      // Ensure SVG files are included
-      assetsInclude: ['**/*.svg'],
-    },
+  build: {
+    target: 'esnext',
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true,
+    // Ensure SVG files are included
+    assetsInclude: ['**/*.svg'],
+  },
     server: {
       port: 3000,
       open: true,

@@ -195,15 +195,14 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
     setActiveRitual(ritualType);
   }, [zoneH3, presence.verify]);
 
+  const objectivesComplete = progress?.objectives_complete ?? 0;
+  const hasEntered = progress?.entered === true;
+  const isActivationClosed = activationResult != null && !activationResult.isOpen;
   const presenceRitualDisabled =
     !hasEntered ||
     (zoneLaw != null && !zoneLaw.allowed) ||
     !presence.readyToVerify ||
     presence.state === 'SEARCHING';
-
-  const objectivesComplete = progress?.objectives_complete ?? 0;
-  const hasEntered = progress?.entered === true;
-  const isActivationClosed = activationResult != null && !activationResult.isOpen;
 
   const renderObjective = (
     key: string,
