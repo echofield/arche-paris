@@ -101,6 +101,15 @@ export const CALIBRATION_ANCHORS: WarpAnchor[] = [
   { label: '18e Montmartre',    lat: 48.8925, lng: 2.3444, svgX: PCT_TO_X(48), svgY: PCT_TO_Y(24) },
   { label: '19e Buttes-Chaumont', lat: 48.8860, lng: 2.3822, svgX: PCT_TO_X(62), svgY: PCT_TO_Y(28) },
   { label: '20e Ménilmontant',  lat: 48.8638, lng: 2.3985, svgX: PCT_TO_X(70), svgY: PCT_TO_Y(42) },
+
+  // Landmark anchors — extra control points for triangle density
+  { label: 'Nation',       lat: 48.8484, lng: 2.3960, svgX: PCT_TO_X(66), svgY: PCT_TO_Y(44) },
+  { label: 'Bastille',     lat: 48.8533, lng: 2.3693, svgX: PCT_TO_X(58), svgY: PCT_TO_Y(48) },
+  { label: 'République',   lat: 48.8675, lng: 2.3641, svgX: PCT_TO_X(59), svgY: PCT_TO_Y(40) },
+  { label: 'Belleville',   lat: 48.8718, lng: 2.3850, svgX: PCT_TO_X(65), svgY: PCT_TO_Y(34) },
+  { label: 'Denfert',      lat: 48.8338, lng: 2.3325, svgX: PCT_TO_X(47), svgY: PCT_TO_Y(68) },
+  { label: 'Trocadéro',    lat: 48.8628, lng: 2.2877, svgX: PCT_TO_X(30), svgY: PCT_TO_Y(46) },
+  { label: 'Gare du Nord', lat: 48.8809, lng: 2.3553, svgX: PCT_TO_X(54), svgY: PCT_TO_Y(30) },
 ];
 
 // ---------------------------------------------------------------------------
