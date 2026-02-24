@@ -3,14 +3,15 @@
  * Used to draw quest threads and stamps on the Paris stroke map.
  */
 
-const VIEWBOX_WIDTH = 2037.566;
-const VIEWBOX_HEIGHT = 1615.5;
+export const VIEWBOX_WIDTH = 2037.566;
+export const VIEWBOX_HEIGHT = 1615.5;
 
-// Paris city bounds (approximate)
-const LNG_WEST = 2.22;
-const LNG_EAST = 2.47;
-const LAT_SOUTH = 48.80;
-const LAT_NORTH = 48.92;
+// Calibrated against ARRONDISSEMENT_MAP_POSITION + real geographic
+// arrondissement centers (least-squares fit over 20 data points).
+const LNG_WEST = 2.2092;
+const LNG_EAST = 2.4796;
+const LAT_SOUTH = 48.7892;
+const LAT_NORTH = 48.9251;
 
 export interface XY {
   x: number;
@@ -29,6 +30,20 @@ export function project(lat: number, lng: number): XY {
   const x = ((lng - LNG_WEST) / (LNG_EAST - LNG_WEST)) * VIEWBOX_WIDTH;
   const y = ((LAT_NORTH - lat) / (LAT_NORTH - LAT_SOUTH)) * VIEWBOX_HEIGHT;
   return { x, y };
+}
+
+/** Inverse: SVG percentage (0-100) back to lat/lng. */
+export function unproject(xPct: number, yPct: number): LatLng {
+  return {
+    lng: LNG_WEST + (xPct / 100) * (LNG_EAST - LNG_WEST),
+    lat: LAT_NORTH - (yPct / 100) * (LAT_NORTH - LAT_SOUTH),
+  };
+}
+
+/** Convert projected SVG coords to 0-100 percentage. */
+export function projectPct(lat: number, lng: number): { xPct: number; yPct: number } {
+  const p = project(lat, lng);
+  return { xPct: (p.x / VIEWBOX_WIDTH) * 100, yPct: (p.y / VIEWBOX_HEIGHT) * 100 };
 }
 
 /**

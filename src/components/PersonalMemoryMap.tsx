@@ -65,16 +65,20 @@ interface MapPoint {
 }
 
 const MARKER_MIN_MOVE_M = 6;
-const MARKER_MAX_ACCURACY_M = 30;
-const TERRITORY_SWITCH_MAX_ACCURACY_M = 50;
+const MARKER_MAX_ACCURACY_M = 80;
+const TERRITORY_SWITCH_MAX_ACCURACY_M = 80;
 const TERRITORY_FIX_STREAK_REQUIRED = 3;
 const PRESENCE_PULSE_INTERVAL_MS = 30_000;
 const MARKER_LERP_ALPHA = 0.25;
+const STABILIZER_GOOD_ACCURACY_M = 80;
+const STABILIZER_MIN_GOOD_READINGS = 3;
+const STABILIZER_TELEPORT_MAX_M = 150;
+const STABILIZER_TELEPORT_MIN_INTERVAL_MS = 3000;
 const PARIS_TERRITORY_BOUNDS = {
-  minLat: 48.815,
-  maxLat: 48.902,
-  minLng: 2.224,
-  maxLng: 2.422,
+  minLat: 48.810,
+  maxLat: 48.910,
+  minLng: 2.220,
+  maxLng: 2.430,
 };
 
 function isInsideParisTerritory(lat: number, lng: number): boolean {
@@ -206,6 +210,8 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const lastZoneWhisperRef = useRef<string | null>(null);
   const outsideFixStreakRef = useRef(0);
   const insideFixStreakRef = useRef(0);
+  const goodReadingStreakRef = useRef(0);
+  const lastAcceptedPosRef = useRef<{ lat: number; lng: number; ts: number } | null>(null);
 
   useEffect(() => {
     presenceMarkerRef.current = presenceMarker;
@@ -463,19 +469,44 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       (pos) => {
         if (!Number.isFinite(pos.coords.latitude) || !Number.isFinite(pos.coords.longitude)) return;
         applyTerritoryHysteresis(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-        if (pos.coords.accuracy > MARKER_MAX_ACCURACY_M) return;
+
+        if (pos.coords.accuracy > STABILIZER_GOOD_ACCURACY_M) {
+          goodReadingStreakRef.current = 0;
+          return;
+        }
+
         const incoming = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const now = Date.now();
+
+        // Teleport rejection: discard jumps > 150m within < 3s
+        const lastAccepted = lastAcceptedPosRef.current;
+        if (lastAccepted) {
+          const jumpM = distanceMeters(lastAccepted, incoming);
+          const elapsedMs = now - lastAccepted.ts;
+          if (jumpM > STABILIZER_TELEPORT_MAX_M && elapsedMs < STABILIZER_TELEPORT_MIN_INTERVAL_MS) {
+            return;
+          }
+        }
+
+        goodReadingStreakRef.current += 1;
+
+        // Require N consecutive good readings before first dot placement
+        if (!markerTargetRef.current && goodReadingStreakRef.current < STABILIZER_MIN_GOOD_READINGS) {
+          return;
+        }
+
+        lastAcceptedPosRef.current = { ...incoming, ts: now };
         const prevTarget = markerTargetRef.current;
         if (!prevTarget) {
           markerTargetRef.current = incoming;
-          markerLastMoveAtRef.current = Date.now();
+          markerLastMoveAtRef.current = now;
           setPresenceMarker({ ...incoming, moving: false, pulsePaused: false });
           return;
         }
         const movedMeters = distanceMeters(prevTarget, incoming);
         if (movedMeters < MARKER_MIN_MOVE_M) return;
         markerTargetRef.current = incoming;
-        markerLastMoveAtRef.current = Date.now();
+        markerLastMoveAtRef.current = now;
         const from = presenceMarkerRef.current
           ? { lat: presenceMarkerRef.current.lat, lng: presenceMarkerRef.current.lng }
           : prevTarget;
@@ -807,7 +838,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
           style={{
             position: 'relative',
             width: 'clamp(280px, 50vw, 420px)',
-            height: 'clamp(200px, 35vw, 320px)',
+            aspectRatio: '2037.566 / 1615.5',
             marginBottom: '32px',
             flexShrink: 0
           }}

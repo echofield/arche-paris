@@ -1,12 +1,10 @@
 import { ARRONDISSEMENT_MAP_POSITION } from '../../data/arrondissement-positions';
 import { arrToZoneId } from '../../hooks/useZoneEntry';
-import { project } from '../../utils/map-project';
+import { project, VIEWBOX_WIDTH, VIEWBOX_HEIGHT } from '../../utils/map-project';
 import type { ZoneProgressItem } from '../../lib/api';
 import type { MapLayerMode } from './MapLayers';
 
 const ARRONDISSEMENTS = Array.from({ length: 20 }, (_, i) => i + 1);
-const VIEWBOX_WIDTH = 2037.566;
-const VIEWBOX_HEIGHT = 1615.5;
 
 interface ZoneOverlayProps {
   mapMode: MapLayerMode;
@@ -181,50 +179,36 @@ export function ZoneOverlay({
         );
       })}
 
+      {/* Marker rendered inside SVG coordinate space — same viewBox as the map,
+          guaranteeing pixel-perfect alignment regardless of container sizing. */}
       {marker && (() => {
-        const userPos = project(marker.lat, marker.lng);
-        const xPct = (userPos.x / VIEWBOX_WIDTH) * 100;
-        const yPct = (userPos.y / VIEWBOX_HEIGHT) * 100;
-        const pulseDuration = marker.moving ? '2.5s' : '4.2s';
+        const pt = project(marker.lat, marker.lng);
+        const pulseDur = marker.moving ? '2.5s' : '4.2s';
+        const xPct = (pt.x / VIEWBOX_WIDTH) * 100;
+        const yPct = (pt.y / VIEWBOX_HEIGHT) * 100;
         return (
-          <div
-            style={{
-              position: 'absolute',
-              left: `${xPct}%`,
-              top: `${yPct}%`,
-              transform: 'translate(-50%, -50%)',
-              zIndex: 10,
-              pointerEvents: 'none',
-            }}
+          <svg
+            viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}
           >
-            <div
+            <defs>
+              <filter id="marker-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="1" stdDeviation="3" floodColor="#000" floodOpacity="0.22" />
+              </filter>
+            </defs>
+            <circle
+              cx={pt.x} cy={pt.y} r="20"
+              fill="rgba(0, 120, 80, 0.12)"
               style={{
-                position: 'absolute',
-                width: 26,
-                height: 26,
-                borderRadius: '50%',
-                background: 'rgba(0, 120, 80, 0.12)',
-                transform: 'translate(-50%, -50%)',
-                left: '50%',
-                top: '50%',
-                animation: `you-are-here-pulse ${pulseDuration} ease-out infinite`,
+                transformOrigin: `${pt.x}px ${pt.y}px`,
+                animation: `you-are-here-pulse ${pulseDur} ease-out infinite`,
                 animationPlayState: marker.pulsePaused ? 'paused' : 'running',
               }}
             />
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: '#007850',
-                border: '2px solid #FAF8F2',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.22)',
-              }}
-            />
-            <div
-              style={{
-                marginTop: 6,
-                marginLeft: -20,
+            <circle cx={pt.x} cy={pt.y} r="8" fill="#007850" stroke="#FAF8F2" strokeWidth="3" filter="url(#marker-shadow)" />
+            <foreignObject x={pt.x - 40} y={pt.y + 14} width="120" height="60" style={{ overflow: 'visible' }}>
+              <div style={{
                 padding: '2px 6px',
                 borderRadius: 8,
                 background: 'rgba(250,248,242,0.88)',
@@ -234,15 +218,13 @@ export function ZoneOverlay({
                 color: '#003D2C',
                 opacity: 0.72,
                 whiteSpace: 'nowrap',
-              }}
-            >
-              {youAreHereLabel}
-            </div>
-            {recognitionLine && (
-              <div
-                style={{
+                width: 'fit-content',
+              }}>
+                {youAreHereLabel}
+              </div>
+              {recognitionLine && (
+                <div style={{
                   marginTop: 8,
-                  marginLeft: -12,
                   fontFamily: 'var(--font-serif)',
                   fontSize: 12,
                   fontStyle: 'italic',
@@ -250,11 +232,40 @@ export function ZoneOverlay({
                   opacity: 0.78,
                   whiteSpace: 'nowrap',
                   animation: 'presence-recognition 4s ease-in-out forwards',
-                }}
-              >
-                {recognitionLine}
-              </div>
-            )}
+                }}>
+                  {recognitionLine}
+                </div>
+              )}
+            </foreignObject>
+          </svg>
+        );
+      })()}
+
+      {/* Debug overlay: raw positioning data (VITE_DEBUG_TERRITORY only) */}
+      {import.meta.env.VITE_DEBUG_TERRITORY && marker && (() => {
+        const pt = project(marker.lat, marker.lng);
+        const xPct = (pt.x / VIEWBOX_WIDTH) * 100;
+        const yPct = (pt.y / VIEWBOX_HEIGHT) * 100;
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              left: 4,
+              zIndex: 99,
+              background: 'rgba(0,0,0,0.75)',
+              color: '#0f0',
+              fontFamily: 'monospace',
+              fontSize: 9,
+              padding: '4px 6px',
+              borderRadius: 4,
+              lineHeight: 1.5,
+              pointerEvents: 'none',
+            }}
+          >
+            lat {marker.lat.toFixed(5)} lng {marker.lng.toFixed(5)}<br />
+            svgXY {pt.x.toFixed(0)},{pt.y.toFixed(0)}<br />
+            pct {xPct.toFixed(1)}%,{yPct.toFixed(1)}%
           </div>
         );
       })()}
