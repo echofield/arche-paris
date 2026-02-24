@@ -48,5 +48,8 @@
   "meridiens.seeWalk": "See the walk",
   "meridiens.cta.guidance": "Meridian guidance",
   "meridiens.guidance.lockedOn": "Axis: {name}",
-  "meridiens.guidance.searching": "Seeking axis…"
+  "meridiens.guidance.searching": "Seeking axis…",
+  "meridiens.revelation.label": "Revelation",
+  "meridiens.revelation.continue": "Continue",
+  "meridiens.revelation.openMaps": "Open in Maps ↗"
 }

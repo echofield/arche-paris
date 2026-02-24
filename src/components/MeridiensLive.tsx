@@ -12,6 +12,9 @@ import { getThresholds, type Threshold, type ThresholdId } from '../data/meridie
 import { haversineMeters } from '../utils/geo';
 import { useStabilizedPosition } from '../hooks/useStabilizedPosition';
 import { useMeridianLock } from '../hooks/useMeridianLock';
+import { useAxisDoorTrigger } from '../hooks/useAxisDoorTrigger';
+import { RevelationSheet } from './Meridiens/RevelationSheet';
+import type { AxisDoor } from '../data/axis-doors';
 import {
   distanceToMeridianMeters,
   emaPoint,
@@ -93,6 +96,8 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
   const [snapshot, setSnapshot] = useState<WorldSnapshotData | null>(null);
   const [lireVerifying, setLireVerifying] = useState(false);
   const [observationVerifying, setObservationVerifying] = useState<string | null>(null);
+  const [revelationDoor, setRevelationDoor] = useState<AxisDoor | null>(null);
+  const [revelationOpen, setRevelationOpen] = useState(false);
   const [axisId, setAxisId] = useState<string | null>(() => {
     const hash = window.location.hash.slice(1);
     const q = hash.indexOf('?');
@@ -187,6 +192,32 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
     accuracyM: stabilized.pos?.accuracy ?? null,
     speedMps: stabilized.pos?.speed ?? null,
   });
+  const axisIdNum = axisId != null ? parseInt(axisId, 10) : null;
+  const doorTrigger = useAxisDoorTrigger({
+    axisId: Number.isFinite(axisIdNum) ? axisIdNum : null,
+    lockState: lock.lockState,
+    distToAxisM: lock.distToAxisM,
+    headingErrorDeg: lock.headingErrorDeg,
+    speedMps: stabilized.pos?.speed ?? null,
+    activationMode: lock.activationMode,
+  });
+  useEffect(() => {
+    if (doorTrigger.door && !revelationOpen) {
+      setRevelationDoor(doorTrigger.door);
+      setRevelationOpen(true);
+    }
+  }, [doorTrigger.door, revelationOpen]);
+  const revelationOpenDoorCalledRef = useRef(false);
+  useEffect(() => {
+    if (revelationOpen && revelationDoor) {
+      if (!revelationOpenDoorCalledRef.current) {
+        doorTrigger.openDoor(revelationDoor.key);
+        revelationOpenDoorCalledRef.current = true;
+      }
+    } else {
+      revelationOpenDoorCalledRef.current = false;
+    }
+  }, [revelationOpen, revelationDoor]);
   useEffect(() => {
     if (!stabilized.pos) {
       if (stabilized.status === 'error') {
@@ -822,6 +853,16 @@ export function MeridiensLive({ onBack, cardId }: MeridiensLiveProps) {
             {lireVerifying ? '…' : t('meridiens.instrument.read')}
           </button>
         </div>
+      )}
+      {revelationDoor && (
+        <RevelationSheet
+          isOpen={revelationOpen}
+          onClose={() => {
+            setRevelationOpen(false);
+            setRevelationDoor(null);
+          }}
+          door={revelationDoor}
+        />
       )}
     </div>
   );
