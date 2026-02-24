@@ -216,8 +216,9 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
     return { count, relativeTime: '', layer };
   }, [arrSheet, aujourdhuiCounts, invisibleCounts, champItems]);
 
-  // Place detail sheet
+  // Place detail: preview card (in flow) + full sheet (on "More")
   const [selectedPlace, setSelectedPlace] = useState<PlaceDetail | null>(null);
+  const [showPlaceSheet, setShowPlaceSheet] = useState(false);
 
   const handlePlaceSelect = useCallback((place: ResonancePlace) => {
     const lieu = LIEUX_PARIS.find(l => `lieu-${l.id}` === place.id);
@@ -230,6 +231,13 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
       weight: card?.weight,
       coordinates: lieu?.coordinates ?? card?.gps,
     });
+    setShowPlaceSheet(false);
+  }, []);
+
+  const openPlaceSheet = useCallback(() => setShowPlaceSheet(true), []);
+  const closePlaceSheet = useCallback(() => {
+    setShowPlaceSheet(false);
+    setSelectedPlace(null);
   }, []);
 
   // Axes layer data
@@ -392,6 +400,50 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           />
         </AsyncState>
       </section>
+
+      {/* Place preview card: name + one line, in flow below map (mobile-friendly) */}
+      {selectedPlace && (
+        <section style={{ maxWidth: 720, margin: '0 auto', padding: '12px 24px 0' }}>
+          <button
+            type="button"
+            onClick={openPlaceSheet}
+            style={{
+              width: '100%', textAlign: 'left',
+              padding: '14px 16px',
+              background: 'rgba(139,105,20,0.06)',
+              border: '1px solid rgba(139,105,20,0.18)',
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{
+              fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500,
+              color: '#1A1A1A', marginBottom: 4,
+            }}>
+              {selectedPlace.name}
+            </div>
+            {selectedPlace.description && (
+              <p style={{
+                margin: 0, fontFamily: 'var(--font-serif)', fontSize: 13,
+                fontStyle: 'italic', color: '#1A1A1A', opacity: 0.8,
+                lineHeight: 1.45,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}>
+                {selectedPlace.description}
+              </p>
+            )}
+            <span style={{
+              display: 'inline-block', marginTop: 8,
+              fontFamily: 'var(--font-sans)', fontSize: 11,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: '#8B6914', opacity: 0.9,
+            }}>
+              {t('champ.detail.more')} →
+            </span>
+          </button>
+        </section>
+      )}
 
       {/* Legend */}
       <section style={{ maxWidth: 720, margin: '0 auto', padding: '16px 24px 0' }}>
@@ -576,10 +628,10 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Place detail sheet (bridge to Mon Paris) */}
+      {/* Place detail sheet (bridge to Mon Paris) — opens from "More" on preview card */}
       <PlaceDetailSheet
-        place={selectedPlace}
-        onClose={() => setSelectedPlace(null)}
+        place={showPlaceSheet ? selectedPlace : null}
+        onClose={closePlaceSheet}
         titleLabel={t('champ.detail.title')}
         approachLabel={t('champ.detail.approachToSeal')}
         instrumentsLabel={t('champ.detail.openInstruments')}
