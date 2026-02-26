@@ -602,7 +602,7 @@ const STORAGE_ACTIVE_CHAMP_ID = 'arche_active_champ_id';
 export interface Champ {
   id: string;
   name: string;
-  layers: { trace: number; alignment: number; ritual: number; echo: number; threshold: number };
+  layers: { trace: number; alignment: number; cadence: number; echo: number; threshold: number };
   tone: string;
   active_start_minute: number;
   active_end_minute: number;
@@ -672,7 +672,7 @@ export async function createChamp(
   cardId: string,
   body: {
     name: string;
-    layers: { trace: number; alignment: number; ritual: number; echo: number; threshold: number };
+    layers: { trace: number; alignment: number; cadence: number; echo: number; threshold: number };
     tone?: string;
     active_start_minute?: number;
     active_end_minute?: number;
@@ -693,7 +693,7 @@ export async function updateChamp(
   id: string,
   body: Partial<{
     name: string;
-    layers: { trace: number; alignment: number; ritual: number; echo: number; threshold: number };
+    layers: { trace: number; alignment: number; cadence: number; echo: number; threshold: number };
     tone: string;
     active_start_minute: number;
     active_end_minute: number;

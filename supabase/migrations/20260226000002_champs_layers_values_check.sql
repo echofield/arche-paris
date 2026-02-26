@@ -9,7 +9,7 @@ begin
     check (
       (layers->>'trace')::numeric between 0 and 1
       and (layers->>'alignment')::numeric between 0 and 1
-      and (layers->>'ritual')::numeric between 0 and 1
+      and (layers->>'cadence')::numeric between 0 and 1
       and (layers->>'echo')::numeric between 0 and 1
       and (layers->>'threshold')::numeric between 0 and 1
     );

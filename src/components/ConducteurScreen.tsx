@@ -17,7 +17,7 @@ import {
   setActiveChampId,
 } from '../utils/card-gate-client';
 
-const LAYER_KEYS = ['trace', 'alignment', 'ritual', 'echo', 'threshold'] as const;
+const LAYER_KEYS = ['trace', 'alignment', 'cadence', 'echo', 'threshold'] as const;
 const TONES = [
   { id: 'whisper', labelKey: 'conducteur.tone.whisper' },
   { id: 'neutral', labelKey: 'conducteur.tone.neutral' },
@@ -25,7 +25,7 @@ const TONES = [
   { id: 'grave', labelKey: 'conducteur.tone.grave' },
   { id: 'resonance', labelKey: 'conducteur.tone.resonance' },
 ] as const;
-const DEFAULT_LAYERS = { trace: 0.8, alignment: 0.5, ritual: 0.5, echo: 0.7, threshold: 0.08 };
+const DEFAULT_LAYERS = { trace: 0.8, alignment: 0.5, cadence: 0.5, echo: 0.7, threshold: 0.08 };
 const MINUTES_17_30 = 17 * 60 + 30;
 const MINUTES_23 = 23 * 60;
 
@@ -38,14 +38,14 @@ function minuteToLabel(m: number): string {
 function consequenceSentence(layers: Record<string, number>): string {
   const t = layers.threshold ?? 0;
   const a = layers.alignment ?? 0;
-  const r = layers.ritual ?? 0;
+  const c = layers.cadence ?? 0;
   const parts: string[] = [];
   if (t < 0.15) parts.push('ouvertures rares');
   else if (t > 0.3) parts.push('ouvertures fréquentes');
   if (a > 0.6) parts.push('géométrie forte');
   else if (a < 0.3) parts.push('géométrie douce');
-  if (r > 0.6) parts.push('rituel élevé');
-  else if (r < 0.2) parts.push('rituel bas');
+  if (c > 0.6) parts.push('cadence élevée');
+  else if (c < 0.2) parts.push('cadence basse');
   if (parts.length === 0) return 'Ce soir : équilibre.';
   return `Ce soir : ${parts.join(', ')}.`;
 }
@@ -93,7 +93,13 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
         const c = await loadChamp(cardId, id);
         setEditingId(c.id);
         setName(c.name);
-        setLayers({ ...c.layers });
+        setLayers({
+          trace: c.layers.trace ?? 0,
+          alignment: c.layers.alignment ?? 0,
+          cadence: c.layers.cadence ?? (c.layers as Record<string, number>).ritual ?? 0.5,
+          echo: c.layers.echo ?? 0,
+          threshold: c.layers.threshold ?? 0,
+        });
         setTone(c.tone);
         setActiveStartMinute(c.active_start_minute);
         setActiveEndMinute(c.active_end_minute);
@@ -123,7 +129,7 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
         layers: {
           trace: Math.max(0, Math.min(1, layers.trace ?? 0)),
           alignment: Math.max(0, Math.min(1, layers.alignment ?? 0)),
-          ritual: Math.max(0, Math.min(1, layers.ritual ?? 0)),
+          cadence: Math.max(0, Math.min(1, layers.cadence ?? 0)),
           echo: Math.max(0, Math.min(1, layers.echo ?? 0)),
           threshold: Math.max(0, Math.min(1, layers.threshold ?? 0)),
         },
@@ -186,24 +192,25 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
     <div style={{ minHeight: '100vh', background: 'var(--paper)', paddingBottom: 96 }}>
       <BackButton onBack={onBack} />
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px' }}>
-        <p style={{ ...labelStyle, marginBottom: 24 }}>{t('conducteur.subtitle', 'MOTEUR CRÉATEUR · CONDUCTEUR DE CHAMP')}</p>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px, 5vw, 40px)', fontWeight: 300, lineHeight: 1.15, color: 'var(--ink)', marginBottom: 16 }}>
-          {t('conducteur.title1', 'Tu ne produis pas du contenu.')}
-          <br />
-          <span style={{ fontStyle: 'italic', color: 'var(--green)' }}>{t('conducteur.title2', 'Tu accordes la réalité.')}</span>
-        </h1>
+        <p style={{ ...labelStyle, marginBottom: 24 }}>{t('conducteur.subtitle')}</p>
+        <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(18px, 3vw, 22px)', fontWeight: 300, lineHeight: 1.4, color: 'var(--ink)', marginBottom: 12 }}>
+          {t('conducteur.title1')}
+        </p>
+        <p style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(16px, 2.5vw, 18px)', fontWeight: 300, lineHeight: 1.4, color: 'var(--ink)', marginBottom: 12 }}>
+          {t('conducteur.title2')}
+        </p>
         <p style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 300, fontStyle: 'italic', color: 'var(--grey-medium)', marginBottom: 48 }}>
-          {t('conducteur.hint', 'Comme un DJ avec les mêmes morceaux — différemment.')}
+          {t('conducteur.title3')}
         </p>
 
         {/* My champs */}
         <section style={{ borderTop: '0.5px solid var(--grey-light)', paddingTop: 32, paddingBottom: 32 }}>
-          <p style={{ ...labelStyle, marginBottom: 16 }}>{t('conducteur.myChamps', 'MES CHAMPS')}</p>
+          <p style={{ ...labelStyle, marginBottom: 16 }}>{t('conducteur.myChamps')}</p>
           {loading ? (
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--grey-medium)' }}>{t('app.loading')}</p>
           ) : list.length === 0 ? (
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 14, fontStyle: 'italic', color: 'var(--grey-medium)' }}>
-              {t('conducteur.noChamps', 'Aucun champ encore. Créez-en un ci-dessous.')}
+              {t('conducteur.noChamps')}
             </p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -288,13 +295,13 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
 
         {/* Conductor form */}
         <section style={{ borderTop: '0.5px solid var(--grey-light)', paddingTop: 32, paddingBottom: 32 }}>
-          <p style={{ ...labelStyle, marginBottom: 16 }}>{editingId ? t('conducteur.editChamp', 'MODIFIER LE CHAMP') : t('conducteur.newChamp', 'NOUVEAU CHAMP')}</p>
+          <p style={{ ...labelStyle, marginBottom: 16 }}>{editingId ? t('conducteur.editChamp') : t('conducteur.newChamp')}</p>
           <div style={{ marginBottom: 20 }}>
-            <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>{t('conducteur.fieldName', 'NOM DU CHAMP')}</label>
+            <label style={{ ...labelStyle, display: 'block', marginBottom: 8 }}>{t('conducteur.fieldName')}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t('conducteur.untitled', 'Sans titre')}
+              placeholder={t('conducteur.untitled')}
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: 24,
@@ -328,7 +335,7 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
             </div>
           ))}
           <div style={{ marginBottom: 20 }}>
-            <p style={{ ...labelStyle, marginBottom: 8 }}>{t('conducteur.tone', 'TONALITÉ')}</p>
+            <p style={{ ...labelStyle, marginBottom: 8 }}>{t('conducteur.tone')}</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {TONES.map((toneOpt) => (
                 <button
@@ -352,9 +359,10 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
               ))}
             </div>
           </div>
+          <p style={{ ...labelStyle, marginBottom: 12 }}>{t('conducteur.activationWindow')}</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             <div>
-              <p style={{ ...labelStyle, marginBottom: 4 }}>{t('conducteur.start', 'DÉBUT')}</p>
+              <p style={{ ...labelStyle, marginBottom: 4 }}>{t('conducteur.start')}</p>
               <input
                 type="range"
                 min={0}
@@ -367,7 +375,7 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
               <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 300, color: 'var(--green)' }}>{minuteToLabel(activeStartMinute)}</span>
             </div>
             <div>
-              <p style={{ ...labelStyle, marginBottom: 4 }}>{t('conducteur.end', 'FIN')}</p>
+              <p style={{ ...labelStyle, marginBottom: 4 }}>{t('conducteur.end')}</p>
               <input
                 type="range"
                 min={0}
@@ -380,12 +388,13 @@ export function ConducteurScreen({ cardId, onBack }: ConducteurScreenProps) {
               <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 300, color: 'var(--green)' }}>{minuteToLabel(activeEndMinute)}</span>
             </div>
           </div>
+          <p style={{ ...labelStyle, marginBottom: 12 }}>{t('conducteur.territoryState')}</p>
           <div style={{ marginBottom: 24 }}>
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 13, fontWeight: 300, fontStyle: 'italic', color: 'var(--green)' }}>
               {consequenceSentence(layers)}
             </p>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--grey-medium)', marginTop: 8 }}>
-              {t('conducteur.cadence', 'Cadence estimée : 1 événement toutes les 7–12 min.')}
+              {t('conducteur.cadence')}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>

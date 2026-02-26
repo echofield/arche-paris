@@ -4167,7 +4167,7 @@ app.get("/champ/items", async (c) => {
 });
 
 // ----- Champs (Creator Engine) -----
-const CHAMP_LAYER_KEYS = ["trace", "alignment", "ritual", "echo", "threshold"] as const;
+const CHAMP_LAYER_KEYS = ["trace", "alignment", "cadence", "echo", "threshold"] as const;
 function validateChampLayers(layers: unknown): layers is Record<string, number> {
   if (!layers || typeof layers !== "object") return false;
   const o = layers as Record<string, unknown>;
@@ -4256,7 +4256,7 @@ app.post("/champs", async (c) => {
     return c.json({ error: "Invalid JSON" }, 400);
   }
   const name = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : "Sans titre";
-  if (!validateChampLayers(body?.layers)) return c.json({ error: "layers must have trace, alignment, ritual, echo, threshold (0..1)" }, 400);
+  if (!validateChampLayers(body?.layers)) return c.json({ error: "layers must have trace, alignment, cadence, echo, threshold (0..1)" }, 400);
   const layers = body.layers as Record<string, number>;
   const tone = typeof body?.tone === "string" && body.tone.trim() ? body.tone.trim() : "whisper";
   const active_start_minute = typeof body?.active_start_minute === "number" && body.active_start_minute >= 0 && body.active_start_minute <= 1439 ? Math.floor(body.active_start_minute) : 1050;

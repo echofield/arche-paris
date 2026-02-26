@@ -31,7 +31,7 @@ Si tu as appliqué la migration `20260226000002_champs_layers_values_check.sql` 
 INSERT INTO public.champs (name, layers, tone, active_start_minute, active_end_minute)
 VALUES (
   'Test CHECK',
-  '{"trace":0.5,"alignment":0.5,"ritual":0.5,"echo":0.5,"threshold":0.1}'::jsonb,
+  '{"trace":0.5,"alignment":0.5,"cadence":0.5,"echo":0.5,"threshold":0.1}'::jsonb,
   'whisper',
   540,
   1020
@@ -45,7 +45,7 @@ RETURNING id, name;
 ```sql
 -- Valeur > 1
 INSERT INTO public.champs (name, layers, tone, active_start_minute, active_end_minute)
-VALUES ('Invalid', '{"trace":1.5,"alignment":0,"ritual":0,"echo":0,"threshold":0}'::jsonb, 'whisper', 540, 1020);
+VALUES ('Invalid', '{"trace":1.5,"alignment":0,"cadence":0,"echo":0,"threshold":0}'::jsonb, 'whisper', 540, 1020);
 -- Attendu : erreur champs_layers_values_check
 ```
 
