@@ -4212,6 +4212,10 @@ app.get("/champs", async (c) => {
   const mine = c.req.query("mine") !== "0";
   const statusQ = c.req.query("status")?.trim();
   const visibilityQ = c.req.query("visibility")?.trim();
+  const limitRaw = parseInt(c.req.query("limit") ?? "20", 10);
+  const offsetRaw = parseInt(c.req.query("offset") ?? "0", 10);
+  const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? limitRaw : 20));
+  const offset = Math.max(0, Number.isFinite(offsetRaw) ? offsetRaw : 0);
   let q = supabase.from("champs").select("id, name, layers, tone, active_start_minute, active_end_minute, timezone, zone, status, visibility, created_by, created_at, updated_at").order("updated_at", { ascending: false });
   if (mine) q = q.eq("created_by", payload.card_id);
   else {
@@ -4219,7 +4223,7 @@ app.get("/champs", async (c) => {
     if (visibilityQ) q = q.eq("visibility", visibilityQ);
   }
   if (statusQ) q = q.eq("status", statusQ);
-  const { data, error } = await q.limit(100);
+  const { data, error } = await q.range(offset, offset + limit - 1);
   if (error) return c.json({ error: "Failed to list champs" }, 500);
   return c.json({ champs: data ?? [] });
 });

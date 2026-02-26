@@ -634,12 +634,14 @@ export function setActiveChampId(id: string | null): void {
 
 export async function loadChamps(
   cardId: string,
-  opts?: { mine?: boolean; status?: string; visibility?: string }
+  opts?: { mine?: boolean; status?: string; visibility?: string; limit?: number; offset?: number }
 ): Promise<Champ[]> {
   const params = new URLSearchParams();
   if (opts?.mine === false) params.set('mine', '0');
-  if (opts?.status) params.set('status', opts.status);
-  if (opts?.visibility) params.set('visibility', opts.visibility);
+  if (opts?.status != null) params.set('status', opts.status);
+  if (opts?.visibility != null) params.set('visibility', opts.visibility);
+  if (opts?.limit != null) params.set('limit', String(opts.limit));
+  if (opts?.offset != null) params.set('offset', String(opts.offset));
   const q = params.toString() ? `?${params.toString()}` : '';
   const res = await gateFetch(cardId, `/champs${q}`);
   const data = await res.json().catch(() => ({}));
