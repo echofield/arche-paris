@@ -595,6 +595,135 @@ export async function loadChampItems(cardId: string): Promise<FieldItem[]> {
   return (data?.items as FieldItem[]) ?? [];
 }
 
+// ============ CHAMPS (Creator Engine) ============
+
+const STORAGE_ACTIVE_CHAMP_ID = 'arche_active_champ_id';
+
+export interface Champ {
+  id: string;
+  name: string;
+  layers: { trace: number; alignment: number; ritual: number; echo: number; threshold: number };
+  tone: string;
+  active_start_minute: number;
+  active_end_minute: number;
+  timezone: string;
+  zone: Record<string, unknown>;
+  status: 'draft' | 'live' | 'archived';
+  visibility: 'private' | 'unlisted' | 'public';
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getActiveChampId(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_ACTIVE_CHAMP_ID);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveChampId(id: string | null): void {
+  try {
+    if (id) localStorage.setItem(STORAGE_ACTIVE_CHAMP_ID, id);
+    else localStorage.removeItem(STORAGE_ACTIVE_CHAMP_ID);
+  } catch {
+    // ignore
+  }
+}
+
+export async function loadChamps(
+  cardId: string,
+  opts?: { mine?: boolean; status?: string; visibility?: string }
+): Promise<Champ[]> {
+  const params = new URLSearchParams();
+  if (opts?.mine === false) params.set('mine', '0');
+  if (opts?.status) params.set('status', opts.status);
+  if (opts?.visibility) params.set('visibility', opts.visibility);
+  const q = params.toString() ? `?${params.toString()}` : '';
+  const res = await gateFetch(cardId, `/champs${q}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.error as string) ?? `Load champs failed: ${res.status}`);
+  return (data?.champs as Champ[]) ?? [];
+}
+
+export async function loadChamp(cardId: string, id: string): Promise<Champ> {
+  const res = await gateFetch(cardId, `/champs/${id}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.error as string) ?? `Load champ failed: ${res.status}`);
+  return data as Champ;
+}
+
+/** Returns active champ: optional champId (session), or server default. */
+export async function getActiveChamp(cardId: string, champId?: string | null): Promise<Champ | null> {
+  const id = champId ?? getActiveChampId();
+  const q = id ? `?champ_id=${encodeURIComponent(id)}` : '';
+  const res = await gateFetch(cardId, `/champs/active${q}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return null;
+  if (data?.active != null) return data.active as Champ;
+  if (data?.id != null) return data as Champ;
+  return null;
+}
+
+export async function createChamp(
+  cardId: string,
+  body: {
+    name: string;
+    layers: { trace: number; alignment: number; ritual: number; echo: number; threshold: number };
+    tone?: string;
+    active_start_minute?: number;
+    active_end_minute?: number;
+    timezone?: string;
+    zone?: Record<string, unknown>;
+    status?: 'draft' | 'live' | 'archived';
+    visibility?: 'private' | 'unlisted' | 'public';
+  }
+): Promise<Champ> {
+  const res = await gateFetch(cardId, '/champs', { method: 'POST', body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.error as string) ?? `Create champ failed: ${res.status}`);
+  return data as Champ;
+}
+
+export async function updateChamp(
+  cardId: string,
+  id: string,
+  body: Partial<{
+    name: string;
+    layers: { trace: number; alignment: number; ritual: number; echo: number; threshold: number };
+    tone: string;
+    active_start_minute: number;
+    active_end_minute: number;
+    timezone: string;
+    zone: Record<string, unknown>;
+    status: 'draft' | 'live' | 'archived';
+    visibility: 'private' | 'unlisted' | 'public';
+  }>
+): Promise<Champ> {
+  const res = await gateFetch(cardId, `/champs/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.error as string) ?? `Update champ failed: ${res.status}`);
+  return data as Champ;
+}
+
+export async function deleteChamp(cardId: string, id: string): Promise<void> {
+  const res = await gateFetch(cardId, `/champs/${id}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.error as string) ?? `Delete champ failed: ${res.status}`);
+  if (getActiveChampId() === id) setActiveChampId(null);
+}
+
+export async function activateChamp(cardId: string, id: string, setDefault?: boolean): Promise<void> {
+  const res = await gateFetch(cardId, `/champs/${id}/activate`, {
+    method: 'POST',
+    body: JSON.stringify({ set_default: setDefault ?? false }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.error as string) ?? `Activate champ failed: ${res.status}`);
+  setActiveChampId(id);
+}
+
 // ============ CHURCH QUESTS + AURA ============
 
 export interface ChurchQuestStartResult {

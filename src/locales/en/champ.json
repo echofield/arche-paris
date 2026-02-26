@@ -4,6 +4,8 @@
   "champ.placeholder": "Shared traces of the city.",
   "champ.leaveTrace": "Leave a trace",
   "champ.loadError": "The Field is unavailable. Retry or go back.",
+  "champ.activeChamp": "Active field",
+  "champ.outsideWindow": "outside window",
   "champ.sendError": "Send failed.",
   "champ.layer.resonance": "Resonance",
   "champ.layer.aujourdhui": "Today",

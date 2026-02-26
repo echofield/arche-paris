@@ -33,6 +33,7 @@
   "instruments.title": "INSTRUMENTS",
   "instruments.rows.meridian": "Meridian Alignment",
   "instruments.rows.placeScan": "Place reading",
+  "instruments.rows.conducteur": "Field conductor",
   "instruments.rows.depth": "Depth",
   "instruments.rows.coherence": "Coherence",
   "instruments.status.active": "active",

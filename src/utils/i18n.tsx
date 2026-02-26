@@ -22,6 +22,7 @@ import frSeuil from '../locales/fr/seuil.json';
 import frMeridiens from '../locales/fr/meridiens.json';
 import frChurch from '../locales/fr/church.json';
 import frChamp from '../locales/fr/champ.json';
+import frConducteur from '../locales/fr/conducteur.json';
 import frPaths from '../locales/fr/paths.json';
 import frMiroir from '../locales/fr/miroir.json';
 
@@ -34,11 +35,12 @@ import enSeuil from '../locales/en/seuil.json';
 import enMeridiens from '../locales/en/meridiens.json';
 import enChurch from '../locales/en/church.json';
 import enChamp from '../locales/en/champ.json';
+import enConducteur from '../locales/en/conducteur.json';
 
 // Merge all translations per language
 const translations: Record<Language, Record<string, any>> = {
-  fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure, ...frSeuil, ...frMeridiens, ...frChurch, ...frChamp, ...frPaths, ...frMiroir },
-  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil, ...enMeridiens, ...enChurch, ...enChamp }
+  fr: { ...frHome, ...frHistory, ...frOrigin, ...frMap, ...frTreasure, ...frSeuil, ...frMeridiens, ...frChurch, ...frChamp, ...frConducteur, ...frPaths, ...frMiroir },
+  en: { ...enHome, ...enHistory, ...enOrigin, ...enMap, ...enTreasure, ...enSeuil, ...enMeridiens, ...enChurch, ...enChamp, ...enConducteur }
 };
 
 // Storage key

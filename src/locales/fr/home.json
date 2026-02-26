@@ -33,6 +33,7 @@
   "instruments.title": "INSTRUMENTS",
   "instruments.rows.meridian": "Alignement méridien",
   "instruments.rows.placeScan": "Lecture du lieu",
+  "instruments.rows.conducteur": "Conducteur de champ",
   "instruments.rows.depth": "Profondeur",
   "instruments.rows.coherence": "Cohérence",
   "instruments.status.active": "en service",

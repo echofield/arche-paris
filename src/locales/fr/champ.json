@@ -4,6 +4,8 @@
   "champ.placeholder": "Les traces partagées de la cité.",
   "champ.leaveTrace": "Laisser une trace",
   "champ.loadError": "Le Champ est inaccessible. Réessayez ou revenez.",
+  "champ.activeChamp": "Champ actif",
+  "champ.outsideWindow": "hors fenêtre",
   "champ.sendError": "Envoi impossible.",
   "champ.layer.resonance": "Résonance",
   "champ.layer.aujourdhui": "Aujourd'hui",

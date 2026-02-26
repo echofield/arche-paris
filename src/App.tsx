@@ -16,6 +16,7 @@ import { ArcheSymbol } from './components/ArcheSymbol';
 import { CompanionBlock } from './components/CompanionBlock';
 import { ArcheInterface } from './components/ArcheInterface';
 import { ChampScreen } from './components/ChampScreen';
+import { ConducteurScreen } from './components/ConducteurScreen';
 import { KeptSentences } from './components/KeptSentences';
 import { ZoneTestPanel } from './components/ZoneTestPanel';
 import { MeridianQuest } from './components/MeridianQuest';
@@ -31,7 +32,7 @@ import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
 
-type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'place-scan' | 'champ' | 'kept' | 'zone-test' | 'meridian-quest' | 'tresor';
+type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'place-scan' | 'champ' | 'conducteur' | 'kept' | 'zone-test' | 'meridian-quest' | 'tresor';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
 
 const LazyMeridiensLive = lazy(() =>
@@ -341,6 +342,8 @@ export default function App() {
         setCurrentScreen('place-scan');
       } else if (hash === 'champ' || hash.startsWith('champ?')) {
         setCurrentScreen('champ');
+      } else if (hash === 'conducteur') {
+        setCurrentScreen('conducteur');
       } else if (hash === 'kept') {
         setCurrentScreen('kept');
       } else if (hash === 'zone-test') {
@@ -515,6 +518,13 @@ export default function App() {
             onBack={() => navigateTo('homepage')}
           />
         );
+      case 'conducteur':
+        return (
+          <ConducteurScreen
+            cardId={cardStatus?.cardId ?? null}
+            onBack={() => navigateTo('homepage')}
+          />
+        );
       case 'zone-test':
         return (
           <ZoneTestPanel
@@ -627,6 +637,10 @@ export default function App() {
                   onOpenPlaceScan={() => {
                     setCabinetOpen(false);
                     navigateTo('place-scan');
+                  }}
+                  onOpenConducteur={() => {
+                    setCabinetOpen(false);
+                    navigateTo('conducteur');
                   }}
                 />
               )}

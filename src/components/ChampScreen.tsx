@@ -11,7 +11,7 @@ import { LayerToggles, type ChampLayerMode } from './ChampScreen/LayerToggles';
 import { ChampLegend } from './ChampScreen/ChampLegend';
 import { PlaceDetailSheet, type PlaceDetail } from './ChampScreen/PlaceDetailSheet';
 import { useTranslation } from '../utils/i18n';
-import { loadChampItems, type FieldItem } from '../utils/card-gate-client';
+import { loadChampItems, getActiveChamp, getActiveChampId, type FieldItem, type Champ } from '../utils/card-gate-client';
 import { postInscription, type InscriptionTarget } from '../utils/card-gate-map-client';
 import { normalizeDisplayText } from '../utils/text-normalize';
 import { useGeolocation } from '../hooks/useGeolocation';
@@ -94,9 +94,40 @@ function inferArrondissementFromGeo(lat: number, lng: number): number | null {
   return bestArr;
 }
 
+function nowParisMinuteOfDay(): number {
+  const now = new Date();
+  const s = now.toLocaleString('en-CA', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false });
+  const [h, m] = s.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function isInChampWindow(startMinute: number, endMinute: number): boolean {
+  const min = nowParisMinuteOfDay();
+  if (endMinute >= startMinute) return min >= startMinute && min <= endMinute;
+  return min >= startMinute || min < endMinute;
+}
+
 export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
   const { t } = useTranslation();
   const geo = useGeolocation();
+
+  // Active champ (conducteur): fetch once, use for time window + hint
+  const [activeChamp, setActiveChamp] = useState<Champ | null>(null);
+  useEffect(() => {
+    if (!cardId) {
+      setActiveChamp(null);
+      return;
+    }
+    const id = getActiveChampId();
+    getActiveChamp(cardId, id)
+      .then((c) => { setActiveChamp(c ?? null); })
+      .catch(() => { setActiveChamp(null); });
+  }, [cardId]);
+
+  const inChampWindow = activeChamp
+    ? isInChampWindow(activeChamp.active_start_minute, activeChamp.active_end_minute)
+    : true;
+  const intensity = inChampWindow ? 1 : 0.55;
 
   // URL params from Mon Paris bridge
   const [initParams] = useState(() => parseChampParams());
@@ -369,9 +400,23 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
         }}>
           {t('champ.subtitle')}
         </p>
+        {activeChamp && (
+          <div style={{
+            marginTop: 12, fontFamily: 'var(--font-sans)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: 'var(--green)', opacity: 0.9,
+          }}>
+            {t('champ.activeChamp', 'Champ actif')}: {activeChamp.name}
+            {!inChampWindow && (
+              <span style={{ color: 'var(--grey-medium)', marginLeft: 8 }}>
+                · {t('champ.outsideWindow', 'hors fenêtre')}
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* Layer Toggles */}
+      {/* Layer Toggles + map with intensity from active champ window */}
+      <div style={{ opacity: intensity, transition: 'opacity 0.5s ease' }}>
       <section style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px' }}>
         <LayerToggles
           activeLayers={activeLayers}
@@ -433,6 +478,7 @@ export function ChampScreen({ cardId, onBack }: ChampScreenProps) {
           />
         </AsyncState>
       </section>
+      </div>
 
       {/* Place preview card: name + one line, in flow below map (mobile-friendly) */}
       {selectedPlace && (

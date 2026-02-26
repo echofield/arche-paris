@@ -4166,6 +4166,183 @@ app.get("/champ/items", async (c) => {
   return c.json({ items });
 });
 
+// ----- Champs (Creator Engine) -----
+const CHAMP_LAYER_KEYS = ["trace", "alignment", "ritual", "echo", "threshold"] as const;
+function validateChampLayers(layers: unknown): layers is Record<string, number> {
+  if (!layers || typeof layers !== "object") return false;
+  const o = layers as Record<string, unknown>;
+  for (const k of CHAMP_LAYER_KEYS) {
+    if (!(k in o)) return false;
+    const v = o[k];
+    if (typeof v !== "number" || v < 0 || v > 1) return false;
+  }
+  return true;
+}
+
+app.get("/champs/active", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const champIdParam = c.req.query("champ_id")?.trim() || null;
+  if (champIdParam) {
+    const { data: champ, error } = await supabase.from("champs").select("*").eq("id", champIdParam).maybeSingle();
+    if (error) return c.json({ error: "Failed to load champ" }, 500);
+    if (!champ) return c.json({ error: "Champ not found" }, 404);
+    const canRead = champ.created_by === payload.card_id || (champ.status === "live" && ["unlisted", "public"].includes(champ.visibility));
+    if (!canRead) return c.json({ error: "Forbidden" }, 403);
+    return c.json(champ);
+  }
+  const { data: defaultRow } = await supabase.from("card_default_champ").select("champ_id").eq("card_id", payload.card_id).maybeSingle();
+  if (!defaultRow?.champ_id) return c.json({ active: null });
+  const { data: champ, error } = await supabase.from("champs").select("*").eq("id", defaultRow.champ_id).maybeSingle();
+  if (error || !champ) return c.json({ active: null });
+  const canRead = champ.created_by === payload.card_id || (champ.status === "live" && ["unlisted", "public"].includes(champ.visibility));
+  if (!canRead) return c.json({ active: null });
+  return c.json({ active: champ });
+});
+
+app.get("/champs", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const mine = c.req.query("mine") !== "0";
+  const statusQ = c.req.query("status")?.trim();
+  const visibilityQ = c.req.query("visibility")?.trim();
+  let q = supabase.from("champs").select("id, name, layers, tone, active_start_minute, active_end_minute, timezone, zone, status, visibility, created_by, created_at, updated_at").order("updated_at", { ascending: false });
+  if (mine) q = q.eq("created_by", payload.card_id);
+  else {
+    q = q.eq("status", "live");
+    if (visibilityQ) q = q.eq("visibility", visibilityQ);
+  }
+  if (statusQ) q = q.eq("status", statusQ);
+  const { data, error } = await q.limit(100);
+  if (error) return c.json({ error: "Failed to list champs" }, 500);
+  return c.json({ champs: data ?? [] });
+});
+
+app.get("/champs/:id", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const id = c.req.param("id");
+  const { data: champ, error } = await supabase.from("champs").select("*").eq("id", id).maybeSingle();
+  if (error) return c.json({ error: "Failed to load champ" }, 500);
+  if (!champ) return c.json({ error: "Champ not found" }, 404);
+  const canRead = champ.created_by === payload.card_id || (champ.status === "live" && ["unlisted", "public"].includes(champ.visibility));
+  if (!canRead) return c.json({ error: "Forbidden" }, 403);
+  return c.json(champ);
+});
+
+app.post("/champs", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  let body: { name?: string; layers?: unknown; tone?: string; active_start_minute?: number; active_end_minute?: number; timezone?: string; zone?: unknown; status?: string; visibility?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const name = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : "Sans titre";
+  if (!validateChampLayers(body?.layers)) return c.json({ error: "layers must have trace, alignment, ritual, echo, threshold (0..1)" }, 400);
+  const layers = body.layers as Record<string, number>;
+  const tone = typeof body?.tone === "string" && body.tone.trim() ? body.tone.trim() : "whisper";
+  const active_start_minute = typeof body?.active_start_minute === "number" && body.active_start_minute >= 0 && body.active_start_minute <= 1439 ? Math.floor(body.active_start_minute) : 1050;
+  const active_end_minute = typeof body?.active_end_minute === "number" && body.active_end_minute >= 0 && body.active_end_minute <= 1439 ? Math.floor(body.active_end_minute) : 1380;
+  const timezone = typeof body?.timezone === "string" && body.timezone.trim() ? body.timezone.trim() : "Europe/Paris";
+  const zone = body?.zone && typeof body.zone === "object" ? body.zone : {};
+  const status = body?.status === "live" || body?.status === "archived" ? body.status : "draft";
+  const visibility = body?.visibility === "unlisted" || body?.visibility === "public" ? body.visibility : "private";
+  const row = { name, layers, tone, active_start_minute, active_end_minute, timezone, zone, status, visibility, created_by: payload.card_id };
+  const { data, error } = await supabase.from("champs").insert(row).select().single();
+  if (error) {
+    console.error("[card-gate] champs insert:", error);
+    return c.json({ error: "Failed to create champ" }, 500);
+  }
+  return c.json(data);
+});
+
+app.patch("/champs/:id", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const id = c.req.param("id");
+  const { data: existing, error: fetchErr } = await supabase.from("champs").select("id, created_by").eq("id", id).maybeSingle();
+  if (fetchErr || !existing) return c.json({ error: "Champ not found" }, 404);
+  if (existing.created_by !== payload.card_id) return c.json({ error: "Forbidden" }, 403);
+  let body: Record<string, unknown>;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+  const updates: Record<string, unknown> = {};
+  if (typeof body?.name === "string" && body.name.trim()) updates.name = body.name.trim();
+  if (validateChampLayers(body?.layers)) updates.layers = body.layers;
+  if (typeof body?.tone === "string") updates.tone = body.tone.trim() || "whisper";
+  if (typeof body?.active_start_minute === "number" && body.active_start_minute >= 0 && body.active_start_minute <= 1439) updates.active_start_minute = Math.floor(body.active_start_minute);
+  if (typeof body?.active_end_minute === "number" && body.active_end_minute >= 0 && body.active_end_minute <= 1439) updates.active_end_minute = Math.floor(body.active_end_minute);
+  if (typeof body?.timezone === "string") updates.timezone = body.timezone.trim() || "Europe/Paris";
+  if (body?.zone && typeof body.zone === "object") updates.zone = body.zone;
+  if (body?.status === "draft" || body?.status === "live" || body?.status === "archived") updates.status = body.status;
+  if (body?.visibility === "private" || body?.visibility === "unlisted" || body?.visibility === "public") updates.visibility = body.visibility;
+  if (Object.keys(updates).length === 0) {
+    const { data } = await supabase.from("champs").select("*").eq("id", id).single();
+    return c.json(data);
+  }
+  const { data, error } = await supabase.from("champs").update(updates).eq("id", id).eq("created_by", payload.card_id).select().single();
+  if (error) return c.json({ error: "Failed to update champ" }, 500);
+  return c.json(data);
+});
+
+app.delete("/champs/:id", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const id = c.req.param("id");
+  const { data: existing, error: fetchErr } = await supabase.from("champs").select("id, created_by").eq("id", id).maybeSingle();
+  if (fetchErr || !existing) return c.json({ error: "Champ not found" }, 404);
+  if (existing.created_by !== payload.card_id) return c.json({ error: "Forbidden" }, 403);
+  const { error } = await supabase.from("champs").delete().eq("id", id);
+  if (error) return c.json({ error: "Failed to delete champ" }, 500);
+  return c.json({ ok: true });
+});
+
+app.post("/champs/:id/activate", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) return c.json({ error: "Too many requests" }, 429);
+  const id = c.req.param("id");
+  let body: { set_default?: boolean };
+  try {
+    body = await c.req.json().catch(() => ({}));
+  } catch {
+    body = {};
+  }
+  const { data: champ, error: fetchErr } = await supabase.from("champs").select("id, created_by, status, visibility").eq("id", id).maybeSingle();
+  if (fetchErr || !champ) return c.json({ error: "Champ not found" }, 404);
+  const canRead = champ.created_by === payload.card_id || (champ.status === "live" && ["unlisted", "public"].includes(champ.visibility));
+  if (!canRead) return c.json({ error: "Forbidden" }, 403);
+  if (body?.set_default) {
+    await supabase.from("card_default_champ").upsert({ card_id: payload.card_id, champ_id: id, updated_at: new Date().toISOString() }, { onConflict: "card_id" });
+  }
+  return c.json({ active: champ });
+});
+
 // Wrap so we always send CORS with exact origin (never *) â€” Supabase or Hono may add * otherwise
 function corsHeadersFromRequest(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? undefined;
