@@ -229,11 +229,18 @@ export async function pairDevice(cardId: string): Promise<{ access_token: string
     }
     throw new Error(serverMsg);
   }
-  if (!data?.access_token) throw new Error('No access_token in response');
+  // Support both snake_case (Edge) and camelCase (if response is transformed)
+  const accessToken = data?.access_token ?? data?.accessToken;
+  if (!accessToken) {
+    const bodyPreview = typeof data === 'object' ? JSON.stringify(data).slice(0, 200) : String(data).slice(0, 200);
+    const hint = data?.status === 'Card Gate proxy active' ? ' Proxy returned "proxy active" — path may not be forwarded (check Vercel rewrite /api/card-gate/:path*).' : '';
+    throw new Error(`No access_token in response (status ${res.status}).${hint} Check Network tab for /pair. Body: ${bodyPreview}`);
+  }
+  const expiresAt = data?.expires_at ?? data?.expiresAt ?? new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   // Store in memory only
-  setMemoryToken(cardId, data.access_token, data.expires_at);
-  return { access_token: data.access_token, expires_at: data.expires_at };
+  setMemoryToken(cardId, accessToken, expiresAt);
+  return { access_token: accessToken, expires_at: expiresAt };
 }
 
 /**
