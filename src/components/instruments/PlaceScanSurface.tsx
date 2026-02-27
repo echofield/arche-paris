@@ -50,6 +50,7 @@ interface PlaceReading {
   culturalLine: string;
   spatialIdentity: string;
   nowState: NowState;
+  furtherLabel?: string | null;
 }
 
 /** Direction enum → degrees (compass: N=0, NE=45, ...). */
@@ -104,6 +105,7 @@ function resultToReading(data: PlaceScanResult): PlaceReading {
     culturalLine: cultural.line,
     spatialIdentity: spatial.identity,
     nowState: now.state,
+    furtherLabel: data.further_label ?? null,
   };
 }
 
@@ -623,21 +625,41 @@ export function PlaceScanSurface({ onExit }: PlaceScanSurfaceProps) {
         <div style={{ minHeight: 22, marginBottom: 18, textAlign: 'center' }}>
           <AnimatePresence mode="wait">
             {phase === 'reading' && reading && (
-              <motion.span
-                key={`lm-${reading.landmark}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.35 + textClarify }}
-                exit={{ opacity: 0 }}
-                transition={{ ...MO.emerge, delay: 0.6 }}
-                style={{
-                  fontSize: '10px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.28em',
-                  fontFamily: '"Inter", system-ui, sans-serif',
-                }}
-              >
-                {reading.landmark}
-              </motion.span>
+              <>
+                <motion.span
+                  key={`lm-${reading.landmark}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.35 + textClarify }}
+                  exit={{ opacity: 0 }}
+                  transition={{ ...MO.emerge, delay: 0.6 }}
+                  style={{
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.28em',
+                    fontFamily: '"Inter", system-ui, sans-serif',
+                  }}
+                >
+                  {reading.landmark}
+                </motion.span>
+                {reading.furtherLabel && (
+                  <motion.span
+                    key={`fl-${reading.furtherLabel}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.28 + textClarify * 0.5 }}
+                    transition={{ ...MO.emerge, delay: 0.9 }}
+                    style={{
+                      display: 'block',
+                      marginTop: 8,
+                      fontSize: '10px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.2em',
+                      fontFamily: '"Inter", system-ui, sans-serif',
+                    }}
+                  >
+                    {t('instruments.placeScan.further', 'Plus loin :')} {reading.furtherLabel}
+                  </motion.span>
+                )}
+              </>
             )}
           </AnimatePresence>
         </div>

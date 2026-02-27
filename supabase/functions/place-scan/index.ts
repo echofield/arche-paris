@@ -50,6 +50,8 @@ export interface PlaceScanResult {
     { type: "spatial"; identity: string },
     { type: "now"; state: NowState },
   ];
+  /** Optional: one short line for "Plus loin : …" (desire to return). */
+  further_label?: string | null;
 }
 
 // ----- Zone anchors: one per arrondissement (locally grounded); then meridian fallback -----
@@ -132,6 +134,12 @@ const SPATIAL_BY_ZONE: Record<string, string> = {
   "PAR-18": "Threshold",
   "PAR-19": "Quarter",
   "PAR-20": "Quarter",
+};
+
+// ----- Further (one line per zone: "what's ahead" — desire to return)
+const FURTHER_BY_ZONE: Record<string, string> = {
+  "PAR-01": "la cour du Louvre",
+  "PAR-20": "la chaise du père",
 };
 
 // ----- Helpers -----
@@ -241,6 +249,7 @@ function buildFallbackResult(lat: number, lon: number): PlaceScanResult {
       { type: "spatial", identity: "Threshold" },
       { type: "now", state: nowStateVal },
     ],
+    further_label: null,
   };
 }
 
@@ -321,6 +330,7 @@ serve(async (req) => {
         buildSpatialCard(zoneId),
         buildNowCard(),
       ],
+      further_label: FURTHER_BY_ZONE[zoneId] ?? null,
     };
   }
 

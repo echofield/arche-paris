@@ -483,6 +483,8 @@ export interface PlaceScanResult {
     { type: 'spatial'; identity: string },
     { type: 'now'; state: PlaceScanNowState },
   ];
+  /** Optional: "Plus loin : …" (desire to return). */
+  further_label?: string | null;
 }
 
 /** Runtime guard for PlaceScanResult (AUDIT 2025-02-23). Use when parsing untrusted or cached payloads. */

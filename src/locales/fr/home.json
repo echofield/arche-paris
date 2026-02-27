@@ -54,6 +54,7 @@
   "instruments.placeScan.error": "Signal faible. Impossible de lire le lieu.",
   "instruments.placeScan.authError": "Connexion refusée. Vérifiez votre session.",
   "instruments.placeScan.alignedHint": "Le lieu répond à ta position.",
+  "instruments.placeScan.further": "Plus loin :",
   "async.loading": "Chargement…",
   "async.errorTitle": "Erreur",
   "async.retry": "Réessayer",

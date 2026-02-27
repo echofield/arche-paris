@@ -20,7 +20,8 @@ import { selectMonParisEntry, selectMonParisReading } from "./mon-paris-state.ts
 import { computeTrust, haversineMeters } from "./presence-trust.ts";
 import { getPresenceZone, presenceAllowZoneFromBody } from "./presence-zones.ts";
 
-const app = new Hono().basePath("/card-gate");
+// Supabase invokes at /functions/v1/card-gate so request path is e.g. /functions/v1/card-gate/champs/active
+const app = new Hono().basePath("/functions/v1/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
 
 // Allowed origins only (no random site can use visitor's browser as relay).
