@@ -84,7 +84,7 @@ function daysUntilExpiry(expiresAt: string | null | undefined): number | null {
  */
 export function getNextAction(zoneProgress: ZoneProgressData | null): LiveAction {
   if (zoneProgress) {
-    const zones = zoneProgress.zones;
+    const zones = zoneProgress.zones ?? [];
 
     // Priority 1: Zone entered but no rituals done
     const unsealed = zones.find(z =>
