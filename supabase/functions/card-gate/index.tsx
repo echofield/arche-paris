@@ -20,7 +20,7 @@ import { selectMonParisEntry, selectMonParisReading } from "./mon-paris-state.ts
 import { computeTrust, haversineMeters } from "./presence-trust.ts";
 import { getPresenceZone, presenceAllowZoneFromBody } from "./presence-zones.ts";
 
-// Supabase invokes at /functions/v1/card-gate so request path is e.g. /functions/v1/card-gate/champs/active
+// Request path is full URL pathname e.g. /functions/v1/card-gate/champs/active (proxy sends full URL)
 const app = new Hono().basePath("/functions/v1/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
 
@@ -2566,6 +2566,7 @@ app.get("/journal/list", async (c) => {
 });
 
 // ----- /journal/note (GET) -----
+// Use limit(1) + data[0] instead of maybeSingle(): with historical duplicates on (card_id, place_id), maybeSingle() can error and cause 500.
 app.get("/journal/note", async (c) => {
   const supabase = getSupabase();
   const payload = await requireJwt(c);
@@ -2581,10 +2582,10 @@ app.get("/journal/note", async (c) => {
     .eq("card_id", payload.card_id)
     .eq("place_id", placeId)
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
   if (error) return c.json({ error: "Failed to load note" }, 500);
-  return c.json({ content: data?.content ?? "", updated_at: data?.updated_at ?? null });
+  const latest = Array.isArray(data) ? data[0] : null;
+  return c.json({ content: latest?.content ?? "", updated_at: latest?.updated_at ?? null });
 });
 
 // ----- /journal/note (POST) -----
@@ -2592,45 +2593,63 @@ app.post("/journal/note", async (c) => {
   const supabase = getSupabase();
   const payload = await requireJwt(c);
   if (payload instanceof Response) return payload;
+  const cardId = typeof payload.card_id === "string" ? payload.card_id : "";
+  if (!cardId) {
+    console.error("[card-gate] POST /journal/note: missing card_id in payload");
+    return c.json({ error: "Invalid session" }, 401);
+  }
+  console.log("[card-gate] POST /journal/note: card_id (prefix)=", cardId.slice(0, 8));
   const ip = getClientIp(c);
   if (!(await rateLimitJournal(supabase, payload.card_id, ip))) {
     return c.json({ error: "Too many requests" }, 429);
   }
-  let body: { content?: string; place_id?: string; idempotency_key?: string };
+  let body: { content?: unknown; place_id?: unknown; idempotency_key?: unknown };
   try {
     body = await c.req.json();
-  } catch {
+  } catch (e) {
+    console.error("[card-gate] POST /journal/note: JSON parse error", e);
     return c.json({ error: "Invalid JSON" }, 400);
   }
-  const content = body?.content ?? "";
-  const placeId = body?.place_id ?? "__my_paris__";
+  const content = typeof body?.content === "string" ? body.content : (body?.content != null ? String(body.content) : "");
+  const placeId = typeof body?.place_id === "string" ? body.place_id : "__my_paris__";
   const idempotencyKey = typeof body?.idempotency_key === "string" && body.idempotency_key.length > 0 ? body.idempotency_key : null;
   if (content.length > 10000) return c.json({ error: "Content too long (max 10000 chars)" }, 400);
+  console.log("[card-gate] POST /journal/note validate ok", { card_id: cardId.slice(0, 8), place_id: placeId, has_key: !!idempotencyKey, content_len: content.length });
   const now = new Date().toISOString();
 
-  const { data: existing } = await supabase
-    .from("journal_entries")
-    .select("id")
-    .eq("card_id", payload.card_id)
-    .eq("place_id", placeId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existing?.id) {
-    const { error: uErr } = await supabase
+  try {
+    // Use limit(1) + data[0] instead of maybeSingle(): duplicates on (card_id, place_id) would make maybeSingle() error → 500.
+    console.log("[card-gate] POST /journal/note selecting existing by (card_id, place_id)");
+    const { data: existingRows, error: selectErr } = await supabase
       .from("journal_entries")
-      .update({ content, updated_at: now })
-      .eq("id", existing.id);
-    if (uErr) {
-      console.error("[card-gate] POST /journal/note update failed:", uErr.message, "code:", uErr.code, "details:", (uErr as { details?: string }).details, "hint:", (uErr as { hint?: string }).hint, "card_id:", payload.card_id, "place_id:", placeId);
+      .select("id")
+      .eq("card_id", cardId)
+      .eq("place_id", placeId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (selectErr) {
+      console.error("[card-gate] POST /journal/note select failed err=", selectErr.message, "code=", selectErr.code);
       return c.json({ error: "Failed to save note" }, 500);
     }
-  } else {
+
+    const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+    if (existing?.id) {
+      const { error: uErr } = await supabase
+        .from("journal_entries")
+        .update({ content, updated_at: now })
+        .eq("id", existing.id);
+      if (uErr) {
+        console.error("[card-gate] POST /journal/note update failed err=", uErr.message, "code=", uErr.code, "details=", (uErr as { details?: string }).details);
+        return c.json({ error: "Failed to save note" }, 500);
+      }
+      return c.json({ ok: true });
+    }
+
     const row: Record<string, unknown> = {
       content,
       place_id: placeId,
-      card_id: payload.card_id,
+      card_id: cardId,
       created_at: now,
       updated_at: now,
     };
@@ -2638,11 +2657,16 @@ app.post("/journal/note", async (c) => {
     const { error: iErr } = await supabase.from("journal_entries").insert(row);
     if (iErr) {
       if (iErr.code === "23505") return c.json({ ok: true });
-      console.error("[card-gate] POST /journal/note insert failed:", iErr.message, "code:", iErr.code, "details:", (iErr as { details?: string }).details, "hint:", (iErr as { hint?: string }).hint, "card_id:", payload.card_id, "place_id:", placeId);
+      console.error("[card-gate] POST /journal/note insert failed err=", iErr.message, "code=", iErr.code, "details=", (iErr as { details?: string }).details, "hint=", (iErr as { hint?: string }).hint);
       return c.json({ error: "Failed to save note" }, 500);
     }
+    return c.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[card-gate] POST /journal/note unhandled err stack=", message, stack);
+    return c.json({ error: "Failed to save note" }, 500);
   }
-  return c.json({ ok: true });
 });
 
 // ----- /journal/entries (POST) -----
@@ -4346,6 +4370,19 @@ app.post("/champs/:id/activate", async (c) => {
     await supabase.from("card_default_champ").upsert({ card_id: payload.card_id, champ_id: id, updated_at: new Date().toISOString() }, { onConflict: "card_id" });
   }
   return c.json({ active: champ });
+});
+
+// 404 catch-all: log path for debugging routing (e.g. champs/active 404)
+app.all("*", (c) => {
+  const pathname = (() => {
+    try {
+      return new URL(c.req.url).pathname;
+    } catch {
+      return c.req.path;
+    }
+  })();
+  console.error("[card-gate] 404 not found path=", pathname, "method=", c.req.method, "url=", c.req.url);
+  return c.json({ error: "Not found", path: pathname }, 404);
 });
 
 // Wrap so we always send CORS with exact origin (never *) â€” Supabase or Hono may add * otherwise
