@@ -216,7 +216,16 @@ export async function pairDevice(cardId: string): Promise<{ access_token: string
     }
     throw e;
   }
-  const data = await res.json().catch(() => ({}));
+  const rawText = await res.text();
+  let data: Record<string, unknown>;
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    data = {};
+  }
+  if (Object.keys(data).length === 0 && res.ok && rawText.length > 0) {
+    console.warn('[card-gate-client] /pair 200 but body parsed to empty. Raw (first 300):', rawText.slice(0, 300));
+  }
   if (res.status === 409) {
     const err = new Error(data?.error ?? 'Already paired') as Error & { code?: string };
     err.code = 'ALREADY_PAIRED';
@@ -232,7 +241,9 @@ export async function pairDevice(cardId: string): Promise<{ access_token: string
   // Support both snake_case (Edge) and camelCase (if response is transformed)
   const accessToken = data?.access_token ?? data?.accessToken;
   if (!accessToken) {
-    const bodyPreview = typeof data === 'object' ? JSON.stringify(data).slice(0, 200) : String(data).slice(0, 200);
+    const bodyPreview = typeof data === 'object' && data !== null && Object.keys(data).length > 0
+      ? JSON.stringify(data).slice(0, 200)
+      : rawText.length > 0 ? rawText.slice(0, 200) : '(empty response body)';
     const hint = data?.status === 'Card Gate proxy active' ? ' Proxy returned "proxy active" — path may not be forwarded (check Vercel rewrite /api/card-gate/:path*).' : '';
     throw new Error(`No access_token in response (status ${res.status}).${hint} Check Network tab for /pair. Body: ${bodyPreview}`);
   }

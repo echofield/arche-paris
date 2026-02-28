@@ -178,6 +178,9 @@ module.exports = async function handler(req, res) {
     res.setHeader('X-Card-Gate-Cache-Policy', cachePolicyLabel);
     res.setHeader('Content-Type', normalizeContentType(upstream.headers.get('content-type')));
     const text = await upstream.text();
+    if (proxiedPath === 'pair' && upstream.status === 200) {
+      console.warn('[card-gate] /pair 200 body length:', text.length, 'preview:', text.slice(0, 80));
+    }
     return res.status(upstream.status).send(text);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Proxy failure';

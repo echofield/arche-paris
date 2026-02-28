@@ -19,7 +19,7 @@ import {
 
 export interface CardStatus {
   valid: boolean;
-  status: 'ACTIVATED' | 'WELCOME_BACK' | 'ALREADY_ACTIVATED' | 'NOT_FOUND' | 'ERROR' | 'DEMO' | 'NEEDS_GATE' | 'SESSION_EXPIRED';
+  status: 'ACTIVATED' | 'WELCOME_BACK' | 'ALREADY_ACTIVATED' | 'NOT_FOUND' | 'ERROR' | 'DEMO' | 'NEEDS_GATE' | 'SESSION_EXPIRED' | 'NO_KEY';
   message: string;
   cardId: string;
   cardCode?: string;
@@ -171,7 +171,13 @@ export async function initializeCard(): Promise<CardStatus | null> {
       setStoredCard(session.cardId);
       storedCard = session.cardId;
     } else {
-      return null;
+      // No key required: allow connection without a card (guest mode).
+      return {
+        valid: true,
+        status: 'NO_KEY',
+        message: 'Entrée sans carte.',
+        cardId: '',
+      };
     }
   }
 

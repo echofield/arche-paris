@@ -128,18 +128,20 @@ export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: Car
           >
             Entrer
           </button>
-          <p
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: '10px',
-              letterSpacing: '0.1em',
-              color: '#1A1A1A',
-              opacity: 0.3,
-              marginTop: 'var(--space-xl)'
-            }}
-          >
-            CARTE {cardStatus.cardId}
-          </p>
+          {cardStatus.cardId && (
+            <p
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: '10px',
+                letterSpacing: '0.1em',
+                color: '#1A1A1A',
+                opacity: 0.3,
+                marginTop: 'var(--space-xl)'
+              }}
+            >
+              CARTE {cardStatus.cardId}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -252,6 +254,27 @@ export function CardEntry({ status, cardStatus, onManualEntry, onContinue }: Car
         >
           Activer ma carte
         </button>
+
+        {onContinue && (
+          <button
+            type="button"
+            onClick={onContinue}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              letterSpacing: '0.08em',
+              color: '#1A1A1A',
+              opacity: 0.6,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              marginBottom: 'var(--space-lg)'
+            }}
+          >
+            Entrer sans carte
+          </button>
+        )}
 
         <p
           style={{
