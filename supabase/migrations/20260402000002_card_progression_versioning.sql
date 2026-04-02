@@ -1,4 +1,4 @@
-﻿-- Server-authoritative versioning for card-scoped progression snapshots.
+-- Server-authoritative versioning for card-scoped progression snapshots.
 -- Requires: 20260402000001_card_progression_snapshots.sql
 
 do $$
