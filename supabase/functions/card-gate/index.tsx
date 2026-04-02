@@ -1,5 +1,5 @@
 /**
- * ARCHÃƒÆ’Ã¢â‚¬Â° ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Card Gate Edge Function (V1)
+ * ARCHÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â° ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Card Gate Edge Function (V1)
  *
  * INVARIANTS (documented):
  * 1) Activation requires non-enumerable proof (code+password via activate-card).
@@ -26,7 +26,7 @@ const app = new Hono().basePath(CARD_GATE_BASE_PATH);
 const JSON_UTF8 = "application/json; charset=utf-8";
 
 // Allowed origins only (no random site can use visitor's browser as relay).
-// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.archÃƒÆ’Ã‚Â©-paris.com).
+// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.archÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©-paris.com).
 const ALLOWED_ORIGINS = [
   "https://arche-paris.com",
   "https://www.arche-paris.com",
@@ -36,13 +36,29 @@ const ALLOWED_ORIGINS = [
 
 function normalizeCardGateRequestPath(req: Request): Request {
   const url = new URL(req.url);
+
+  // Some gateways forward /functions/v1/card-gate/card-gate/...; collapse duplicate slug.
+  const duplicatedBase = `${CARD_GATE_BASE_PATH}/card-gate`;
+  if (url.pathname === duplicatedBase || url.pathname.startsWith(`${duplicatedBase}/`)) {
+    const tail = url.pathname.slice(duplicatedBase.length);
+    const normalizedTail = tail.length > 0 ? (tail.startsWith("/") ? tail : `/${tail}`) : "";
+    url.pathname = `${CARD_GATE_BASE_PATH}${normalizedTail}`;
+    return new Request(url.toString(), req);
+  }
+
   if (url.pathname.startsWith(CARD_GATE_BASE_PATH)) return req;
 
-  const suffix = url.pathname.startsWith("/") ? url.pathname : `/${url.pathname}`;
+  let incomingPath = url.pathname;
+  if (incomingPath === "/card-gate") {
+    incomingPath = "/";
+  } else if (incomingPath.startsWith("/card-gate/")) {
+    incomingPath = incomingPath.slice("/card-gate".length);
+  }
+
+  const suffix = incomingPath.startsWith("/") ? incomingPath : `/${incomingPath}`;
   url.pathname = `${CARD_GATE_BASE_PATH}${suffix}`.replace(/\/{2,}/g, "/");
   return new Request(url.toString(), req);
 }
-
 function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
@@ -144,7 +160,7 @@ function normalizeLegacyText(input: string): string {
   if (!text) return text;
 
   // Attempt to recover strings that were UTF-8 bytes misread as Latin-1.
-  if (/[ÃƒÆ’Ãƒâ€šÃƒÂ¢]/.test(text)) {
+  if (/[ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢]/.test(text)) {
     try {
       const bytes = Uint8Array.from(Array.from(text, (ch) => ch.charCodeAt(0) & 0xff));
       const decoded = new TextDecoder("utf-8").decode(bytes);
@@ -158,21 +174,21 @@ function normalizeLegacyText(input: string): string {
 
   // Common mojibake fragments observed in legacy traces.
   text = text
-    .replace(/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦/g, "...")
-    .replace(/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â|ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“/g, "-")
-    .replace(/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢/g, "'")
-    .replace(/ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ|ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â/g, "\"")
-    .replace(/Ãƒâ€šÃ‚Â·/g, "Ã‚Â·")
-    .replace(/Ãƒâ€šÃ‚Â«/g, "Ã‚Â«")
-    .replace(/Ãƒâ€šÃ‚Â»/g, "Ã‚Â»");
+    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦/g, "...")
+    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â|ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“/g, "-")
+    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢/g, "'")
+    .replace(/ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ|ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â/g, "\"")
+    .replace(/ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·/g, "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·")
+    .replace(/ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â«/g, "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â«")
+    .replace(/ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â»/g, "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â»");
 
   // Heuristic repair for replacement-char corruption inside French words.
   text = text
     .replace(/([A-Za-z])\uFFFD([A-Za-z])/g, "$1e$2")
-    .replace(/pr\uFFFDsence/gi, "prÃƒÂ©sence")
-    .replace(/t\uFFFDmoin/gi, "tÃƒÂ©moin")
-    .replace(/deuxi\uFFFDme/gi, "deuxiÃƒÂ¨me")
-    .replace(/premi\uFFFDres/gi, "premiÃƒÂ¨res")
+    .replace(/pr\uFFFDsence/gi, "prÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©sence")
+    .replace(/t\uFFFDmoin/gi, "tÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©moin")
+    .replace(/deuxi\uFFFDme/gi, "deuxiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨me")
+    .replace(/premi\uFFFDres/gi, "premiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨res")
     .replace(/\uFFFD/g, "e");
 
   return text.normalize("NFC").replace(/\s+/g, " ").trim();
@@ -579,7 +595,7 @@ app.post("/unpair-session", async (c) => {
         return new Response(JSON.stringify({
           ok: false,
           code: "COOKIE_MISSING_CARD_PAIRED",
-          message: "Session expirÃƒÆ’Ã‚Â©e. Utilisez votre mot de passe pour dÃƒÆ’Ã‚Â©connecter."
+          message: "Session expirÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e. Utilisez votre mot de passe pour dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©connecter."
         }), {
           status: 401,
           headers: {
@@ -1098,7 +1114,7 @@ const MERIDIAN_ANCHORS: MeridianAnchor[] = [
     h3: "PAR-05",
     label: "Foucault Pendulum",
     type: "threshold",
-    location_hint: "PanthÃƒÂ©on",
+    location_hint: "PanthÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©on",
     constraints: {
       temporal: { mode: "daily_window", start_hour: 10, end_hour: 18 },
       presence: { min_pulses_20m: 3 },
@@ -1727,7 +1743,7 @@ app.post("/presence/verify", async (c) => {
         grade: "LOW",
         reasonCode: "COOLDOWN",
         whisperKey: PRESENCE_WHISPER_KEYS.COOLDOWN,
-        whisper: "Attends un peu avant de revÃƒÂ©rifier.",
+        whisper: "Attends un peu avant de revÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rifier.",
         serverTs: Date.now(),
       }),
       { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
@@ -1766,7 +1782,7 @@ app.post("/presence/verify", async (c) => {
               grade: "LOW",
               reasonCode: "TELEPORT",
               whisperKey: PRESENCE_WHISPER_KEYS.TELEPORT,
-              whisper: "DÃƒÂ©placement trop rapide Ã¢â‚¬â€ la ville refuse.",
+              whisper: "DÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©placement trop rapide ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â la ville refuse.",
               serverTs: Date.now(),
             }),
             { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
@@ -1805,17 +1821,17 @@ app.post("/presence/verify", async (c) => {
   if (grade === "LOW") {
     reasonCode = "LOW_TRUST";
     whisperKey = PRESENCE_WHISPER_KEYS.WEAK;
-    whisper = "Signal trop faible Ã¢â‚¬â€ approche-toi de l'air libre.";
+    whisper = "Signal trop faible ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â approche-toi de l'air libre.";
   } else if (zoneCenter !== undefined && zoneCenter !== null && inside === false) {
     reasonCode = "OUTSIDE_ZONE";
     whisperKey = PRESENCE_WHISPER_KEYS.OUTSIDE;
     whisper = "Tu n'es pas dans le lieu attendu.";
   } else if (grade === "MED") {
     whisperKey = PRESENCE_WHISPER_KEYS.UNCERTAIN;
-    whisper = "Signal incertain Ã¢â‚¬â€ la ville hÃƒÂ©site.";
+    whisper = "Signal incertain ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â la ville hÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©site.";
   } else {
     whisperKey = PRESENCE_WHISPER_KEYS.RECOGNIZED;
-    whisper = "PrÃƒÂ©sence reconnue.";
+    whisper = "PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©sence reconnue.";
   }
 
   const ok = grade !== "LOW" && (zoneCenter == null || inside === true);
@@ -2476,7 +2492,7 @@ app.get("/world/snapshot", async (c) => {
       axes,
       reading: { cycle, tension, trend, waveSeed },
       vestige: { status: vestigeStatus, hint: vestigeStatus === "detected" ? "Une forme commence..." : null, statueKey: null, revealLocked: false },
-      questCallout: { id: "question", title: "Question", subtitle: "La ville rÃƒÂ©pond.", ctaLabel: "Ãƒâ€°COUTER Ã¢â€ â€™", action: "open_oracle", locked: false, reasonLocked: null },
+      questCallout: { id: "question", title: "Question", subtitle: "La ville rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©pond.", ctaLabel: "ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°COUTER ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢", action: "open_oracle", locked: false, reasonLocked: null },
       oracle: { eligible: true, message: null, source: "daily", cooldownEndsAt: null },
       seals: Array.isArray(auraRow?.seals) ? auraRow.seals : [],
     };
@@ -2629,7 +2645,7 @@ app.post("/journal/note", async (c) => {
   const now = new Date().toISOString();
 
   try {
-    // Use limit(1) + data[0] instead of maybeSingle(): duplicates on (card_id, place_id) would make maybeSingle() error Ã¢â€ â€™ 500.
+    // Use limit(1) + data[0] instead of maybeSingle(): duplicates on (card_id, place_id) would make maybeSingle() error ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ 500.
     console.log("[card-gate] POST /journal/note selecting existing by (card_id, place_id)");
     const { data: existingRows, error: selectErr } = await supabase
       .from("journal_entries")
@@ -2801,8 +2817,8 @@ app.post("/trace/leave", async (c) => {
   }
   const { quest_id, etape_id, content, idempotency_key } = body;
   const trimmed = (content ?? "").trim();
-  if (trimmed.length < 3) return c.json({ error: "TOO_SHORT", message: "Trop court. Au moins 3 caractÃƒÆ’Ã‚Â¨res." }, 400);
-  if (trimmed.length > 140) return c.json({ error: "TOO_LONG", message: "Trop long. Maximum 140 caractÃƒÆ’Ã‚Â¨res." }, 400);
+  if (trimmed.length < 3) return c.json({ error: "TOO_SHORT", message: "Trop court. Au moins 3 caractÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨res." }, 400);
+  if (trimmed.length > 140) return c.json({ error: "TOO_LONG", message: "Trop long. Maximum 140 caractÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨res." }, 400);
   if (!quest_id || !etape_id) return c.json({ error: "quest_id and etape_id required" }, 400);
 
   const { count } = await supabase
@@ -2812,7 +2828,7 @@ app.post("/trace/leave", async (c) => {
     .eq("quest_id", quest_id)
     .eq("etape_id", etape_id);
   if ((count ?? 0) > 0) {
-    return c.json({ error: "ALREADY_LEFT_TRACE", message: "Vous avez dÃƒÆ’Ã‚Â©jÃƒÆ’Ã‚Â  laissÃƒÆ’Ã‚Â© une trace ici." }, 400);
+    return c.json({ error: "ALREADY_LEFT_TRACE", message: "Vous avez dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©jÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  laissÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© une trace ici." }, 400);
   }
 
   const row: Record<string, unknown> = {
@@ -2824,10 +2840,10 @@ app.post("/trace/leave", async (c) => {
   if (typeof idempotency_key === "string" && idempotency_key.length > 0) row.idempotency_key = idempotency_key;
   const { error } = await supabase.from("traces").insert(row);
   if (error) {
-    if (error.code === "23505") return c.json({ success: true, message: "Trace laissÃƒÆ’Ã‚Â©e." });
+    if (error.code === "23505") return c.json({ success: true, message: "Trace laissÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e." });
     return c.json({ error: "DB_ERROR", message: "Impossible de laisser une trace." }, 500);
   }
-  return c.json({ success: true, message: "Trace laissÃƒÆ’Ã‚Â©e." });
+  return c.json({ success: true, message: "Trace laissÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e." });
 });
 
 // ----- /trace/check -----
@@ -3223,47 +3239,47 @@ function simpleHash(str: string): number {
 
 // ============ MIROIR: SENTENCE POOLS ============
 
-/** BLOC A ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â PremiÃƒÆ’Ã‚Â¨res phrases fondatrices (rare, initiation) */
+/** BLOC A ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â PremiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨res phrases fondatrices (rare, initiation) */
 const BLOC_A_FOUNDATION = [
   "La ville commence par un regard.",
-  "Paris n'est pas un lieu. C'est une prÃƒÆ’Ã‚Â©sence qui attend.",
-  "Chaque pas creuse une mÃƒÆ’Ã‚Â©moire qui n'existait pas avant.",
-  "La pierre garde ce que l'Ãƒâ€¦Ã¢â‚¬Å“il oublie.",
+  "Paris n'est pas un lieu. C'est une prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sence qui attend.",
+  "Chaque pas creuse une mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©moire qui n'existait pas avant.",
+  "La pierre garde ce que l'ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“il oublie.",
   "On n'habite pas Paris. On s'y laisse habiter.",
   "Le silence des rues est une langue ancienne.",
-  "La ville se souvient de ceux qui l'ont traversÃƒÆ’Ã‚Â©e.",
+  "La ville se souvient de ceux qui l'ont traversÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e.",
   "Paris est un miroir qui renvoie ce qu'on lui donne.",
 ];
 
-/** BLOC B ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Phrases centrales (quotidiennes) */
+/** BLOC B ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Phrases centrales (quotidiennes) */
 const BLOC_B_CORE = [
   "Aujourd'hui, la ville respire autrement.",
-  "Le temps s'ÃƒÆ’Ã‚Â©coule diffÃƒÆ’Ã‚Â©remment selon les arrondissements.",
+  "Le temps s'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©coule diffÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©remment selon les arrondissements.",
   "Chaque coin de rue garde une trace invisible.",
-  "La lumiÃƒÆ’Ã‚Â¨re change la texture des souvenirs.",
-  "Paris se rÃƒÆ’Ã‚Â©vÃƒÆ’Ã‚Â¨le par fragments, jamais tout ÃƒÆ’Ã‚Â  fait.",
-  "Les pas s'accumulent et crÃƒÆ’Ã‚Â©ent un rythme propre.",
-  "La ville murmure des histoires ÃƒÆ’Ã‚Â  qui sait ÃƒÆ’Ã‚Â©couter.",
-  "Chaque jour ajoute une couche ÃƒÆ’Ã‚Â  la mÃƒÆ’Ã‚Â©moire collective.",
-  "Les faÃƒÆ’Ã‚Â§ades racontent ce que les bouches taisent.",
-  "Paris existe autant dans l'absence que dans la prÃƒÆ’Ã‚Â©sence.",
+  "La lumiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re change la texture des souvenirs.",
+  "Paris se rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨le par fragments, jamais tout ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  fait.",
+  "Les pas s'accumulent et crÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ent un rythme propre.",
+  "La ville murmure des histoires ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  qui sait ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©couter.",
+  "Chaque jour ajoute une couche ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  la mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©moire collective.",
+  "Les faÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ades racontent ce que les bouches taisent.",
+  "Paris existe autant dans l'absence que dans la prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sence.",
   "Le regard transforme l'ordinaire en signe.",
   "La ville se construit dans l'espace entre les choses.",
-  "Chaque passage laisse une empreinte lÃƒÆ’Ã‚Â©gÃƒÆ’Ã‚Â¨re.",
-  "Paris se donne ÃƒÆ’Ã‚Â  ceux qui savent attendre.",
-  "La mÃƒÆ’Ã‚Â©moire habite les interstices.",
+  "Chaque passage laisse une empreinte lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re.",
+  "Paris se donne ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  ceux qui savent attendre.",
+  "La mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©moire habite les interstices.",
 ];
 
-/** BLOC C ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÆ’Ã¢â‚¬Â°chos (activitÃƒÆ’Ã‚Â©, cooldown) */
+/** BLOC C ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°chos (activitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©, cooldown) */
 const BLOC_C_ECHO = [
-  "L'ÃƒÆ’Ã‚Â©cho d'un pas rÃƒÆ’Ã‚Â©sonne dans le vide.",
-  "Ce qui fut gravÃƒÆ’Ã‚Â© rÃƒÆ’Ã‚Â©apparaÃƒÆ’Ã‚Â®t ÃƒÆ’Ã‚Â  l'improviste.",
+  "L'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cho d'un pas rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sonne dans le vide.",
+  "Ce qui fut gravÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©apparaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®t ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  l'improviste.",
   "La trace appelle la trace.",
-  "L'activitÃƒÆ’Ã‚Â© rÃƒÆ’Ã‚Â©veille des mÃƒÆ’Ã‚Â©moires endormies.",
-  "Chaque action crÃƒÆ’Ã‚Â©e un ÃƒÆ’Ã‚Â©cho qui se propage.",
-  "Le prÃƒÆ’Ã‚Â©sent fait ÃƒÆ’Ã‚Â©cho au passÃƒÆ’Ã‚Â©.",
-  "L'empreinte appelle sa rÃƒÆ’Ã‚Â©sonance.",
-  "L'activitÃƒÆ’Ã‚Â© rÃƒÆ’Ã‚Â©vÃƒÆ’Ã‚Â¨le ce qui ÃƒÆ’Ã‚Â©tait cachÃƒÆ’Ã‚Â©.",
+  "L'activitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©veille des mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©moires endormies.",
+  "Chaque action crÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e un ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cho qui se propage.",
+  "Le prÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sent fait ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©cho au passÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©.",
+  "L'empreinte appelle sa rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sonance.",
+  "L'activitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨le ce qui ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©tait cachÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©.",
 ];
 
 /** Determine kind from sentence (A/B/C) */
@@ -3320,18 +3336,18 @@ async function computeKind(
 
 /** Historical anecdotes keyed by MM-DD (subset from histoire-quotidienne.ts) */
 const HISTORICAL_ANECDOTES: Record<string, string> = {
-  "11-06": "Ce matin-lÃƒÆ’Ã‚Â , dans un atelier proche du Louvre, les ouvriers dÃƒÆ’Ã‚Â©montent une faÃƒÆ’Ã‚Â§ade promise ÃƒÆ’Ã‚Â  disparaÃƒÆ’Ã‚Â®tre. Les plans ont changÃƒÆ’Ã‚Â©. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue ÃƒÆ’Ã‚Â©troite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracÃƒÆ’Ã‚Â© subsiste.",
-  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides rÃƒÆ’Ã‚Â©sonnent encore des voix du monde entier. Un gardien ramasse un programme froissÃƒÆ’Ã‚Â©.\n\nParis apprend qu'elle peut ÃƒÆ’Ã‚Âªtre internationale sans cesser d'ÃƒÆ’Ã‚Âªtre elle-mÃƒÆ’Ã‚Âªme.",
-  "11-08": "Le Louvre ouvre comme musÃƒÆ’Ã‚Â©e public pour la premiÃƒÆ’Ã‚Â¨re fois. Les toiles de maÃƒÆ’Ã‚Â®tres, autrefois rÃƒÆ’Ã‚Â©servÃƒÆ’Ã‚Â©es au regard royal, sont maintenant offertes ÃƒÆ’Ã‚Â  tous. Un menuisier entre, hÃƒÆ’Ã‚Â©site, lÃƒÆ’Ã‚Â¨ve les yeux.\n\nLa beautÃƒÆ’Ã‚Â© n'a plus de porte fermÃƒÆ’Ã‚Â©e.",
-  "11-09": "On inaugure la premiÃƒÆ’Ã‚Â¨re ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une ÃƒÆ’Ã‚Â©nergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'ÃƒÆ’Ã‚Â©chelle.\n\nLa ville devient un point de dÃƒÆ’Ã‚Â©part, pas seulement une destination.",
-  "11-10": "Dans un cafÃƒÆ’Ã‚Â© de Montparnasse, un groupe d'artistes amÃƒÆ’Ã‚Â©ricains discute jusqu'ÃƒÆ’Ã‚Â  l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge crÃƒÆ’Ã‚Â©atif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
-  "11-11": "Pour la premiÃƒÆ’Ã‚Â¨re fois, Paris dÃƒÆ’Ã‚Â©pose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumÃƒÆ’Ã‚Â©e. Le silence est total.\n\nLa mÃƒÆ’Ã‚Â©moire collective trouve son ancrage gÃƒÆ’Ã‚Â©omÃƒÆ’Ã‚Â©trique au centre de l'ÃƒÆ’Ã¢â‚¬Â°toile.",
-  "11-12": "On pose la premiÃƒÆ’Ã‚Â¨re pierre du Palais du Luxembourg, commandÃƒÆ’Ã‚Â© par Marie de MÃƒÆ’Ã‚Â©dicis. Elle veut recrÃƒÆ’Ã‚Â©er Florence ÃƒÆ’Ã‚Â  Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction vÃƒÆ’Ã‚Â©gÃƒÆ’Ã‚Â©tale.",
-  "11-13": "Dans les premiÃƒÆ’Ã‚Â¨res semaines de la RÃƒÆ’Ã‚Â©volution, les passages couverts deviennent des lieux de dÃƒÆ’Ã‚Â©bat improvisÃƒÆ’Ã‚Â©. On y discute, on y conspire, on y espÃƒÆ’Ã‚Â¨re. L'architecture crÃƒÆ’Ã‚Â©e des zones grises entre public et privÃƒÆ’Ã‚Â©.\n\nLa ville trouve de nouveaux espaces de parole.",
-  "11-14": "La premiÃƒÆ’Ã‚Â¨re ligne de mÃƒÆ’Ã‚Â©tro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers dÃƒÆ’Ã‚Â©couvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-mÃƒÆ’Ã‚Âªme pour mieux se dÃƒÆ’Ã‚Â©ployer.",
-  "11-15": "Les Halles dÃƒÆ’Ã‚Â©mÃƒÆ’Ã‚Â©nagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis ÃƒÆ’Ã‚Â  la dÃƒÆ’Ã‚Â©molition. Un dernier marchÃƒÆ’Ã‚Â© se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son ÃƒÆ’Ã‚Â¢me.",
-  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumiÃƒÆ’Ã‚Â¨re change la texture des souvenirs.",
-  "02-10": "Paris se rÃƒÆ’Ã‚Â©vÃƒÆ’Ã‚Â¨le par fragments, jamais tout ÃƒÆ’Ã‚Â  fait. Les pas s'accumulent et crÃƒÆ’Ã‚Â©ent un rythme propre. La ville murmure des histoires ÃƒÆ’Ã‚Â  qui sait ÃƒÆ’Ã‚Â©couter.",
+  "11-06": "Ce matin-lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â , dans un atelier proche du Louvre, les ouvriers dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©montent une faÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â§ade promise ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  disparaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®tre. Les plans ont changÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©troite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© subsiste.",
+  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©sonnent encore des voix du monde entier. Un gardien ramasse un programme froissÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©.\n\nParis apprend qu'elle peut ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âªtre internationale sans cesser d'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âªtre elle-mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âªme.",
+  "11-08": "Le Louvre ouvre comme musÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e public pour la premiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re fois. Les toiles de maÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®tres, autrefois rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©servÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©es au regard royal, sont maintenant offertes ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  tous. Un menuisier entre, hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©site, lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ve les yeux.\n\nLa beautÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© n'a plus de porte fermÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e.",
+  "11-09": "On inaugure la premiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©nergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©chelle.\n\nLa ville devient un point de dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©part, pas seulement une destination.",
+  "11-10": "Dans un cafÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© de Montparnasse, un groupe d'artistes amÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ricains discute jusqu'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge crÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©atif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
+  "11-11": "Pour la premiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re fois, Paris dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©pose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e. Le silence est total.\n\nLa mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©moire collective trouve son ancrage gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©omÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©trique au centre de l'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°toile.",
+  "11-12": "On pose la premiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re pierre du Palais du Luxembourg, commandÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© par Marie de MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©dicis. Elle veut recrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©er Florence ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©gÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©tale.",
+  "11-13": "Dans les premiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨res semaines de la RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©volution, les passages couverts deviennent des lieux de dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©bat improvisÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©. On y discute, on y conspire, on y espÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re. L'architecture crÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e des zones grises entre public et privÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©.\n\nLa ville trouve de nouveaux espaces de parole.",
+  "11-14": "La premiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re ligne de mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©tro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©couvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âªme pour mieux se dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ployer.",
+  "11-15": "Les Halles dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©nagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  la dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©molition. Un dernier marchÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢me.",
+  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨re change la texture des souvenirs.",
+  "02-10": "Paris se rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨le par fragments, jamais tout ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  fait. Les pas s'accumulent et crÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ent un rythme propre. La ville murmure des histoires ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  qui sait ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©couter.",
 };
 
 /** Get historical anecdote for today (from histoire-quotidienne.ts data) */
@@ -3475,7 +3491,7 @@ app.post("/mirror/keep", async (c) => {
 });
 
 // ----- Map: POST /inscriptions -----
-const RUE_HEURE_REGEX = /^Rue\s+.+\s*[ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â\-]\s*\d{1,2}:\d{2}/i;
+const RUE_HEURE_REGEX = /^Rue\s+.+\s*[ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â\-]\s*\d{1,2}:\d{2}/i;
 function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -3504,7 +3520,7 @@ app.post("/inscriptions", async (c) => {
     return c.json({ error: "Doit contenir entre 80 et 120 mots." }, 400);
   }
   if (!RUE_HEURE_REGEX.test(text)) {
-    return c.json({ error: "Le texte doit commencer par Ãƒâ€šÃ‚Â« Rue ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â HH:MM Ãƒâ€šÃ‚Â»." }, 400);
+    return c.json({ error: "Le texte doit commencer par ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â« Rue ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â HH:MM ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â»." }, 400);
   }
   const now = new Date().toISOString();
   const row: Record<string, unknown> = {
@@ -3992,8 +4008,8 @@ const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: num
     duration_sec: 210,
     questions: [
       { id: "q1", prompt: "Entre les trois lettres sur le triangle.", type: "text", answer: "IHS", points: 1 },
-      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["TrinitÃƒÆ’Ã‚Â©", "Royalty", "Ordre militaire"], answer: "TrinitÃƒÆ’Ã‚Â©", points: 1 },
-      { id: "q3", prompt: "Sur la plaque : quel jour / mois / annÃƒÆ’Ã‚Â©e ?", type: "text", answer: "10 MARS 1805", points: 1 },
+      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["TrinitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©", "Royalty", "Ordre militaire"], answer: "TrinitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©", points: 1 },
+      { id: "q3", prompt: "Sur la plaque : quel jour / mois / annÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©e ?", type: "text", answer: "10 MARS 1805", points: 1 },
     ],
     rewards: { aura_xp: 10, seals: ["IHS"], status_unlock: "Lecteur de signes" },
   },
@@ -4001,9 +4017,9 @@ const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: num
     onsite_code: "MERIDIEN",
     duration_sec: 210,
     questions: [
-      { id: "q1", prompt: "Entre le mot trouvÃƒÆ’Ã‚Â© sur place.", type: "text", answer: "MERIDIEN", points: 1 },
-      { id: "q2", prompt: "Cette ligne sert ÃƒÆ’Ã‚Â  :", type: "mcq", choices: ["Mesurer le temps", "DÃƒÆ’Ã‚Â©finir le nord", "Marquer le mÃƒÆ’Ã‚Â©ridien"], answer: "Marquer le mÃƒÆ’Ã‚Â©ridien", points: 1 },
-      { id: "q3", prompt: "En une phrase : qu'as-tu observÃƒÆ’Ã‚Â© ?", type: "text", answer: "*", points: 1 },
+      { id: "q1", prompt: "Entre le mot trouvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© sur place.", type: "text", answer: "MERIDIEN", points: 1 },
+      { id: "q2", prompt: "Cette ligne sert ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  :", type: "mcq", choices: ["Mesurer le temps", "DÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©finir le nord", "Marquer le mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ridien"], answer: "Marquer le mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ridien", points: 1 },
+      { id: "q3", prompt: "En une phrase : qu'as-tu observÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© ?", type: "text", answer: "*", points: 1 },
     ],
     rewards: { aura_xp: 12, seals: ["SEUIL"], status_unlock: "Habitant du seuil" },
   },
@@ -4355,7 +4371,7 @@ app.get("/mirror/today", async (c) => {
   // Get anecdote (if available)
   const anecdotes: Record<string, string> = {
     // Add anecdotes here keyed by MM-DD format
-    // Example: "01-15": "Ce jour-lÃƒÆ’Ã‚Â  ÃƒÆ’Ã‚Â  Paris: ..."
+    // Example: "01-15": "Ce jour-lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  Paris: ..."
   };
   const anecdote = anecdotes[todayMMDD] ?? null;
 
@@ -4704,7 +4720,7 @@ app.all("*", (c) => {
   return c.json({ error: "Not found", path: pathname }, 404);
 });
 
-// Wrap so we always send CORS with exact origin (never *) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Supabase or Hono may add * otherwise
+// Wrap so we always send CORS with exact origin (never *) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Supabase or Hono may add * otherwise
 function corsHeadersFromRequest(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? undefined;
   const h: Record<string, string> = {
