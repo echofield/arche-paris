@@ -1,0 +1,200 @@
+[
+  {
+    "handle": "salutbrian",
+    "name": "Salutbrian",
+    "section": "LES DÉCLENCHEURS (reach + narration simple)",
+    "section_roman": "I",
+    "value_prop": "Paris accessible, énorme portée.",
+    "bucket": "creators",
+    "activation_phase": 1,
+    "distribution_power": 100,
+    "fit_score": 100
+  },
+  {
+    "handle": "parisauhasard",
+    "name": "Parisauhasard",
+    "section": "LES DÉCLENCHEURS (reach + narration simple)",
+    "section_roman": "I",
+    "value_prop": "Poésie urbaine pure.",
+    "bucket": "creators",
+    "activation_phase": 1,
+    "distribution_power": 100,
+    "fit_score": 100
+  },
+  {
+    "handle": "pierrepptt",
+    "name": "Pierrepptt",
+    "section": "LES NARRATEURS CULTURELS",
+    "section_roman": "II",
+    "value_prop": "Culture vulgarisée moderne.",
+    "bucket": "creators",
+    "activation_phase": 1,
+    "distribution_power": 100,
+    "fit_score": 100
+  },
+  {
+    "handle": "florentderue",
+    "name": "Florentderue",
+    "section": "LES NARRATEURS CULTURELS",
+    "section_roman": "II",
+    "value_prop": "Enquête lieux cachés.",
+    "bucket": "creators",
+    "activation_phase": 2,
+    "distribution_power": 80,
+    "fit_score": 85
+  },
+  {
+    "handle": "lunerob",
+    "name": "Lunerob",
+    "section": "LES NARRATEURS CULTURELS",
+    "section_roman": "II",
+    "value_prop": "Histoire + culture féminine.",
+    "bucket": "creators",
+    "activation_phase": 2,
+    "distribution_power": 80,
+    "fit_score": 85
+  },
+  {
+    "handle": "paristimemachine",
+    "name": "Paristimemachine",
+    "section": "LES NARRATEURS CULTURELS",
+    "section_roman": "II",
+    "value_prop": "Promenades historiques → quasi ARCHÉ déjà.",
+    "bucket": "creators",
+    "activation_phase": 2,
+    "distribution_power": 80,
+    "fit_score": 85
+  },
+  {
+    "handle": "quite_travelfrance",
+    "name": "Quite Travelfrance",
+    "section": "LES GUIDES / MONÉTISATION DIRECTE",
+    "section_roman": "III",
+    "value_prop": "Guide premium internationale.",
+    "bucket": "guides",
+    "activation_phase": 3,
+    "distribution_power": 60,
+    "fit_score": 70
+  },
+  {
+    "handle": "leparis_go",
+    "name": "Leparis Go",
+    "section": "LES GUIDES / MONÉTISATION DIRECTE",
+    "section_roman": "III",
+    "value_prop": "Guide conférencier patrimoine.",
+    "bucket": "guides",
+    "activation_phase": 3,
+    "distribution_power": 60,
+    "fit_score": 70
+  },
+  {
+    "handle": "parisculture",
+    "name": "Parisculture",
+    "section": "CULTURE OFFICIELLE / AMPLIFICATEURS",
+    "section_roman": "V",
+    "value_prop": "Ville de Paris — légitimité.",
+    "bucket": "other",
+    "activation_phase": 4,
+    "distribution_power": 40,
+    "fit_score": 55
+  },
+  {
+    "handle": "toits_de_paris",
+    "name": "Toits De Paris",
+    "section": "LES DÉCLENCHEURS (reach + narration simple)",
+    "section_roman": "I",
+    "value_prop": "Marche narrative / POV ville.",
+    "bucket": "creators",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "parislegendes",
+    "name": "Parislegendes",
+    "section": "LES DÉCLENCHEURS (reach + narration simple)",
+    "section_roman": "I",
+    "value_prop": "Mystère + imaginaire.",
+    "bucket": "creators",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "lavraiehistoire_",
+    "name": "Lavraiehistoire",
+    "section": "LES NARRATEURS CULTURELS",
+    "section_roman": "II",
+    "value_prop": "Format viral historique.",
+    "bucket": "creators",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "le.gout.de.l.histoire",
+    "name": "Le Gout De L Histoire",
+    "section": "LES NARRATEURS CULTURELS",
+    "section_roman": "II",
+    "value_prop": "Histoire par la gastronomie.",
+    "bucket": "creators",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "les_distingues",
+    "name": "Les Distingues",
+    "section": "ESTHÉTIQUE & LIFESTYLE PARISIEN",
+    "section_roman": "IV",
+    "value_prop": "Paris élégant / luxe.",
+    "bucket": "experience_studios",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "stephanie.jh",
+    "name": "Stephanie Jh",
+    "section": "ESTHÉTIQUE & LIFESTYLE PARISIEN",
+    "section_roman": "IV",
+    "value_prop": "Lifestyle expatrié Paris.",
+    "bucket": "experience_studios",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "paris_laboutique",
+    "name": "Paris Laboutique",
+    "section": "ESTHÉTIQUE & LIFESTYLE PARISIEN",
+    "section_roman": "IV",
+    "value_prop": "Objets / imaginaire souvenir moderne.",
+    "bucket": "experience_studios",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "lavraiehistoire",
+    "name": "Lavraiehistoire",
+    "section": "CRÉATEURS TRANSVERSAUX",
+    "section_roman": "VI",
+    "value_prop": null,
+    "bucket": "creators",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  },
+  {
+    "handle": "lobster_creative_sound",
+    "name": "Lobster Creative Sound",
+    "section": "TON ÉCOSYSTÈME DIRECT",
+    "section_roman": "VII",
+    "value_prop": "couche sonore ARCHÉ.",
+    "bucket": "other",
+    "activation_phase": null,
+    "distribution_power": 50,
+    "fit_score": 60
+  }
+]

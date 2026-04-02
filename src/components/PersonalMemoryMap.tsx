@@ -25,13 +25,15 @@ import { useTranslation } from '../utils/i18n';
 import { getRefusedArrondissements, isRefused, setRefused } from '../utils/refused-arrondissements';
 import { postInscription } from '../utils/card-gate-map-client';
 import { hasLocalSecret } from '../utils/card-gate-client';
+import { emitDiagnostic } from '../lib/runtime-diagnostics';
+import { buildZoneProgressMap } from '../lib/runtime-normalization';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import type { QuestThreadTrace } from '../types/traces';
 import type { MapState, MapInscription, CityMapState } from '../types/map-engraving';
 import { emitEngraveEvent } from '../utils/engrave-events';
 import { ZoneDetailSheet } from './ZoneDetailSheet';
 import { AsyncState } from './AsyncState';
-import { api, type ZoneProgressItem, type WorldSnapshotData, type MonParisReading } from '../lib/api';
+import { api, type WorldSnapshotData, type MonParisReading } from '../lib/api';
 import { useWorldSnapshot } from '../contexts/WorldSnapshotContext';
 import { MapLayers, type MapLayerMode } from './PersonalMemoryMap/MapLayers';
 import { TraceRenderer } from './PersonalMemoryMap/TraceRenderer';
@@ -181,7 +183,6 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   const [ecrireError, setEcrireError] = useState<string | null>(null);
   const [ecrireOptInField, setEcrireOptInField] = useState(false); // Share to Le Champ
   const [zoneDetailArr, setZoneDetailArr] = useState<number | null>(null);
-  const [zoneProgressMap, setZoneProgressMapLocal] = useState<Record<string, ZoneProgressItem>>({});
   const [zoneLawMap, setZoneLawMap] = useState<Record<string, RitualStartLaw>>({});
   const [anchorZoneMap, setAnchorZoneMap] = useState<Record<string, boolean>>({});
   const [worldSnapshotState, setWorldSnapshotState] = useState<WorldSnapshotData | null>(null);
@@ -215,12 +216,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
     presenceMarkerRef.current = presenceMarker;
   }, [presenceMarker]);
 
-  useEffect(() => {
-    if (!ctxZoneProgress) return;
-    const map: Record<string, ZoneProgressItem> = {};
-    ctxZoneProgress.zones.forEach(z => { map[z.zone_id] = z; });
-    setZoneProgressMapLocal(map);
-  }, [ctxZoneProgress]);
+  const zoneProgressMap = useMemo(
+    () => buildZoneProgressMap(ctxZoneProgress, 'PersonalMemoryMap.zoneProgressMap'),
+    [ctxZoneProgress],
+  );
 
   const collection = getCollection();
   const points = useMemo(() => getCollectedPoints(), [collection?.symbols.length, collection?.lastUpdated]);
@@ -379,6 +378,35 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   useEffect(() => {
     if (ctxSnapshot) applySnapshot(ctxSnapshot);
   }, [ctxSnapshot, applySnapshot]);
+
+  const lastInputDiagRef = useRef<string | null>(null);
+  useEffect(() => {
+    const signature = [
+      Object.keys(zoneProgressMap).length,
+      worldSnapshotState?.world.zones.length ?? 0,
+      worldSnapshotState?.world.map.inscriptions.length ?? 0,
+      outsideCoverage ? 1 : 0,
+    ].join('|');
+
+    if (lastInputDiagRef.current === signature) return;
+    lastInputDiagRef.current = signature;
+
+    emitDiagnostic(
+      {
+        level: 'info',
+        module: 'PersonalMemoryMap',
+        code: 'INPUTS_HYDRATED',
+        message: 'Map inputs refreshed.',
+        details: {
+          zoneProgressKeys: Object.keys(zoneProgressMap).length,
+          worldZones: worldSnapshotState?.world.zones.length ?? 0,
+          mapInscriptions: worldSnapshotState?.world.map.inscriptions.length ?? 0,
+          outsideCoverage,
+        },
+      },
+      { devOnly: true },
+    );
+  }, [zoneProgressMap, worldSnapshotState, outsideCoverage]);
 
   const refreshMapState = ctxRefresh;
 

@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/sheet';
 import { api, type ZoneProgressItem, type Inscription, type LawEvaluateData } from '../lib/api';
+import { normalizeWorldSnapshotData } from '../lib/runtime-normalization';
 import { useZoneEntry, arrToZoneId } from '../hooks/useZoneEntry';
 import { useTranslation } from '../utils/i18n';
 import { ZoneEntryFeedback } from './ZoneEntryFeedback';
@@ -66,16 +67,20 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
 
       let zoneProgress: ZoneProgressItem | null = null;
       let snapshotInscriptions: Inscription[] = [];
-      if (snapshotResult.data) {
+      const snapshotData = snapshotResult.data
+        ? normalizeWorldSnapshotData(snapshotResult.data, 'ZoneDetailSheet.loadData')
+        : null;
+
+      if (snapshotData) {
         if (import.meta.env.DEV) {
           console.debug('[ZoneDetailSheet] snapshot', {
-            world_version: snapshotResult.data.policy.world_version,
-            now: snapshotResult.data.now,
-            authenticated: snapshotResult.data.me.authenticated,
+            world_version: snapshotData.policy.world_version,
+            now: snapshotData.now,
+            authenticated: snapshotData.me.authenticated,
             h3: zoneH3,
           });
         }
-        const zoneOverlay = snapshotResult.data.me.zones[zoneH3];
+        const zoneOverlay = snapshotData.me.zones[zoneH3];
         const rawProgress = zoneOverlay?.progress;
         zoneProgress = rawProgress
           ? {
@@ -97,11 +102,11 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
           : null;
         setProgress(zoneProgress);
 
-        const zone = snapshotResult.data.world.zones.find((z) => z.h3 === zoneH3);
+        const zone = snapshotData.world.zones.find((z) => z.h3 === zoneH3);
         const law = zone?.law?.['ritual.start'] ?? zoneOverlay?.activation ?? null;
         setZoneLaw(law);
 
-        snapshotInscriptions = (snapshotResult.data.world.map.inscriptions ?? [])
+        snapshotInscriptions = (snapshotData.world.map.inscriptions ?? [])
           .filter((ins) => ins.h3 === zoneH3)
           .map((ins) => ({
             inscription_id: ins.id,
@@ -531,3 +536,4 @@ export function ZoneDetailSheet({ arrondissement, onClose, onOpenEcrire }: ZoneD
     </>
   );
 }
+

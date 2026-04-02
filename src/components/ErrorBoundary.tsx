@@ -1,4 +1,5 @@
 import React from 'react';
+import { emitDiagnostic } from '../lib/runtime-diagnostics';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -19,6 +20,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    emitDiagnostic({
+      level: 'error',
+      module: 'ErrorBoundary',
+      code: 'UNHANDLED_RENDER_ERROR',
+      message: error.message,
+      details: {
+        name: error.name,
+        stack: error.stack,
+        componentStack: info.componentStack,
+      },
+      fatal: true,
+    });
     console.error('[ErrorBoundary] Unhandled render error:', error, info);
   }
 
@@ -50,7 +63,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 marginBottom: 12,
               }}
             >
-              ARCHÉ
+              ARCHE
             </h1>
             <p
               style={{
@@ -87,3 +100,4 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return this.props.children;
   }
 }
+

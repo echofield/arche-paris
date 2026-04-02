@@ -23,6 +23,8 @@ import { MeridianQuest } from './components/MeridianQuest';
 import { InstrumentsCabinetOverlay } from './components/InstrumentsCabinetOverlay';
 import { TresorCache } from './components/TresorCache';
 import { initializeCard, afterCardGateAuthenticated, unpairCard, forceUnpairCard, clearCard, AlreadyPairedError, RateLimitError, AuthInProgressError, type CardStatus } from './utils/card-service';
+import { bootstrapCardScopedProgression } from './utils/progression-bootstrap';
+import { PROGRESSION_RECONCILE_INTERVAL_MS, reconcileCardScopedProgression } from './utils/progression-reconcile';
 import { CardGate } from './components/CardGate';
 import { decayIfNeeded } from './utils/companion-service';
 import { recordAppOpen, shouldShowSilencePrompt, markSilencePromptShown } from './utils/silence-prompt';
@@ -31,6 +33,7 @@ import { useTranslation } from './utils/i18n';
 import { LanguageSelector } from './components/LanguageSelector';
 import { SyncStateProvider } from './contexts/SyncStateContext';
 import { WhisperProvider, Whisper } from './contexts/WhisperContext';
+import { ProgressionStatusBanner } from './components/ProgressionStatusBanner';
 
 type Screen = 'homepage' | 'origine' | 'quetes' | 'histoire' | 'detail' | 'questRun' | 'carnet' | 'collection' | 'seuil' | 'etudes' | 'aura' | 'meridiens' | 'place-scan' | 'champ' | 'conducteur' | 'kept' | 'zone-test' | 'meridian-quest' | 'tresor';
 type AppState = 'loading' | 'no_card' | 'validating' | 'invalid' | 'welcome' | 'ready';
@@ -122,6 +125,48 @@ export default function App() {
     init();
   }, []);
 
+  useEffect(() => {
+    if (appState !== 'ready') return;
+    const cardId = cardStatus?.cardId ?? null;
+    if (!cardId) return;
+
+    let cancelled = false;
+    let reconcileTimer: number | null = null;
+
+    const runReconcile = (source: string) => {
+      if (cancelled) return;
+      void reconcileCardScopedProgression(cardId, source);
+    };
+
+    const start = async () => {
+      await bootstrapCardScopedProgression(cardId);
+      if (cancelled) return;
+      runReconcile('live.initial');
+
+      reconcileTimer = window.setInterval(() => {
+        runReconcile('live.interval');
+      }, PROGRESSION_RECONCILE_INTERVAL_MS);
+    };
+
+    const onOnline = () => runReconcile('live.online');
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      runReconcile('live.visibility');
+    };
+
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibility);
+    void start();
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (reconcileTimer != null) {
+        window.clearInterval(reconcileTimer);
+      }
+    };
+  }, [appState, cardStatus?.cardId]);
   // Companion decay once per session (no timers)
   useEffect(() => {
     if (appState !== 'ready') return;
@@ -578,6 +623,7 @@ export default function App() {
         ) : (
           <>
             <LanguageSelector />
+            <ProgressionStatusBanner cardId={cardStatus?.cardId ?? null} />
             {cardStatus?.status === 'SESSION_EXPIRED' && (
               <div
                 role="status"
@@ -785,3 +831,7 @@ export default function App() {
     </WhisperProvider>
   );
 }
+
+
+
+

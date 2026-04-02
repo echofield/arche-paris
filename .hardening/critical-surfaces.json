@@ -1,0 +1,46 @@
+{
+  "critical_surfaces": [
+    {
+      "name": "World Snapshot Contract",
+      "modules": [
+        "src/lib/runtime-normalization.ts",
+        "src/contexts/WorldSnapshotContext.tsx"
+      ],
+      "tests": [
+        "tests/runtime-normalization.test.ts",
+        "tests/critical-contracts.test.ts"
+      ]
+    },
+    {
+      "name": "Zone Progress Contract",
+      "modules": [
+        "src/lib/runtime-normalization.ts"
+      ],
+      "tests": [
+        "tests/runtime-normalization.test.ts",
+        "tests/critical-contracts.test.ts"
+      ]
+    },
+    {
+      "name": "Card-Scoped Progression Persistence",
+      "modules": [
+        "src/utils/progression-sync.ts",
+        "src/utils/progression-bootstrap.ts",
+        "src/utils/collection-service.ts",
+        "src/utils/trace-service.ts",
+        "src/utils/walk-service.ts",
+        "src/utils/quest-run-service.ts",
+        "supabase/functions/card-gate/index.tsx",
+        "src/utils/progression-reconcile.ts",
+        "src/utils/progression-ux-state.ts",
+        "src/components/ProgressionStatusBanner.tsx"
+      ],
+      "tests": [
+        "tests/card-scoped-progression.test.ts",
+        "tests/critical-contracts.test.ts",
+        "tests/progression-reconcile.test.ts",
+        "tests/progression-conflict-ux.test.ts"
+      ]
+    }
+  ]
+}

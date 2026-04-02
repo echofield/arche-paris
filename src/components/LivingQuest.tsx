@@ -34,11 +34,11 @@ export interface LiveAction {
 
 // Zone ID to display name
 function zoneIdToName(zoneId: string): string {
-  // zone_id format: "paris-1" to "paris-20"
-  const match = zoneId.match(/paris-(\d+)/);
+  // Accepted formats: "paris-1" and "PAR-01"
+  const match = zoneId.match(/(?:paris-|PAR-)(\d{1,2})/i);
   if (match) {
     const arr = parseInt(match[1], 10);
-    return `${arr}e arrondissement`;
+    if (Number.isFinite(arr)) return `${arr}e arrondissement`;
   }
   return zoneId;
 }
@@ -297,3 +297,4 @@ export function LivingQuest({ onNavigate }: LivingQuestProps) {
     </button>
   );
 }
+

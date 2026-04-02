@@ -14,15 +14,29 @@
 
 import { normalizeDisplayText } from './text-normalize';
 
+type CardGateImportMetaEnv = {
+  PROD?: boolean;
+  VITE_SUPABASE_PROJECT_ID?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
+};
+
+const META_ENV: CardGateImportMetaEnv = (() => {
+  try {
+    return ((import.meta as unknown as { env?: CardGateImportMetaEnv }).env ?? {});
+  } catch {
+    return {};
+  }
+})();
+
 const CARD_GATE_BASE = (() => {
   // Production: use same-origin proxy to avoid Supabase gateway CORS (*)
-  if (import.meta.env.PROD) return '/api/card-gate';
-  const projectId = import.meta.env?.VITE_SUPABASE_PROJECT_ID ?? '';
+  if (META_ENV.PROD) return '/api/card-gate';
+  const projectId = META_ENV.VITE_SUPABASE_PROJECT_ID ?? '';
   return projectId ? `https://${projectId}.supabase.co/functions/v1/card-gate` : '';
 })();
 
 /** Anon key for Supabase Edge invocation (avoids 401 before request reaches card-gate). */
-const ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY ?? '';
+const ANON_KEY = META_ENV.VITE_SUPABASE_ANON_KEY ?? '';
 
 const STORAGE_PENDING_WRITES = 'arche_cg_pending_writes';
 const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000; // refresh 2 min before expiry
@@ -227,27 +241,32 @@ export async function pairDevice(cardId: string): Promise<{ access_token: string
     console.warn('[card-gate-client] /pair 200 but body parsed to empty. Raw (first 300):', rawText.slice(0, 300));
   }
   if (res.status === 409) {
-    const err = new Error(data?.error ?? 'Already paired') as Error & { code?: string };
+    const conflictMessage = typeof data.error === 'string' ? data.error : 'Already paired';
+    const err = new Error(conflictMessage) as Error & { code?: string };
     err.code = 'ALREADY_PAIRED';
     throw err;
   }
   if (!res.ok) {
-    const serverMsg = data?.error ?? `Pair failed: ${res.status}`;
-    if (res.status === 403 && data?.error === 'Origin not allowed') {
+    const serverMsg = typeof data.error === 'string' ? data.error : `Pair failed: ${res.status}`;
+    if (res.status === 403 && data.error === 'Origin not allowed') {
       throw new Error('Origine non autorisée. Vérifiez l’URL du site.');
     }
     throw new Error(serverMsg);
   }
   // Support both snake_case (Edge) and camelCase (if response is transformed)
-  const accessToken = data?.access_token ?? data?.accessToken;
+  const accessToken = typeof data.access_token === 'string'
+    ? data.access_token
+    : (typeof data.accessToken === 'string' ? data.accessToken : null);
   if (!accessToken) {
     const bodyPreview = typeof data === 'object' && data !== null && Object.keys(data).length > 0
       ? JSON.stringify(data).slice(0, 200)
       : rawText.length > 0 ? rawText.slice(0, 200) : '(empty response body)';
-    const hint = data?.status === 'Card Gate proxy active' ? ' Proxy returned "proxy active" — path may not be forwarded (check Vercel rewrite /api/card-gate/:path*).' : '';
+    const hint = data.status === 'Card Gate proxy active' ? ' Proxy returned "proxy active" — path may not be forwarded (check Vercel rewrite /api/card-gate/:path*).' : '';
     throw new Error(`No access_token in response (status ${res.status}).${hint} Check Network tab for /pair. Body: ${bodyPreview}`);
   }
-  const expiresAt = data?.expires_at ?? data?.expiresAt ?? new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const expiresAt = typeof data.expires_at === 'string'
+    ? data.expires_at
+    : (typeof data.expiresAt === 'string' ? data.expiresAt : new Date(Date.now() + 15 * 60 * 1000).toISOString());
 
   // Store in memory only
   setMemoryToken(cardId, accessToken, expiresAt);
@@ -966,3 +985,5 @@ export async function keepMirrorSentence(cardId: string, sentence: string): Prom
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error ?? `Keep sentence failed: ${res.status}`);
 }
+
+

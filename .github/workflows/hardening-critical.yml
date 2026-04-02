@@ -1,0 +1,69 @@
+name: Progression Hardening Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/runtime-diagnostics.ts'
+      - 'src/lib/runtime-normalization.ts'
+      - 'src/contexts/WorldSnapshotContext.tsx'
+      - 'src/App.tsx'
+      - 'src/components/ProgressionStatusBanner.tsx'
+      - 'src/utils/progression-sync.ts'
+      - 'src/utils/progression-bootstrap.ts'
+      - 'src/utils/progression-reconcile.ts'
+      - 'src/utils/progression-ux-state.ts'
+      - 'src/utils/collection-service.ts'
+      - 'src/utils/trace-service.ts'
+      - 'src/utils/walk-service.ts'
+      - 'src/utils/quest-run-service.ts'
+      - 'supabase/functions/card-gate/**'
+      - 'supabase/migrations/**'
+      - 'tests/runtime-normalization.test.ts'
+      - 'tests/critical-contracts.test.ts'
+      - 'tests/card-scoped-progression.test.ts'
+      - 'tests/progression-reconcile.test.ts'
+      - 'tests/progression-conflict-ux.test.ts'
+      - 'scripts/progression-smoke.mjs'
+      - 'scripts/check-progression-release-law.mjs'
+      - '.hardening/critical-surfaces.json'
+      - '.hardening/progression-release-law.json'
+      - 'docs/progression-deploy-readiness.md'
+      - 'docs/operations/progression-production-validation-protocol.md'
+      - 'docs/operations/progression-validation-record.md'
+      - 'docs/operations/progression-release-law.md'
+      - 'docs/operations/progression-branch-protection.md'
+      - 'tsconfig.critical.json'
+      - 'package.json'
+
+jobs:
+  hardening:
+    name: progression-hardening-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Critical module typecheck
+        run: npm run typecheck:critical
+
+      - name: Hardening regression suite
+        run: npm run test:hardening
+
+      - name: Progression release-law guard (strict)
+        run: PROGRESSION_RELEASE_STRICT=1 npm run check:progression:release-law

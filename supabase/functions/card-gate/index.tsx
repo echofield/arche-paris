@@ -1,5 +1,5 @@
-/**
- * ARCHÃ‰ â€” Card Gate Edge Function (V1)
+﻿/**
+ * ARCHÃƒâ€° Ã¢â‚¬â€ Card Gate Edge Function (V1)
  *
  * INVARIANTS (documented):
  * 1) Activation requires non-enumerable proof (code+password via activate-card).
@@ -25,7 +25,7 @@ const app = new Hono().basePath("/functions/v1/card-gate");
 const JSON_UTF8 = "application/json; charset=utf-8";
 
 // Allowed origins only (no random site can use visitor's browser as relay).
-// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.archÃ©-paris.com).
+// Browsers send punycode in Origin (e.g. www.xn--arch-paris-e7a.com for www.archÃƒÂ©-paris.com).
 const ALLOWED_ORIGINS = [
   "https://arche-paris.com",
   "https://www.arche-paris.com",
@@ -133,7 +133,7 @@ function normalizeLegacyText(input: string): string {
   if (!text) return text;
 
   // Attempt to recover strings that were UTF-8 bytes misread as Latin-1.
-  if (/[ÃÂâ]/.test(text)) {
+  if (/[ÃƒÃ‚Ã¢]/.test(text)) {
     try {
       const bytes = Uint8Array.from(Array.from(text, (ch) => ch.charCodeAt(0) & 0xff));
       const decoded = new TextDecoder("utf-8").decode(bytes);
@@ -147,21 +147,21 @@ function normalizeLegacyText(input: string): string {
 
   // Common mojibake fragments observed in legacy traces.
   text = text
-    .replace(/â€¦/g, "...")
-    .replace(/â€”|â€“/g, "-")
-    .replace(/â€™/g, "'")
-    .replace(/â€œ|â€/g, "\"")
-    .replace(/Â·/g, "·")
-    .replace(/Â«/g, "«")
-    .replace(/Â»/g, "»");
+    .replace(/Ã¢â‚¬Â¦/g, "...")
+    .replace(/Ã¢â‚¬â€|Ã¢â‚¬â€œ/g, "-")
+    .replace(/Ã¢â‚¬â„¢/g, "'")
+    .replace(/Ã¢â‚¬Å“|Ã¢â‚¬Â/g, "\"")
+    .replace(/Ã‚Â·/g, "Â·")
+    .replace(/Ã‚Â«/g, "Â«")
+    .replace(/Ã‚Â»/g, "Â»");
 
   // Heuristic repair for replacement-char corruption inside French words.
   text = text
     .replace(/([A-Za-z])\uFFFD([A-Za-z])/g, "$1e$2")
-    .replace(/pr\uFFFDsence/gi, "présence")
-    .replace(/t\uFFFDmoin/gi, "témoin")
-    .replace(/deuxi\uFFFDme/gi, "deuxième")
-    .replace(/premi\uFFFDres/gi, "premières")
+    .replace(/pr\uFFFDsence/gi, "prÃ©sence")
+    .replace(/t\uFFFDmoin/gi, "tÃ©moin")
+    .replace(/deuxi\uFFFDme/gi, "deuxiÃ¨me")
+    .replace(/premi\uFFFDres/gi, "premiÃ¨res")
     .replace(/\uFFFD/g, "e");
 
   return text.normalize("NFC").replace(/\s+/g, " ").trim();
@@ -568,7 +568,7 @@ app.post("/unpair-session", async (c) => {
         return new Response(JSON.stringify({
           ok: false,
           code: "COOKIE_MISSING_CARD_PAIRED",
-          message: "Session expirÃ©e. Utilisez votre mot de passe pour dÃ©connecter."
+          message: "Session expirÃƒÂ©e. Utilisez votre mot de passe pour dÃƒÂ©connecter."
         }), {
           status: 401,
           headers: {
@@ -1087,7 +1087,7 @@ const MERIDIAN_ANCHORS: MeridianAnchor[] = [
     h3: "PAR-05",
     label: "Foucault Pendulum",
     type: "threshold",
-    location_hint: "Panthéon",
+    location_hint: "PanthÃ©on",
     constraints: {
       temporal: { mode: "daily_window", start_hour: 10, end_hour: 18 },
       presence: { min_pulses_20m: 3 },
@@ -1716,7 +1716,7 @@ app.post("/presence/verify", async (c) => {
         grade: "LOW",
         reasonCode: "COOLDOWN",
         whisperKey: PRESENCE_WHISPER_KEYS.COOLDOWN,
-        whisper: "Attends un peu avant de revérifier.",
+        whisper: "Attends un peu avant de revÃ©rifier.",
         serverTs: Date.now(),
       }),
       { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
@@ -1755,7 +1755,7 @@ app.post("/presence/verify", async (c) => {
               grade: "LOW",
               reasonCode: "TELEPORT",
               whisperKey: PRESENCE_WHISPER_KEYS.TELEPORT,
-              whisper: "Déplacement trop rapide — la ville refuse.",
+              whisper: "DÃ©placement trop rapide â€” la ville refuse.",
               serverTs: Date.now(),
             }),
             { status: 200, headers: { ...cors, "Content-Type": JSON_UTF8 } }
@@ -1794,17 +1794,17 @@ app.post("/presence/verify", async (c) => {
   if (grade === "LOW") {
     reasonCode = "LOW_TRUST";
     whisperKey = PRESENCE_WHISPER_KEYS.WEAK;
-    whisper = "Signal trop faible — approche-toi de l'air libre.";
+    whisper = "Signal trop faible â€” approche-toi de l'air libre.";
   } else if (zoneCenter !== undefined && zoneCenter !== null && inside === false) {
     reasonCode = "OUTSIDE_ZONE";
     whisperKey = PRESENCE_WHISPER_KEYS.OUTSIDE;
     whisper = "Tu n'es pas dans le lieu attendu.";
   } else if (grade === "MED") {
     whisperKey = PRESENCE_WHISPER_KEYS.UNCERTAIN;
-    whisper = "Signal incertain — la ville hésite.";
+    whisper = "Signal incertain â€” la ville hÃ©site.";
   } else {
     whisperKey = PRESENCE_WHISPER_KEYS.RECOGNIZED;
-    whisper = "Présence reconnue.";
+    whisper = "PrÃ©sence reconnue.";
   }
 
   const ok = grade !== "LOW" && (zoneCenter == null || inside === true);
@@ -2465,7 +2465,7 @@ app.get("/world/snapshot", async (c) => {
       axes,
       reading: { cycle, tension, trend, waveSeed },
       vestige: { status: vestigeStatus, hint: vestigeStatus === "detected" ? "Une forme commence..." : null, statueKey: null, revealLocked: false },
-      questCallout: { id: "question", title: "Question", subtitle: "La ville répond.", ctaLabel: "ÉCOUTER →", action: "open_oracle", locked: false, reasonLocked: null },
+      questCallout: { id: "question", title: "Question", subtitle: "La ville rÃ©pond.", ctaLabel: "Ã‰COUTER â†’", action: "open_oracle", locked: false, reasonLocked: null },
       oracle: { eligible: true, message: null, source: "daily", cooldownEndsAt: null },
       seals: Array.isArray(auraRow?.seals) ? auraRow.seals : [],
     };
@@ -2618,7 +2618,7 @@ app.post("/journal/note", async (c) => {
   const now = new Date().toISOString();
 
   try {
-    // Use limit(1) + data[0] instead of maybeSingle(): duplicates on (card_id, place_id) would make maybeSingle() error → 500.
+    // Use limit(1) + data[0] instead of maybeSingle(): duplicates on (card_id, place_id) would make maybeSingle() error â†’ 500.
     console.log("[card-gate] POST /journal/note selecting existing by (card_id, place_id)");
     const { data: existingRows, error: selectErr } = await supabase
       .from("journal_entries")
@@ -2790,8 +2790,8 @@ app.post("/trace/leave", async (c) => {
   }
   const { quest_id, etape_id, content, idempotency_key } = body;
   const trimmed = (content ?? "").trim();
-  if (trimmed.length < 3) return c.json({ error: "TOO_SHORT", message: "Trop court. Au moins 3 caractÃ¨res." }, 400);
-  if (trimmed.length > 140) return c.json({ error: "TOO_LONG", message: "Trop long. Maximum 140 caractÃ¨res." }, 400);
+  if (trimmed.length < 3) return c.json({ error: "TOO_SHORT", message: "Trop court. Au moins 3 caractÃƒÂ¨res." }, 400);
+  if (trimmed.length > 140) return c.json({ error: "TOO_LONG", message: "Trop long. Maximum 140 caractÃƒÂ¨res." }, 400);
   if (!quest_id || !etape_id) return c.json({ error: "quest_id and etape_id required" }, 400);
 
   const { count } = await supabase
@@ -2801,7 +2801,7 @@ app.post("/trace/leave", async (c) => {
     .eq("quest_id", quest_id)
     .eq("etape_id", etape_id);
   if ((count ?? 0) > 0) {
-    return c.json({ error: "ALREADY_LEFT_TRACE", message: "Vous avez dÃ©jÃ  laissÃ© une trace ici." }, 400);
+    return c.json({ error: "ALREADY_LEFT_TRACE", message: "Vous avez dÃƒÂ©jÃƒÂ  laissÃƒÂ© une trace ici." }, 400);
   }
 
   const row: Record<string, unknown> = {
@@ -2813,10 +2813,10 @@ app.post("/trace/leave", async (c) => {
   if (typeof idempotency_key === "string" && idempotency_key.length > 0) row.idempotency_key = idempotency_key;
   const { error } = await supabase.from("traces").insert(row);
   if (error) {
-    if (error.code === "23505") return c.json({ success: true, message: "Trace laissÃ©e." });
+    if (error.code === "23505") return c.json({ success: true, message: "Trace laissÃƒÂ©e." });
     return c.json({ error: "DB_ERROR", message: "Impossible de laisser une trace." }, 500);
   }
-  return c.json({ success: true, message: "Trace laissÃ©e." });
+  return c.json({ success: true, message: "Trace laissÃƒÂ©e." });
 });
 
 // ----- /trace/check -----
@@ -2841,6 +2841,314 @@ app.get("/trace/check", async (c) => {
   return c.json({ has_left: (count ?? 0) > 0 });
 });
 
+const PROGRESSION_ARTIFACTS = ["collection", "traces", "walks", "quest_runs"] as const;
+type ProgressionArtifact = (typeof PROGRESSION_ARTIFACTS)[number];
+type ProgressionWriteEntry = {
+  artifact: ProgressionArtifact;
+  payload: unknown;
+  client_updated_at: string;
+  base_version: number;
+};
+type ProgressionConflictReason = "BASE_VERSION_MISMATCH" | "BASE_VERSION_AHEAD" | "INSERT_RACE";
+type ProgressionConflict = {
+  artifact: ProgressionArtifact;
+  server_updated_at: string;
+  server_version: number;
+  reason: ProgressionConflictReason;
+};
+type ProgressionRow = {
+  artifact: string;
+  payload: unknown;
+  updated_at: string | null;
+  client_updated_at: string | null;
+  version: number | null;
+};
+type ProgressionItem = {
+  payload: unknown;
+  updated_at: string;
+  client_updated_at: string;
+  version: number;
+};
+function isProgressionArtifact(value: string): value is ProgressionArtifact {
+  return (PROGRESSION_ARTIFACTS as readonly string[]).includes(value);
+}
+function normalizeProgressionUpdatedAt(raw: unknown, fallback: string): string {
+  const parsed = typeof raw === "string" ? new Date(raw).getTime() : NaN;
+  if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  const fallbackParsed = new Date(fallback).getTime();
+  if (Number.isFinite(fallbackParsed)) return new Date(fallbackParsed).toISOString();
+  return new Date().toISOString();
+}
+function normalizeProgressionVersion(raw: unknown, fallback = 0): number {
+  const parsed = typeof raw === "number"
+    ? raw
+    : (typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN);
+  if (!Number.isFinite(parsed)) return fallback;
+  const normalized = Math.floor(parsed);
+  return normalized >= 0 ? normalized : fallback;
+}
+function asProgressionRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+function progressionDbErrorResponse(error: unknown): { status: number; body: Record<string, unknown> } {
+  const record = asProgressionRecord(error);
+  const pgCode = typeof record?.code === "string" ? record.code : null;
+  const message = typeof record?.message === "string" ? record.message : "Unknown progression storage error";
+  const hint = typeof record?.hint === "string" ? record.hint : message;
+  const detail = typeof record?.details === "string" ? record.details : null;
+  if (pgCode === "42P01") {
+    return {
+      status: 500,
+      body: {
+        error: "PROGRESSION_TABLE_MISSING",
+        pg_code: pgCode,
+        hint,
+        ...(detail ? { detail } : {}),
+      },
+    };
+  }
+  if (pgCode === "42703" || pgCode === "42883") {
+    return {
+      status: 500,
+      body: {
+        error: "PROGRESSION_SCHEMA_MISSING",
+        pg_code: pgCode,
+        hint,
+        ...(detail ? { detail } : {}),
+      },
+    };
+  }
+  if (pgCode === "42501") {
+    return {
+      status: 403,
+      body: {
+        error: "PROGRESSION_POLICY_DENIED",
+        pg_code: pgCode,
+        hint,
+      },
+    };
+  }
+  return {
+    status: 500,
+    body: {
+      error: "PROGRESSION_DB_ERROR",
+      pg_code: pgCode,
+      hint,
+      ...(detail ? { detail } : {}),
+    },
+  };
+}
+function buildProgressionItems(
+  rows: ProgressionRow[] | null | undefined,
+  fallbackIso: string,
+): Record<string, ProgressionItem> {
+  const items: Record<string, ProgressionItem> = {};
+  (rows ?? []).forEach((row) => {
+    const artifact = typeof row.artifact === "string" ? row.artifact : "";
+    if (!isProgressionArtifact(artifact)) return;
+    const updatedAt = normalizeProgressionUpdatedAt(row.updated_at, fallbackIso);
+    const clientUpdatedAt = normalizeProgressionUpdatedAt(row.client_updated_at, updatedAt);
+    items[artifact] = {
+      payload: row.payload ?? {},
+      updated_at: updatedAt,
+      client_updated_at: clientUpdatedAt,
+      version: normalizeProgressionVersion(row.version, 0),
+    };
+  });
+  return items;
+}
+async function fetchProgressionRow(
+  supabase: ReturnType<typeof createClient>,
+  cardId: string,
+  artifact: ProgressionArtifact,
+): Promise<{ row: ProgressionRow | null; error: unknown | null }> {
+  const { data, error } = await supabase
+    .from("card_progression_snapshots")
+    .select("artifact, payload, updated_at, client_updated_at, version")
+    .eq("card_id", cardId)
+    .eq("artifact", artifact)
+    .maybeSingle();
+  if (error) return { row: null, error };
+  return { row: (data as ProgressionRow | null) ?? null, error: null };
+}
+// ----- Progression: GET /progression/state -----
+// Card-scoped persistence for collection, traces, walks, and quest runs.
+app.get("/progression/state", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  const requestedArtifacts = (c.req.query("artifacts") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value): value is ProgressionArtifact => isProgressionArtifact(value));
+  const artifacts = requestedArtifacts.length > 0
+    ? requestedArtifacts
+    : [...PROGRESSION_ARTIFACTS];
+  const { data, error } = await supabase
+    .from("card_progression_snapshots")
+    .select("artifact, payload, updated_at, client_updated_at, version")
+    .eq("card_id", payload.card_id)
+    .in("artifact", artifacts as unknown as string[]);
+  if (error) {
+    console.error("[card-gate] progression/state get:", error);
+    const classified = progressionDbErrorResponse(error);
+    return c.json(classified.body, classified.status);
+  }
+  return c.json({
+    ok: true,
+    card_id: payload.card_id,
+    items: buildProgressionItems(data as ProgressionRow[] | null, new Date().toISOString()),
+    server_time: new Date().toISOString(),
+  });
+});
+// ----- Progression: POST /progression/state -----
+// Conflict rule: server-authoritative compare-and-set by base_version.
+app.post("/progression/state", async (c) => {
+  const supabase = getSupabase();
+  const payload = await requireJwt(c);
+  if (payload instanceof Response) return payload;
+  const ip = getClientIp(c);
+  if (!(await rateLimitMap(supabase, payload.card_id, ip))) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  let body: { entries?: Array<{ artifact?: string; payload?: unknown; client_updated_at?: unknown; base_version?: unknown }>; source?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+  const rawEntries = Array.isArray(body?.entries) ? body.entries : [];
+  if (rawEntries.length === 0) {
+    return c.json({ error: "entries[] required" }, 400);
+  }
+  const nowIso = new Date().toISOString();
+  const dedupedEntries = new Map<ProgressionArtifact, ProgressionWriteEntry>();
+  rawEntries.forEach((entry) => {
+    const artifactRaw = typeof entry?.artifact === "string" ? entry.artifact : "";
+    if (!isProgressionArtifact(artifactRaw)) return;
+    dedupedEntries.set(artifactRaw, {
+      artifact: artifactRaw,
+      payload: entry?.payload ?? {},
+      client_updated_at: normalizeProgressionUpdatedAt(entry?.client_updated_at, nowIso),
+      base_version: normalizeProgressionVersion(entry?.base_version, 0),
+    });
+  });
+  const sanitizedEntries = [...dedupedEntries.values()];
+  if (sanitizedEntries.length === 0) {
+    return c.json({ error: "No valid progression entries" }, 400);
+  }
+  const applied: ProgressionArtifact[] = [];
+  const conflicts: ProgressionConflict[] = [];
+  for (const entry of sanitizedEntries) {
+    const nextVersion = entry.base_version + 1;
+    const { data: updatedRow, error: updateError } = await supabase
+      .from("card_progression_snapshots")
+      .update({
+        payload: entry.payload,
+        updated_at: nowIso,
+        client_updated_at: entry.client_updated_at,
+        version: nextVersion,
+      })
+      .eq("card_id", payload.card_id)
+      .eq("artifact", entry.artifact)
+      .eq("version", entry.base_version)
+      .select("artifact, payload, updated_at, client_updated_at, version")
+      .maybeSingle();
+    if (updateError) {
+      console.error("[card-gate] progression/state update:", updateError);
+      const classified = progressionDbErrorResponse(updateError);
+      return c.json(classified.body, classified.status);
+    }
+    if (updatedRow) {
+      applied.push(entry.artifact);
+      continue;
+    }
+    if (entry.base_version === 0) {
+      const { data: insertedRow, error: insertError } = await supabase
+        .from("card_progression_snapshots")
+        .insert({
+          card_id: payload.card_id,
+          artifact: entry.artifact,
+          payload: entry.payload,
+          updated_at: nowIso,
+          client_updated_at: entry.client_updated_at,
+          version: 1,
+        })
+        .select("artifact, payload, updated_at, client_updated_at, version")
+        .maybeSingle();
+      if (insertError) {
+        const insertRecord = asProgressionRecord(insertError);
+        const insertCode = typeof insertRecord?.code === "string" ? insertRecord.code : "";
+        if (insertCode !== "23505") {
+          console.error("[card-gate] progression/state insert:", insertError);
+          const classified = progressionDbErrorResponse(insertError);
+          return c.json(classified.body, classified.status);
+        }
+      }
+      if (insertedRow) {
+        applied.push(entry.artifact);
+        continue;
+      }
+    }
+    const { row: currentRow, error: currentError } = await fetchProgressionRow(
+      supabase,
+      payload.card_id,
+      entry.artifact,
+    );
+    if (currentError) {
+      console.error("[card-gate] progression/state conflict fetch:", currentError);
+      const classified = progressionDbErrorResponse(currentError);
+      return c.json(classified.body, classified.status);
+    }
+    if (currentRow) {
+      conflicts.push({
+        artifact: entry.artifact,
+        server_updated_at: normalizeProgressionUpdatedAt(currentRow.updated_at, nowIso),
+        server_version: normalizeProgressionVersion(currentRow.version, 0),
+        reason: entry.base_version === 0 ? "INSERT_RACE" : "BASE_VERSION_MISMATCH",
+      });
+      continue;
+    }
+    conflicts.push({
+      artifact: entry.artifact,
+      server_updated_at: nowIso,
+      server_version: 0,
+      reason: "BASE_VERSION_AHEAD",
+    });
+  }
+  if (conflicts.length > 0) {
+    console.warn("[card-gate] progression/state conflict", {
+      card_id: payload.card_id,
+      source: body?.source ?? null,
+      conflicts,
+    });
+  }
+  const artifacts = sanitizedEntries.map((entry) => entry.artifact);
+  const { data: finalRows, error: finalError } = await supabase
+    .from("card_progression_snapshots")
+    .select("artifact, payload, updated_at, client_updated_at, version")
+    .eq("card_id", payload.card_id)
+    .in("artifact", artifacts as unknown as string[]);
+  if (finalError) {
+    console.error("[card-gate] progression/state final rows:", finalError);
+    const classified = progressionDbErrorResponse(finalError);
+    return c.json(classified.body, classified.status);
+  }
+  return c.json({
+    ok: conflicts.length === 0,
+    card_id: payload.card_id,
+    applied,
+    conflicts,
+    items: buildProgressionItems(finalRows as ProgressionRow[] | null, nowIso),
+    server_time: new Date().toISOString(),
+  });
+});
 // ============ MIROIR: PARIS TIMEZONE HELPERS ============
 
 /** Get today's date in Paris timezone (YYYY-MM-DD) */
@@ -2904,47 +3212,47 @@ function simpleHash(str: string): number {
 
 // ============ MIROIR: SENTENCE POOLS ============
 
-/** BLOC A â€” PremiÃ¨res phrases fondatrices (rare, initiation) */
+/** BLOC A Ã¢â‚¬â€ PremiÃƒÂ¨res phrases fondatrices (rare, initiation) */
 const BLOC_A_FOUNDATION = [
   "La ville commence par un regard.",
-  "Paris n'est pas un lieu. C'est une prÃ©sence qui attend.",
-  "Chaque pas creuse une mÃ©moire qui n'existait pas avant.",
-  "La pierre garde ce que l'Å“il oublie.",
+  "Paris n'est pas un lieu. C'est une prÃƒÂ©sence qui attend.",
+  "Chaque pas creuse une mÃƒÂ©moire qui n'existait pas avant.",
+  "La pierre garde ce que l'Ã…â€œil oublie.",
   "On n'habite pas Paris. On s'y laisse habiter.",
   "Le silence des rues est une langue ancienne.",
-  "La ville se souvient de ceux qui l'ont traversÃ©e.",
+  "La ville se souvient de ceux qui l'ont traversÃƒÂ©e.",
   "Paris est un miroir qui renvoie ce qu'on lui donne.",
 ];
 
-/** BLOC B â€” Phrases centrales (quotidiennes) */
+/** BLOC B Ã¢â‚¬â€ Phrases centrales (quotidiennes) */
 const BLOC_B_CORE = [
   "Aujourd'hui, la ville respire autrement.",
-  "Le temps s'Ã©coule diffÃ©remment selon les arrondissements.",
+  "Le temps s'ÃƒÂ©coule diffÃƒÂ©remment selon les arrondissements.",
   "Chaque coin de rue garde une trace invisible.",
-  "La lumiÃ¨re change la texture des souvenirs.",
-  "Paris se rÃ©vÃ¨le par fragments, jamais tout Ã  fait.",
-  "Les pas s'accumulent et crÃ©ent un rythme propre.",
-  "La ville murmure des histoires Ã  qui sait Ã©couter.",
-  "Chaque jour ajoute une couche Ã  la mÃ©moire collective.",
-  "Les faÃ§ades racontent ce que les bouches taisent.",
-  "Paris existe autant dans l'absence que dans la prÃ©sence.",
+  "La lumiÃƒÂ¨re change la texture des souvenirs.",
+  "Paris se rÃƒÂ©vÃƒÂ¨le par fragments, jamais tout ÃƒÂ  fait.",
+  "Les pas s'accumulent et crÃƒÂ©ent un rythme propre.",
+  "La ville murmure des histoires ÃƒÂ  qui sait ÃƒÂ©couter.",
+  "Chaque jour ajoute une couche ÃƒÂ  la mÃƒÂ©moire collective.",
+  "Les faÃƒÂ§ades racontent ce que les bouches taisent.",
+  "Paris existe autant dans l'absence que dans la prÃƒÂ©sence.",
   "Le regard transforme l'ordinaire en signe.",
   "La ville se construit dans l'espace entre les choses.",
-  "Chaque passage laisse une empreinte lÃ©gÃ¨re.",
-  "Paris se donne Ã  ceux qui savent attendre.",
-  "La mÃ©moire habite les interstices.",
+  "Chaque passage laisse une empreinte lÃƒÂ©gÃƒÂ¨re.",
+  "Paris se donne ÃƒÂ  ceux qui savent attendre.",
+  "La mÃƒÂ©moire habite les interstices.",
 ];
 
-/** BLOC C â€” Ã‰chos (activitÃ©, cooldown) */
+/** BLOC C Ã¢â‚¬â€ Ãƒâ€°chos (activitÃƒÂ©, cooldown) */
 const BLOC_C_ECHO = [
-  "L'Ã©cho d'un pas rÃ©sonne dans le vide.",
-  "Ce qui fut gravÃ© rÃ©apparaÃ®t Ã  l'improviste.",
+  "L'ÃƒÂ©cho d'un pas rÃƒÂ©sonne dans le vide.",
+  "Ce qui fut gravÃƒÂ© rÃƒÂ©apparaÃƒÂ®t ÃƒÂ  l'improviste.",
   "La trace appelle la trace.",
-  "L'activitÃ© rÃ©veille des mÃ©moires endormies.",
-  "Chaque action crÃ©e un Ã©cho qui se propage.",
-  "Le prÃ©sent fait Ã©cho au passÃ©.",
-  "L'empreinte appelle sa rÃ©sonance.",
-  "L'activitÃ© rÃ©vÃ¨le ce qui Ã©tait cachÃ©.",
+  "L'activitÃƒÂ© rÃƒÂ©veille des mÃƒÂ©moires endormies.",
+  "Chaque action crÃƒÂ©e un ÃƒÂ©cho qui se propage.",
+  "Le prÃƒÂ©sent fait ÃƒÂ©cho au passÃƒÂ©.",
+  "L'empreinte appelle sa rÃƒÂ©sonance.",
+  "L'activitÃƒÂ© rÃƒÂ©vÃƒÂ¨le ce qui ÃƒÂ©tait cachÃƒÂ©.",
 ];
 
 /** Determine kind from sentence (A/B/C) */
@@ -3001,18 +3309,18 @@ async function computeKind(
 
 /** Historical anecdotes keyed by MM-DD (subset from histoire-quotidienne.ts) */
 const HISTORICAL_ANECDOTES: Record<string, string> = {
-  "11-06": "Ce matin-lÃ , dans un atelier proche du Louvre, les ouvriers dÃ©montent une faÃ§ade promise Ã  disparaÃ®tre. Les plans ont changÃ©. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue Ã©troite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracÃ© subsiste.",
-  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides rÃ©sonnent encore des voix du monde entier. Un gardien ramasse un programme froissÃ©.\n\nParis apprend qu'elle peut Ãªtre internationale sans cesser d'Ãªtre elle-mÃªme.",
-  "11-08": "Le Louvre ouvre comme musÃ©e public pour la premiÃ¨re fois. Les toiles de maÃ®tres, autrefois rÃ©servÃ©es au regard royal, sont maintenant offertes Ã  tous. Un menuisier entre, hÃ©site, lÃ¨ve les yeux.\n\nLa beautÃ© n'a plus de porte fermÃ©e.",
-  "11-09": "On inaugure la premiÃ¨re ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une Ã©nergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'Ã©chelle.\n\nLa ville devient un point de dÃ©part, pas seulement une destination.",
-  "11-10": "Dans un cafÃ© de Montparnasse, un groupe d'artistes amÃ©ricains discute jusqu'Ã  l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge crÃ©atif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
-  "11-11": "Pour la premiÃ¨re fois, Paris dÃ©pose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumÃ©e. Le silence est total.\n\nLa mÃ©moire collective trouve son ancrage gÃ©omÃ©trique au centre de l'Ã‰toile.",
-  "11-12": "On pose la premiÃ¨re pierre du Palais du Luxembourg, commandÃ© par Marie de MÃ©dicis. Elle veut recrÃ©er Florence Ã  Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction vÃ©gÃ©tale.",
-  "11-13": "Dans les premiÃ¨res semaines de la RÃ©volution, les passages couverts deviennent des lieux de dÃ©bat improvisÃ©. On y discute, on y conspire, on y espÃ¨re. L'architecture crÃ©e des zones grises entre public et privÃ©.\n\nLa ville trouve de nouveaux espaces de parole.",
-  "11-14": "La premiÃ¨re ligne de mÃ©tro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers dÃ©couvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-mÃªme pour mieux se dÃ©ployer.",
-  "11-15": "Les Halles dÃ©mÃ©nagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis Ã  la dÃ©molition. Un dernier marchÃ© se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son Ã¢me.",
-  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumiÃ¨re change la texture des souvenirs.",
-  "02-10": "Paris se rÃ©vÃ¨le par fragments, jamais tout Ã  fait. Les pas s'accumulent et crÃ©ent un rythme propre. La ville murmure des histoires Ã  qui sait Ã©couter.",
+  "11-06": "Ce matin-lÃƒÂ , dans un atelier proche du Louvre, les ouvriers dÃƒÂ©montent une faÃƒÂ§ade promise ÃƒÂ  disparaÃƒÂ®tre. Les plans ont changÃƒÂ©. La ville s'aligne. Paris ne sait pas encore qu'elle est en train de devenir une capitale moderne.\n\nRue ÃƒÂ©troite, pierre froide, silence administratif.\n\nAujourd'hui encore, le tracÃƒÂ© subsiste.",
+  "11-07": "L'Exposition Universelle vient de fermer ses portes. Le Champ-de-Mars retrouve son silence. Les pavillons vides rÃƒÂ©sonnent encore des voix du monde entier. Un gardien ramasse un programme froissÃƒÂ©.\n\nParis apprend qu'elle peut ÃƒÂªtre internationale sans cesser d'ÃƒÂªtre elle-mÃƒÂªme.",
+  "11-08": "Le Louvre ouvre comme musÃƒÂ©e public pour la premiÃƒÂ¨re fois. Les toiles de maÃƒÂ®tres, autrefois rÃƒÂ©servÃƒÂ©es au regard royal, sont maintenant offertes ÃƒÂ  tous. Un menuisier entre, hÃƒÂ©site, lÃƒÂ¨ve les yeux.\n\nLa beautÃƒÂ© n'a plus de porte fermÃƒÂ©e.",
+  "11-09": "On inaugure la premiÃƒÂ¨re ligne de chemin de fer partant de Paris vers Rouen. La gare Saint-Lazare vibre d'une ÃƒÂ©nergie nouvelle. Les voyageurs ne savent pas encore que le temps vient de changer d'ÃƒÂ©chelle.\n\nLa ville devient un point de dÃƒÂ©part, pas seulement une destination.",
+  "11-10": "Dans un cafÃƒÂ© de Montparnasse, un groupe d'artistes amÃƒÂ©ricains discute jusqu'ÃƒÂ  l'aube. Hemingway commande un autre verre. Paris est devenue l'exil choisi, le refuge crÃƒÂ©atif.\n\nLa ville accueille ceux qui cherchent leur propre voix.",
+  "11-11": "Pour la premiÃƒÂ¨re fois, Paris dÃƒÂ©pose un soldat inconnu sous l'Arc de Triomphe. La flamme n'est pas encore allumÃƒÂ©e. Le silence est total.\n\nLa mÃƒÂ©moire collective trouve son ancrage gÃƒÂ©omÃƒÂ©trique au centre de l'Ãƒâ€°toile.",
+  "11-12": "On pose la premiÃƒÂ¨re pierre du Palais du Luxembourg, commandÃƒÂ© par Marie de MÃƒÂ©dicis. Elle veut recrÃƒÂ©er Florence ÃƒÂ  Paris. L'architecte dessine des jardins qui respirent.\n\nLe pouvoir politique cherche sa traduction vÃƒÂ©gÃƒÂ©tale.",
+  "11-13": "Dans les premiÃƒÂ¨res semaines de la RÃƒÂ©volution, les passages couverts deviennent des lieux de dÃƒÂ©bat improvisÃƒÂ©. On y discute, on y conspire, on y espÃƒÂ¨re. L'architecture crÃƒÂ©e des zones grises entre public et privÃƒÂ©.\n\nLa ville trouve de nouveaux espaces de parole.",
+  "11-14": "La premiÃƒÂ¨re ligne de mÃƒÂ©tro parisien ouvre entre Porte de Vincennes et Porte Maillot. Les passagers dÃƒÂ©couvrent un monde souterrain qui transforme la perception de la distance.\n\nLa ville se replie sur elle-mÃƒÂªme pour mieux se dÃƒÂ©ployer.",
+  "11-15": "Les Halles dÃƒÂ©mÃƒÂ©nagent. Le ventre de Paris quitte le centre. Les pavillons Baltard sont promis ÃƒÂ  la dÃƒÂ©molition. Un dernier marchÃƒÂ© se tient dans l'ombre des structures de fer.\n\nLa ville change de corps sans perdre son ÃƒÂ¢me.",
+  "02-09": "Aujourd'hui, la ville respire autrement. Chaque coin de rue garde une trace invisible. La lumiÃƒÂ¨re change la texture des souvenirs.",
+  "02-10": "Paris se rÃƒÂ©vÃƒÂ¨le par fragments, jamais tout ÃƒÂ  fait. Les pas s'accumulent et crÃƒÂ©ent un rythme propre. La ville murmure des histoires ÃƒÂ  qui sait ÃƒÂ©couter.",
 };
 
 /** Get historical anecdote for today (from histoire-quotidienne.ts data) */
@@ -3156,7 +3464,7 @@ app.post("/mirror/keep", async (c) => {
 });
 
 // ----- Map: POST /inscriptions -----
-const RUE_HEURE_REGEX = /^Rue\s+.+\s*[â€”\-]\s*\d{1,2}:\d{2}/i;
+const RUE_HEURE_REGEX = /^Rue\s+.+\s*[Ã¢â‚¬â€\-]\s*\d{1,2}:\d{2}/i;
 function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -3185,7 +3493,7 @@ app.post("/inscriptions", async (c) => {
     return c.json({ error: "Doit contenir entre 80 et 120 mots." }, 400);
   }
   if (!RUE_HEURE_REGEX.test(text)) {
-    return c.json({ error: "Le texte doit commencer par Â« Rue â€¦ â€” HH:MM Â»." }, 400);
+    return c.json({ error: "Le texte doit commencer par Ã‚Â« Rue Ã¢â‚¬Â¦ Ã¢â‚¬â€ HH:MM Ã‚Â»." }, 400);
   }
   const now = new Date().toISOString();
   const row: Record<string, unknown> = {
@@ -3673,8 +3981,8 @@ const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: num
     duration_sec: 210,
     questions: [
       { id: "q1", prompt: "Entre les trois lettres sur le triangle.", type: "text", answer: "IHS", points: 1 },
-      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["TrinitÃ©", "Royalty", "Ordre militaire"], answer: "TrinitÃ©", points: 1 },
-      { id: "q3", prompt: "Sur la plaque : quel jour / mois / annÃ©e ?", type: "text", answer: "10 MARS 1805", points: 1 },
+      { id: "q2", prompt: "Ce triangle signifie surtout :", type: "mcq", choices: ["TrinitÃƒÂ©", "Royalty", "Ordre militaire"], answer: "TrinitÃƒÂ©", points: 1 },
+      { id: "q3", prompt: "Sur la plaque : quel jour / mois / annÃƒÂ©e ?", type: "text", answer: "10 MARS 1805", points: 1 },
     ],
     rewards: { aura_xp: 10, seals: ["IHS"], status_unlock: "Lecteur de signes" },
   },
@@ -3682,9 +3990,9 @@ const CHURCH_QUEST_DEFS: Record<string, { onsite_code: string; duration_sec: num
     onsite_code: "MERIDIEN",
     duration_sec: 210,
     questions: [
-      { id: "q1", prompt: "Entre le mot trouvÃ© sur place.", type: "text", answer: "MERIDIEN", points: 1 },
-      { id: "q2", prompt: "Cette ligne sert Ã  :", type: "mcq", choices: ["Mesurer le temps", "DÃ©finir le nord", "Marquer le mÃ©ridien"], answer: "Marquer le mÃ©ridien", points: 1 },
-      { id: "q3", prompt: "En une phrase : qu'as-tu observÃ© ?", type: "text", answer: "*", points: 1 },
+      { id: "q1", prompt: "Entre le mot trouvÃƒÂ© sur place.", type: "text", answer: "MERIDIEN", points: 1 },
+      { id: "q2", prompt: "Cette ligne sert ÃƒÂ  :", type: "mcq", choices: ["Mesurer le temps", "DÃƒÂ©finir le nord", "Marquer le mÃƒÂ©ridien"], answer: "Marquer le mÃƒÂ©ridien", points: 1 },
+      { id: "q3", prompt: "En une phrase : qu'as-tu observÃƒÂ© ?", type: "text", answer: "*", points: 1 },
     ],
     rewards: { aura_xp: 12, seals: ["SEUIL"], status_unlock: "Habitant du seuil" },
   },
@@ -4036,7 +4344,7 @@ app.get("/mirror/today", async (c) => {
   // Get anecdote (if available)
   const anecdotes: Record<string, string> = {
     // Add anecdotes here keyed by MM-DD format
-    // Example: "01-15": "Ce jour-lÃ  Ã  Paris: ..."
+    // Example: "01-15": "Ce jour-lÃƒÂ  ÃƒÂ  Paris: ..."
   };
   const anecdote = anecdotes[todayMMDD] ?? null;
 
@@ -4385,7 +4693,7 @@ app.all("*", (c) => {
   return c.json({ error: "Not found", path: pathname }, 404);
 });
 
-// Wrap so we always send CORS with exact origin (never *) â€” Supabase or Hono may add * otherwise
+// Wrap so we always send CORS with exact origin (never *) Ã¢â‚¬â€ Supabase or Hono may add * otherwise
 function corsHeadersFromRequest(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? undefined;
   const h: Record<string, string> = {
@@ -4482,3 +4790,5 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+
