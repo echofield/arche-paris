@@ -1,4 +1,4 @@
-﻿-- Reconcile legacy journal_entries installs with the card-gate write contract.
+-- Reconcile legacy journal_entries installs with the card-gate write contract.
 -- Legacy deployments created public.journal_entries with vault_id UUID NOT NULL.
 -- Card Gate writes insert card_id/place_id/content/updated_at/idempotency_key only.
 -- Reads can succeed on hybrid schemas while inserts fail with 500 on /journal/entries.
