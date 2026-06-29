@@ -641,7 +641,10 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
   }, []);
 
   const mapLoading = Boolean(cardId && hasLocalSecret(cardId) && !worldSnapshotState && !snapshotError);
-  const mapError = snapshotError && !worldSnapshotState;
+  // Backend snapshot unavailable: the live "world" layer is empty, but the map,
+  // your arrondissements and your local collection still render. We surface this
+  // as a non-blocking offline pill rather than replacing the whole screen.
+  const mapOffline = snapshotError && !worldSnapshotState;
 
   return (
     <div
@@ -655,21 +658,74 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
       <MamlukGrid pattern="star8" opacity={0.02} scale={1.5} rotation={0} layers={2} />
       <BackButton onClick={onBack} />
 
-      {(mapLoading || mapError) ? (
+      {mapLoading ? (
         <AsyncState
           loading={mapLoading}
-          error={mapError ? { message: t('async.connectionInterrupted') } : null}
+          error={null}
           onRetry={refreshMapState}
           onBack={onBack}
         />
       ) : (
         <>
+      {mapOffline && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '8px 14px',
+            background: 'rgba(255, 255, 255, 0.92)',
+            border: '1px solid rgba(0, 61, 44, 0.18)',
+            borderRadius: 999,
+            boxShadow: '0 4px 18px rgba(26, 26, 26, 0.08)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 12,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 999,
+              background: '#C2410C',
+              boxShadow: '0 0 0 3px rgba(194, 65, 12, 0.15)',
+            }}
+          />
+          <span style={{ color: '#1A1A1A', letterSpacing: '0.02em' }}>{t('map.offline.label')}</span>
+          <button
+            type="button"
+            onClick={() => refreshMapState()}
+            style={{
+              border: 'none',
+              background: 'none',
+              color: '#003D2C',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              padding: 0,
+            }}
+          >
+            {t('map.offline.retry')}
+          </button>
+        </div>
+      )}
       {/* Stale handling moved to WorldSnapshotContext */}
 
       <style>{`
         @keyframes my-paris-breathe {
-          0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 0.22; transform: scale(1.02); }
+          0%, 100% { opacity: 0.42; transform: scale(1); }
+          50% { opacity: 0.55; transform: scale(1.02); }
         }
         .my-paris-map-breathe {
           animation: my-paris-breathe ${motion.t('contemplative') * 8}ms ${motion.ease('transition')} infinite;
@@ -838,7 +894,7 @@ export function PersonalMemoryMap({ cardId, onBack, onOpenNotebook }: PersonalMe
         <div
           style={{
             position: 'relative',
-            width: 'clamp(280px, 50vw, 420px)',
+            width: 'clamp(300px, 58vw, 520px)',
             aspectRatio: '2037.566 / 1615.5',
             marginBottom: '32px',
             flexShrink: 0

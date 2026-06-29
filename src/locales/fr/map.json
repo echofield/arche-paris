@@ -1,5 +1,7 @@
 {
   "map.title": "Ma Carte de Paris",
+  "map.offline.label": "Carte locale — hors-ligne",
+  "map.offline.retry": "Reconnecter",
   "myparis.title": "Mon Paris",
   "myparis.savedOnDevice": "Sauvé sur cet appareil.",
   "myparis.notePlaceholder": "Quelques mots sur ton Paris…",

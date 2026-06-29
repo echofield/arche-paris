@@ -12,7 +12,7 @@
  *   through card-gate. Card identity is still sent via X-ARCHE-CARD-CODE from getSessionCardCode.
  * Do not add a parallel data path that bypasses Card Gate for card lifecycle (activation, pair, journal, traces).
  */
-import { supabase } from '@/utils/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/utils/supabase/client';
 import { getSessionCardCode } from '@/utils/card-gate-client';
 import { cachedRequest, clearApiCache } from './api-cache';
 
@@ -25,6 +25,11 @@ async function invoke<T>(
 ): Promise<ApiResult<T>> {
   const includeCardHeader = options?.includeCardHeader ?? true;
   const requireUserSession = options?.requireUserSession ?? false;
+  // No backend configured → fail fast and let callers render their offline state
+  // instead of firing doomed requests at a placeholder host.
+  if (!isSupabaseConfigured) {
+    return { data: null, error: 'SUPABASE_NOT_CONFIGURED' };
+  }
   if (requireUserSession) {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;

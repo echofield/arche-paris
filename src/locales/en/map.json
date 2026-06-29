@@ -1,5 +1,7 @@
 {
   "map.title": "My Paris Map",
+  "map.offline.label": "Local map — offline",
+  "map.offline.retry": "Reconnect",
   "myparis.title": "My Paris",
   "myparis.savedOnDevice": "Saved on this device.",
   "myparis.notePlaceholder": "A few words about your Paris…",
